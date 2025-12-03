@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: body-font;
+  src: url("./assets/fonts/GeneralSans-Variable.woff2");
+}
+
+html, body{
+  background: #000;
+  width: 100%;
+  height: 100%;
+  font-family: body-font;
+  color: #f8f8f8;
+}
