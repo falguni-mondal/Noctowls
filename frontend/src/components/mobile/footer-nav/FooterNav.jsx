@@ -1,8 +1,15 @@
 import { Icon } from '@iconify/react/dist/iconify.js'
 import React from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import { Link } from 'react-router-dom'
+import { logoutUser } from '../../../store/features/user/authSlice'
+import { toast } from 'react-toastify'
+import toastControls from '../../../utils/global/toastControls'
 
 const FooterNav = () => {
+    const user = useSelector(state => state.auth.user);
+    const dispatch = useDispatch();
+
     const links = [
         {
             title: "home",
@@ -20,9 +27,9 @@ const FooterNav = () => {
             path: "/orders"
         },
         {
-            title: "account",
-            icon: "material-symbols:person-rounded",
-            path: "/account"
+            title: user? "signout" : "account",
+            icon: user? "solar:logout-2-bold" : "material-symbols:person-rounded",
+            path: !user && "/account/signin"
         },
         {
             title: "contact",
@@ -30,11 +37,28 @@ const FooterNav = () => {
             path: "/contact"
         },
     ]
+
+    const handleLogout = async () => {
+        const res = await dispatch(logoutUser());
+
+        if (res?.meta?.requestStatus === "fulfilled") {
+            toast.success("Signed Out", toastControls);
+        } else {
+            toast.error(res?.payload?.message || "Failed to Sign Out!", toastControls);
+        }
+    }
+
   return (
     <div className='w-full sticky bottom-0 left-0 border-t-[0.5px] border-zinc-700 z-999' id='footer-nav'>
         <nav className='w-full flex justify-between items-center px-5 bg-black py-3'>
             {
                 links.map(({title, icon, path}) => (
+                    title === "signout" ?
+                    <div onClick={handleLogout} key={`${title}-footer-nav-key`} className="signout-btn flex flex-col items-center gap-1">
+                        <Icon className='text-2xl' icon={icon} />
+                        <span className='text-xs capitalize'>{title}</span>
+                    </div>
+                    :
                     <Link key={`${title}-footer-nav-key`} className='flex flex-col items-center gap-1' to={path}>
                         <Icon className='text-2xl' icon={icon} />
                         <span className='text-xs capitalize'>{title}</span>

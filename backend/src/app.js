@@ -4,6 +4,9 @@ import "dotenv/config";
 import cors from "cors";
 import connectToDB from "./database/db.js";
 
+// ROUTES Imports................................
+import authRouter from "./routes/auth/auth-routes.js"
+
 
 const app = express();
 app.set("trust proxy", true);
@@ -17,13 +20,13 @@ connectToDB();
 
 // CORS Initialization..............................................
 app.use(cors({
-    origin: process.env.NODE_ENV === "development" ? true : ["https://myfrontendLink.com"],
+    origin: true,
     credentials: true
 }))
 
 
 // ROUTE INITIALIZATIONS.............................................
-// app.use("/api/auth", authRouter);
+app.use("/api/auth", authRouter);
 
 
 export default app;

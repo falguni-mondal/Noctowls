@@ -1,0 +1,1 @@
+export const backendTestApi = "http://localhost:5000";
