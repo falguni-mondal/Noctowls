@@ -1,8 +1,8 @@
 import express from "express";
-import { checkAuth, deleteAccount, loginUser, logoutUser, otpSender, verifyOtp } from "../../controllers/auth/auth-controllers.js";
-import isValidUser from "../../middlewares/auth/user-validator.js";
-import isValidOtp from "../../middlewares/auth/otp-validator.js";
-import canSendOtp from "../../middlewares/auth/can-send-otp.js";
+import { checkAuth, deleteAccount, loginUser, logoutUser, otpSender, verifyOtp } from "../../../controllers/user/auth/auth-controllers.js";
+import isValidUser from "../../../middlewares/global/auth/user-validator.js";
+import isValidOtp from "../../../middlewares/user/auth/otp-validator.js";
+import canSendOtp from "../../../middlewares/user/auth/can-send-otp.js";
 
 const router = express.Router();
 

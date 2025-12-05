@@ -1,5 +1,4 @@
 import { Icon } from '@iconify/react/dist/iconify.js'
-import React from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link } from 'react-router-dom'
 import { logoutUser } from '../../../store/features/user/authSlice'
@@ -27,9 +26,9 @@ const FooterNav = () => {
             path: "/orders"
         },
         {
-            title: user? "signout" : "account",
-            icon: user? "solar:logout-2-bold" : "material-symbols:person-rounded",
-            path: !user && "/account/signin"
+            title: user? user.isVerified ? "signout" : "account" : "account",
+            icon: user? user.isVerified ? "solar:logout-2-bold" : "material-symbols:person-rounded" : "material-symbols:person-rounded",
+            path: user? user.isVerified? "" : "/account/verify" : "/account/signin"
         },
         {
             title: "contact",

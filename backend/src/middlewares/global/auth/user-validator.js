@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
-import tokenizer from "../../utils/tokenizer.js";
-import sessionModel from "../../models/session-model.js";
-import cookieOptions from "../../utils/cookie-options.js";
+import tokenizer from "../../../utils/tokenizer.js";
+import sessionModel from "../../../models/session-model.js";
+import cookieOptions from "../../../utils/cookie-options.js";
 
 const accessSecret = process.env.ACCESS_TOKEN_SECRET;
 const refreshSecret = process.env.REFRESH_TOKEN_SECRET;

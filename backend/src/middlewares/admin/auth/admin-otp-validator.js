@@ -1,6 +1,6 @@
-import userModel from "../../models/user-model.js";
+import adminModel from "../../../models/admin-model.js";
 
-const isValidOtp = async (req, res, next) => {
+const isAdminValidOtp = async (req, res, next) => {
   try {
     const { code } = req.body;
 
@@ -9,33 +9,33 @@ const isValidOtp = async (req, res, next) => {
     }
 
     // Get user
-    const user = await userModel.findById(req.user);
+    const admin = await adminModel.findById(req.user);
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found!" });
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found!" });
     }
 
     // If already verified
-    if (user.isVerified) {
+    if (admin.isVerified) {
       return res.status(200).json({ message: "Already verified!" });
     }
 
     // OTP should exist
-    if (!user.verificationCode) {
+    if (!admin.verificationCode) {
       return res.status(400).json({
         message: "Please request a new OTP.",
       });
     }
 
     // Match OTP
-    if (parseInt(code) !== user.verificationCode) {
+    if (parseInt(code) !== admin.verificationCode) {
       return res.status(400).json({ message: "Invalid OTP!" });
     }
 
     // Check OTP expiration (2 minutes)
     const OTP_VALIDITY_MINUTES = 2;
     const minutesPassed =
-      (Date.now() - new Date(user.verificationCodeTime).getTime()) / 1000 / 60;
+      (Date.now() - new Date(admin.verificationCodeTime).getTime()) / 1000 / 60;
 
     if (minutesPassed > OTP_VALIDITY_MINUTES) {
       return res.status(410).json({
@@ -43,13 +43,13 @@ const isValidOtp = async (req, res, next) => {
       });
     }
 
-    req.currentUser = user;
+    req.admin = admin;
     next();
 
   } catch (err) {
-    console.error("OTP Validation Error:", err);
+    console.error("Admin OTP Validation Error:", err);
     res.status(500).json({ message: "Server error validating OTP." });
   }
 };
 
-export default isValidOtp;
+export default isAdminValidOtp;

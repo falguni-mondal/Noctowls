@@ -1,4 +1,4 @@
-import userModel from "../../models/user-model.js";
+import userModel from "../../../models/user-model.js";
 
 const canSendOtp = async (req, res, next) => {
   try {

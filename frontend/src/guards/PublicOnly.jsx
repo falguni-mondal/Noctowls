@@ -9,11 +9,11 @@ const PublicOnly = () => {
     return <Loader />
   }
 
-  if (status === "success" && user && !user.isVerified) return <Navigate to="/account/verify" replace />
+  // if (user && !user.isVerified) return <Navigate to="/account/verify" replace />
 
-  if (status === "success" && user && user.isVerified && user.role === "user") return <Navigate to="/" replace />
+  if (user && user.isVerified && user.role === "user") return <Navigate to="/" replace />
 
-  if (status === "success" && user && user.isVerified && user.role === "admin") return <Navigate to="/admin" replace />
+  if (user && user.isVerified && user.role === "admin") return <Navigate to="/admin" replace />
 
   return <Outlet />
 }

@@ -58,7 +58,7 @@ export const Verify = () => {
         const res = await dispatch(otpVerifier({ code: otp }));
 
         if (res?.meta?.requestStatus === "fulfilled") {
-            toast.success("Email verified successfully!", toastControls);
+            toast.success("Logged In!", toastControls);
             navigate("/");
         } else {
             toast.error(res?.payload?.message || "Invalid OTP.", toastControls);

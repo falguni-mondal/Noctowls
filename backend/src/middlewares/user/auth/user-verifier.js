@@ -1,4 +1,4 @@
-import userModel from "../../models/user-model.js";
+import userModel from "../../../models/user-model.js";
 
 const isVerifiedUser = async (req, res, next) => {
   try {

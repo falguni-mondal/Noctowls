@@ -5,7 +5,8 @@ import cors from "cors";
 import connectToDB from "./database/db.js";
 
 // ROUTES Imports................................
-import authRouter from "./routes/auth/auth-routes.js"
+import authRouter from "./routes/user/auth/auth-routes.js";
+import adminAuthRouter from "./routes/admin/auth/admin-auth-routes.js"
 
 
 const app = express();
@@ -27,6 +28,7 @@ app.use(cors({
 
 // ROUTE INITIALIZATIONS.............................................
 app.use("/api/auth", authRouter);
+app.use("/api/admin/auth", adminAuthRouter);
 
 
 export default app;

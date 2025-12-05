@@ -1,10 +1,10 @@
-import userModel from "../../models/user-model.js";
-import { generateOTP } from "../../utils/otp-generator.js";
-import { sendEmail } from "../../configs/nodemailer.js";
-import tokenizer from "../../utils/tokenizer.js";
-import cookieOptions from "../../utils/cookie-options.js";
-import userDataTrimmer from "../../utils/user-data-trimmer.js";
-import sessionModel from "../../models/session-model.js";
+import userModel from "../../../models/user-model.js";
+import { generateOTP } from "../../../utils/otp-generator.js";
+import { sendEmail } from "../../../configs/nodemailer.js";
+import tokenizer from "../../../utils/tokenizer.js";
+import cookieOptions from "../../../utils/cookie-options.js";
+import userDataTrimmer from "../../../utils/user-data-trimmer.js";
+import sessionModel from "../../../models/session-model.js";
 
 const checkAuth = async (req, res) => {
   try {
@@ -202,6 +202,10 @@ const logoutUser = async (req, res) => {
         console.warn("Logout: invalid refresh token");
       }
     }
+
+    const user = await userModel.findById(req.user);
+    user.isVerified = false;
+    await user.save();
 
     // Clear cookies
     res
