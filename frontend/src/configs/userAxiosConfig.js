@@ -1,8 +1,8 @@
 import axios from "axios";
 import { backendTestApi } from "../utils/global/keys";
 
-const api = axios.create({
-  baseURL: backendTestApi,
+const userApi = axios.create({
+  baseURL: `${backendTestApi}/api`,
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",
@@ -10,7 +10,7 @@ const api = axios.create({
 });
 
 // OPTIONAL: Request Interceptor
-api.interceptors.request.use(
+userApi.interceptors.request.use(
   (config) => {
     return config;
   },
@@ -19,7 +19,7 @@ api.interceptors.request.use(
   }
 );
 
-api.interceptors.response.use(
+userApi.interceptors.response.use(
   (response) => response,
   (error) => {
     const err = error?.response;
@@ -32,4 +32,4 @@ api.interceptors.response.use(
   }
 );
 
-export default api;
+export default userApi;

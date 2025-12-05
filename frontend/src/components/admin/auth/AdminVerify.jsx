@@ -1,17 +1,17 @@
 import { useDispatch, useSelector } from "react-redux";
-import { otpVerifier, otpSender, deleteAccount } from "../../store/features/user/authSlice";
 import { toast } from "react-toastify";
-import MiniLoading from "../../utils/loader/MiniLoading";
+import MiniLoading from "../../../utils/loader/MiniLoading";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import toastControls from "../../utils/global/toastControls";
+import toastControls from "../../../utils/global/toastControls";
+import { adminOtpSender, adminOtpVerifier } from "../../../store/features/admin/adminAuthSlice";
 
-const Verify = () => {
+const AdminVerify = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
 
     const { otpVerifier: otpState, otpSender: resendState, nextResendAt } =
-        useSelector((state) => state.auth);
+        useSelector((state) => state.adminAuth);
 
     const [secondsLeft, setSecondsLeft] = useState(0);
 
@@ -55,11 +55,11 @@ const Verify = () => {
             return;
         }
 
-        const res = await dispatch(otpVerifier({ code: otp }));
+        const res = await dispatch(adminOtpVerifier({ code: otp }));
 
         if (res?.meta?.requestStatus === "fulfilled") {
             toast.success("Logged In!", toastControls);
-            navigate("/");
+            navigate("/admin/dashboard");
         } else {
             toast.error(res?.payload?.message || "Invalid OTP.", toastControls);
         }
@@ -73,24 +73,15 @@ const Verify = () => {
             return;
         }
 
-        const res = await dispatch(otpSender());
+        const res = await dispatch(adminOtpSender());
 
         if (res?.meta?.requestStatus === "fulfilled") {
-            toast.success("OTP resent!");
+            toast.success("OTP Resent!");
         } else {
-            toast.error(res?.payload?.message || "Failed to resend OTP.");
+            toast.error(res?.payload?.message || "Failed to Resend.");
         }
     };
 
-    const handleAccountReset = async () => {
-    const res = await dispatch(deleteAccount());
-
-    if (res?.meta?.requestStatus === "fulfilled") {
-        navigate("/account/signin");
-    } else {
-        toast.error(res?.payload?.message || "Failed to delete account.", toastControls);
-    }
-};
 
 
     return (
@@ -147,11 +138,8 @@ const Verify = () => {
                     </button>
                 </div>
             </form>
-            <div className="account-reseter leading-tight text-sm mt-10 font-medium uppercase">
-                wrong email? <button type="button" className="text-indigo-400 font-medium underline cursor-pointer ml-1" onClick={handleAccountReset}>Change Here</button>
-            </div>
         </div>
     );
 };
 
-export default Verify;
+export default AdminVerify

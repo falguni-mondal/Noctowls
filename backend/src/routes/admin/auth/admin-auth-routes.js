@@ -8,7 +8,7 @@ import isAdminValidOtp from "../../../middlewares/admin/auth/admin-otp-validator
 const router = express.Router();
 
 router.get("/admin", isValidUser, checkAdmin);
-router.post("/login", isValidUser, isLoginValid, adminLogin);
+router.post("/login", isLoginValid, adminLogin);
 router.get("/otp", isValidUser, canAdminSendOtp, adminOtpSender);
 router.post("/verify", isValidUser, isAdminValidOtp, adminOtpVerifier);
 router.get("/logout", isValidUser, adminLogout);

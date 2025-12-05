@@ -4,6 +4,7 @@ import {sendEmail} from "../../../configs/nodemailer.js";
 import {generateOTP} from "../../../utils/otp-generator.js";
 import adminDataTrimmer from "../../../utils/admin-data-trimmer.js";
 import adminModel from "../../../models/admin-model.js";
+import jwt from "jsonwebtoken";
 
 const checkAdmin = async (req, res) => {
   try {
@@ -192,12 +193,14 @@ const adminLogout = async (req, res) => {
 
         await sessionModel.findByIdAndDelete(payload.jti);
       } catch (err) {
-        console.warn("Logout: invalid refresh token");
+        console.warn("Admin Logout: invalid refresh token");
       }
     }
 
     const admin = await adminModel.findById(req.user);
     admin.isVerified = false;
+    admin.verificationCode = null;
+    admin.verificationCodeTime = null;
     await admin.save();
 
     // Clear cookies

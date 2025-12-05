@@ -5,6 +5,7 @@ import tokenizer from "../../../utils/tokenizer.js";
 import cookieOptions from "../../../utils/cookie-options.js";
 import userDataTrimmer from "../../../utils/user-data-trimmer.js";
 import sessionModel from "../../../models/session-model.js";
+import jwt from "jsonwebtoken";
 
 const checkAuth = async (req, res) => {
   try {
@@ -199,12 +200,15 @@ const logoutUser = async (req, res) => {
 
         await sessionModel.findByIdAndDelete(payload.jti);
       } catch (err) {
-        console.warn("Logout: invalid refresh token");
+        console.warn("User Logout: invalid refresh token");
+        console.warn(err.message);
       }
     }
 
     const user = await userModel.findById(req.user);
     user.isVerified = false;
+    user.verificationCode = null;
+    user.verificationCodeTime = null;
     await user.save();
 
     // Clear cookies

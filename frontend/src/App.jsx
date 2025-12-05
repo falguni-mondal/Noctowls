@@ -12,6 +12,7 @@ import TopNavMenu from './components/mobile/TopNavMenu';
 import { Bounce, ToastContainer } from 'react-toastify';
 import { useDispatch } from 'react-redux';
 import { checkAuth } from './store/features/user/authSlice';
+import { checkAdmin } from './store/features/admin/adminAuthSlice';
 
 const App = () => {
   const location = useLocation();
@@ -20,6 +21,7 @@ const App = () => {
 
   useEffect(() => {
     dispatch(checkAuth());
+    dispatch(checkAdmin());
   }, []);
 
   useEffect(() => {

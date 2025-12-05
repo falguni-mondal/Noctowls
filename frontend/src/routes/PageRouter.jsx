@@ -5,6 +5,7 @@ import Productpage from '../pages/Productpage';
 import Catalog from '../pages/Catalog';
 import AdminAccount from '../pages/admin/auth/AdminAccount';
 import PublicOnly from '../guards/PublicOnly';
+import AdminPublicOnly from '../guards/AdminPublicOnly';
 
 
 const PageRouter = () => {
@@ -20,7 +21,9 @@ const PageRouter = () => {
       <Route path='/products/:id' element={<Productpage />} />
 
       {/* ADMIN */}
-      <Route path='/admin/account/*' element={<AdminAccount />} />
+      <Route element={<AdminPublicOnly />}>
+        <Route path='/admin/account/*' element={<AdminAccount />} />
+      </Route>
     </Routes>
   )
 }

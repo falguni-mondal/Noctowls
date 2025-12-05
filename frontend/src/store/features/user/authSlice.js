@@ -1,5 +1,5 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import api from "../../../configs/axiosConfig";
+import userApi from "../../../configs/userAxiosConfig";
 
 // ---------------------- API CALLS ----------------------
 
@@ -8,7 +8,7 @@ export const checkAuth = createAsyncThunk(
   "auth/checkAuth",
   async (_, { rejectWithValue }) => {
     try {
-      const res = await api.get(`/api/auth/me`);
+      const res = await userApi.get(`/auth/me`);
       return res.data; // user or null
     } catch (err) {
       return rejectWithValue(err?.response?.data || null);
@@ -21,7 +21,7 @@ export const loginUser = createAsyncThunk(
   "auth/loginUser",
   async (data, { rejectWithValue }) => {
     try {
-      const res = await api.post(`/api/auth/login`, data);
+      const res = await userApi.post(`/auth/login`, data);
       return res.data;
     } catch (err) {
       return rejectWithValue(err?.response?.data);
@@ -34,7 +34,7 @@ export const otpSender = createAsyncThunk(
   "auth/otpSender",
   async (_, { rejectWithValue }) => {
     try {
-      const res = await api.get(`/api/auth/otp`);
+      const res = await userApi.get(`/auth/otp`);
       return res.data;
     } catch (err) {
       return rejectWithValue(err?.response?.data);
@@ -47,7 +47,7 @@ export const otpVerifier = createAsyncThunk(
   "auth/otpVerifier",
   async (data, { rejectWithValue }) => {
     try {
-      const res = await api.post(`/api/auth/verify`, data);
+      const res = await userApi.post(`/auth/verify`, data);
       return res.data;
     } catch (err) {
       return rejectWithValue(err?.response?.data);
@@ -60,7 +60,7 @@ export const logoutUser = createAsyncThunk(
   "auth/logoutUser",
   async (_, { rejectWithValue }) => {
     try {
-      const res = await api.get(`/api/auth/logout`);
+      const res = await userApi.get(`/auth/logout`);
       return res.data;
     } catch (err) {
       return rejectWithValue(err?.response?.data);
@@ -73,7 +73,7 @@ export const deleteAccount = createAsyncThunk(
   "auth/deleteAccount",
   async (_, { rejectWithValue }) => {
     try {
-      const res = await api.delete(`/api/auth/delete`);
+      const res = await userApi.delete(`/auth/delete`);
       return res.data;
     } catch (err) {
       return rejectWithValue(err?.response?.data);

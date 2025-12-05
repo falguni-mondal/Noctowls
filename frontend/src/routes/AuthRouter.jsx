@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Signin from '../components/auth/Signin'
-import { Verify } from '../components/auth/Verify'
+import Verify  from '../components/auth/Verify'
 
 const AuthRouter = () => {
   return (
