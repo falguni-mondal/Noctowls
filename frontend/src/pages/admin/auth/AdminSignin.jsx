@@ -52,14 +52,19 @@ const AdminSignin = () => {
     const res = await dispatch(loginAdmin({ email, password }));
 
     if (res?.meta?.requestStatus === "fulfilled") {
-            navigate("/admin/account/verify");
-        } else {
-            toast.error(res?.payload?.message || "Failed to login.", toastControls);
-        }
+      navigate("/admin/verify");
+    } else {
+      toast.error(res?.payload?.message || "Failed to login.", toastControls);
+    }
   };
 
   return (
-    <div className="w-full px-5" id="sign-in-page">
+    <div className="w-full px-5 py-20" id="sign-in-page">
+      <div className="account-header-container">
+        <h1 className="account-heading text-3xl uppercase font-medium text-center leading-none px-3">
+          noctowls admin account
+        </h1>
+      </div>
       <div className="admin-signin-main-content">
         <div className="admin-signin-subheader">
           <p className="admin-signin-subheading w-[24ch] text-center mx-auto leading-none mt-5 text-zinc-300">
@@ -110,9 +115,8 @@ const AdminSignin = () => {
 
             <span
               onClick={() => setPasswordVisible((prev) => !prev)}
-              className={`absolute top-1/2 right-0 -translate-y-1/2 h-[50px] w-[15%] flex items-center justify-center cursor-pointer ${
-                passwordVisible ? "text-indigo-600" : "text-white"
-              }`}
+              className={`absolute top-1/2 right-0 -translate-y-1/2 h-[50px] w-[15%] flex items-center justify-center cursor-pointer ${passwordVisible ? "text-indigo-600" : "text-white"
+                }`}
             >
               <Icon icon="hugeicons:view" />
             </span>

@@ -85,7 +85,12 @@ const AdminVerify = () => {
 
 
     return (
-        <div className="w-full px-5" id='verify-page'>
+        <div className="w-full px-5 py-20" id='verify-page'>
+            <div className="account-header-container">
+                <h1 className="account-heading text-3xl uppercase font-medium text-center leading-none px-3">
+                    noctowls admin account
+                </h1>
+            </div>
             <div className="verify-subheader">
                 <p className='verify-subheading w-[24ch] text-center mx-auto leading-none mt-5 text-zinc-300'>
                     Verify with the OTP sent to your email.

@@ -17,7 +17,7 @@ const Navbar = ({ setShowNav }) => {
                 <span>
                     <Icon icon="basil:search-solid" />
                 </span>
-                <Link to="/admin/account/signin">
+                <Link to="/admin/signin">
                     <Icon icon="material-symbols-light:lock-person-outline" />
                 </Link>
                 {

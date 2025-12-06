@@ -1,5 +1,5 @@
 import { Navigate, Outlet } from "react-router-dom"
-import Loader from "../utils/loader/Loader";
+import Loader from "../../utils/loader/Loader";
 import { useSelector } from "react-redux";
 
 const AdminPublicOnly = () => {
@@ -14,8 +14,8 @@ const AdminPublicOnly = () => {
 
   if (user && user.isVerified) return <Navigate to="/" replace />
 
-  if (admin && !admin.isVerified && location.pathname !== "/admin/account/verify") {
-    return <Navigate to="/admin/account/verify" replace />;
+  if (admin && !admin.isVerified && location.pathname !== "/admin/verify") {
+    return <Navigate to="/admin/verify" replace />;
   }
 
   if (admin && admin.isVerified) return <Navigate to="/admin/dashboard" replace />
