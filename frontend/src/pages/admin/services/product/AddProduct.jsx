@@ -50,7 +50,7 @@ const AddProduct = () => {
 
   // Allowed image types
   const ALLOWED_IMAGE_TYPES = ['image/png', 'image/webp', 'image/jpeg'];
-  const ALLOWED_IMAGE_EXTENSIONS = ['png', 'webp', 'jpeg', 'jpg'];
+  const ALLOWED_IMAGE_EXTENSIONS = ['png', 'webp', 'jpeg'];
 
   const revealer = (key) => {
     setReveal(prev => ({ ...prev, [key]: !prev[key] }))
@@ -345,7 +345,6 @@ const AddProduct = () => {
       //   body: formData
       // });
       
-      console.log('Form is valid, submitting...');
       console.log('FormData contents:');
       for (let [key, value] of formData.entries()) {
         console.log(key, value);
@@ -356,11 +355,10 @@ const AddProduct = () => {
 
       alert('Product added successfully!');
       
-      // Reset form if needed
-      // formElement.reset();
-      // setSizes([]);
-      // setMainImages(Array(mainImageCount).fill(null));
-      // setHighlightImages(Array(highlightImageCount).fill(null));
+      formElement.reset();
+      setSizes([]);
+      setMainImages(Array(mainImageCount).fill(null));
+      setHighlightImages(Array(highlightImageCount).fill(null));
 
     } catch (error) {
       console.error('Submission error:', error);
@@ -493,7 +491,7 @@ const AddProduct = () => {
               <input
                 type="text"
                 className="w-full bg-zinc-800 p-2 rounded-[3px] border-0 outline-0"
-                value={size.skuCode}
+                defaultValue={size.skuCode}
                 onChange={e => updateSize(size.value, "skuCode", e.target.value)}
               />
             </div>
