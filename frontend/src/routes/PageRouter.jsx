@@ -8,12 +8,13 @@ import AdminPublicOnly from '../guards/admin/AdminPublicOnly';
 import AdminOnly from '../guards/admin/AdminOnly';
 import AdminSignin from '../pages/admin/auth/AdminSignin';
 import AdminVerify from '../pages/admin/auth/AdminVerify';
-import AdminDashboard from '../pages/admin/services/AdminDashboard';
-import AdminUsers from '../pages/admin/services/AdminUsers';
-import AdminProducts from '../pages/admin/services/AdminProducts';
-import AdminOrders from '../pages/admin/services/AdminOrders';
-import AdminCarts from '../pages/admin/services/AdminCarts';
-import AdminWishlists from '../pages/admin/services/AdminWishlists';
+import AdminDashboard from '../pages/admin/panel/AdminDashboard';
+import AdminUsers from '../pages/admin/panel/AdminUsers';
+import AdminProducts from '../pages/admin/panel/AdminProducts';
+import AdminOrders from '../pages/admin/panel/AdminOrders';
+import AdminCarts from '../pages/admin/panel/AdminCarts';
+import AdminWishlists from '../pages/admin/panel/AdminWishlists';
+import AddProduct from '../pages/admin/services/product/AddProduct';
 
 
 const PageRouter = () => {
@@ -36,12 +37,16 @@ const PageRouter = () => {
 
       {/* ADMIN PANEL */}
       <Route element={<AdminOnly />}>
+        {/* PANEL */}
         <Route path='/admin/dashboard' element={<AdminDashboard />} />
         <Route path='/admin/users' element={<AdminUsers />} />
         <Route path='/admin/orders' element={<AdminOrders />} />
         <Route path='/admin/products' element={<AdminProducts />} />
         <Route path='/admin/carts' element={<AdminCarts />} />
         <Route path='/admin/wishlists' element={<AdminWishlists />} />
+
+        {/* PRODUCT SERVICES */}
+        <Route path='/admin/products/add' element={<AddProduct />} />
       </Route>
     </Routes>
   )

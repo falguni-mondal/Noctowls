@@ -12,3 +12,16 @@ html, body{
   font-family: body-font;
   color: #f8f8f8;
 }
+
+/* Hide number input arrows for Chrome, Safari, Edge */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Hide arrows for Firefox */
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
