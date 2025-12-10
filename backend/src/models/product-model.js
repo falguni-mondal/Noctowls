@@ -5,7 +5,7 @@ const formatPriceWithCommas = (price) => {
   return price.toLocaleString("en-IN");
 };
 
-const PRODUCT_TYPES = [
+const PRODUCT_CATEGORIES = [
   "deskmat",
   "anime-keychain",
   "anime-figure",
@@ -98,10 +98,10 @@ const productSchema = new mongoose.Schema(
       maxlength: 1000,
     },
 
-    productType: {
+    productCategory: {
       type: String,
       required: true,
-      enum: PRODUCT_TYPES,
+      enum: PRODUCT_CATEGORIES,
       lowercase: true,
     },
 
@@ -110,10 +110,10 @@ const productSchema = new mongoose.Schema(
       required: true,
       validate: {
         validator(images) {
-          const rule = IMAGE_COUNTS[this.productType];
+          const rule = IMAGE_COUNTS[this.productCategory];
           return images.length === rule.images;
         },
-        message: "Invalid number of images for this product type.",
+        message: "Invalid number of images for this product category.",
       },
     },
 
@@ -122,10 +122,10 @@ const productSchema = new mongoose.Schema(
       required: true,
       validate: {
         validator(images) {
-          const rule = IMAGE_COUNTS[this.productType];
+          const rule = IMAGE_COUNTS[this.productCategory];
           return images.length === rule.highlights;
         },
-        message: "Invalid number of highlight images for this product type.",
+        message: "Invalid number of highlight images for this product category.",
       },
     },
 
@@ -134,10 +134,10 @@ const productSchema = new mongoose.Schema(
       required: true,
       validate: {
         validator(sizes) {
-          const allowed = SIZE_VALUES_BY_PRODUCT[this.productType];
+          const allowed = SIZE_VALUES_BY_PRODUCT[this.productCategory];
           return sizes.every((s) => allowed.includes(s.value));
         },
-        message: "Invalid sizes for this product type.",
+        message: "Invalid sizes for this product category.",
       },
     },
 

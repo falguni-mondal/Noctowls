@@ -1,5 +1,9 @@
 import { Icon } from '@iconify/react/dist/iconify.js';
 import { useEffect, useRef, useState } from 'react';
+import MiniLoading from '../../../../utils/loader/MiniLoading';
+import { toast } from "react-toastify";
+import toastControls from "../../../../utils/global/toastControls";
+
 
 const AddProduct = () => {
   const [reveal, setReveal] = useState({
@@ -50,7 +54,6 @@ const AddProduct = () => {
 
   // Allowed image types
   const ALLOWED_IMAGE_TYPES = ['image/png', 'image/webp', 'image/jpeg'];
-  const ALLOWED_IMAGE_EXTENSIONS = ['png', 'webp', 'jpeg'];
 
   const revealer = (key) => {
     setReveal(prev => ({ ...prev, [key]: !prev[key] }))
@@ -92,6 +95,13 @@ const AddProduct = () => {
     // Reset images when category changes
     setMainImages(Array(mainImageCount).fill(null));
     setHighlightImages(Array(highlightImageCount).fill(null));
+
+    // CHANGED: Clear image errors when category changes to prevent old errors from persisting
+    setErrors(prev => ({
+      ...prev,
+      images: [],
+      highlightImg: []
+    }));
   }, [prodCategory, mainImageCount, highlightImageCount]);
 
   const updateSize = (value, field, val) => {
@@ -105,6 +115,12 @@ const AddProduct = () => {
   const handleMainImageSelect = (index, e) => {
     const file = e.target.files[0];
     if (file) {
+      // CHANGED: Clear previous errors for this specific image slot before validation
+      setErrors(prev => ({
+        ...prev,
+        images: prev.images.filter(err => !err.includes(`Image ${index + 1}`))
+      }));
+
       // Validate file type
       if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
         setErrors(prev => ({
@@ -145,6 +161,12 @@ const AddProduct = () => {
   const handleHighlightImageSelect = (index, e) => {
     const file = e.target.files[0];
     if (file) {
+      // CHANGED: Clear previous errors for this specific highlight image slot before validation
+      setErrors(prev => ({
+        ...prev,
+        highlightImg: prev.highlightImg.filter(err => !err.includes(`Highlight image ${index + 1}`))
+      }));
+
       // Validate file type
       if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
         setErrors(prev => ({
@@ -194,6 +216,12 @@ const AddProduct = () => {
     if (mainImageInputRefs.current[index]) {
       mainImageInputRefs.current[index].value = '';
     }
+
+    // CHANGED: Clear errors related to this image when removed
+    setErrors(prev => ({
+      ...prev,
+      images: prev.images.filter(err => !err.includes(`Image ${index + 1}`))
+    }));
   };
 
   const removeHighlightImage = (index) => {
@@ -208,8 +236,15 @@ const AddProduct = () => {
     if (highlightImageInputRefs.current[index]) {
       highlightImageInputRefs.current[index].value = '';
     }
+
+    // CHANGED: Clear errors related to this highlight image when removed
+    setErrors(prev => ({
+      ...prev,
+      highlightImg: prev.highlightImg.filter(err => !err.includes(`Highlight image ${index + 1}`))
+    }));
   };
 
+  // FORM VALIDATION ..............................................
   const validateForm = (formData) => {
     const newErrors = {
       general: [],
@@ -234,7 +269,7 @@ const AddProduct = () => {
     // Validate sizes - individual errors for each size
     sizes.forEach(size => {
       const sizeErrors = [];
-      
+
       if (size.originalPrice <= 0) {
         sizeErrors.push('Original price must be greater than 0');
       }
@@ -275,6 +310,8 @@ const AddProduct = () => {
     return newErrors;
   };
 
+
+  // FORM SUBMITTING.........................................................
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -297,28 +334,26 @@ const AddProduct = () => {
     formData.append('name', formElement.name.value);
     formData.append('description', formElement.description.value);
     formData.append('category', prodCategory);
-
-    // Add sizes data
-    formData.append('sizes', JSON.stringify(sizes));
-
-    // Add main images
-    mainImages.forEach((img, index) => {
-      if (img && img.file) {
-        formData.append(`mainImage_${index}`, img.file);
-      }
-    });
-
-    // Add highlight images
-    highlightImages.forEach((img, index) => {
-      if (img && img.file) {
-        formData.append(`highlightImage_${index}`, img.file);
-      }
-    });
-
-    // Add inventory
     formData.append('inventory', prodInventory);
 
-    // Validate form
+    // Add sizes data as JSON string
+    formData.append('sizes', JSON.stringify(sizes));
+
+    // Append images in order using same field name for Multer array handling
+    // This maintains the exact order of selection
+    mainImages.forEach((img) => {
+      if (img && img.file) {
+        formData.append('mainImages', img.file);
+      }
+    });
+
+    highlightImages.forEach((img) => {
+      if (img && img.file) {
+        formData.append('highlightImages', img.file);
+      }
+    });
+
+    // Validate form before submission
     const validationErrors = validateForm(formData);
 
     // Check if there are any errors
@@ -338,40 +373,62 @@ const AddProduct = () => {
     }
 
     try {
-      // Here you would make your API call
-      // Example:
-      // const response = await fetch('/api/products', {
-      //   method: 'POST',
-      //   body: formData
+      // const response = await axios.post('/api/products/add', formData, {
+      //   headers: {
+      //     'Content-Type': 'multipart/form-data', // Explicitly set content type for file upload
+      //   },
+      //   withCredentials: true, // Include credentials if using cookies for authentication
       // });
-      
-      console.log('FormData contents:');
-      for (let [key, value] of formData.entries()) {
-        console.log(key, value);
-      }
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      toast.success("Product added successfully!", toastControls)
 
-      alert('Product added successfully!');
-      
+      // Reset form on success
       formElement.reset();
       setSizes([]);
       setMainImages(Array(mainImageCount).fill(null));
       setHighlightImages(Array(highlightImageCount).fill(null));
 
+
     } catch (error) {
+      // CHANGED: Enhanced error handling for axios
       console.error('Submission error:', error);
+      toast.error("Faild adding product!", toastControls)
+      let errorMessage = 'An error occurred while submitting the form';
+
+      if (error.response) {
+        // Server responded with error status
+        errorMessage = error.response.data.message || error.response.data.error || errorMessage;
+
+        // CHANGED: Handle validation errors from backend
+        if (error.response.data.errors) {
+          const backendErrors = error.response.data.errors;
+          setErrors(prev => ({
+            ...prev,
+            general: backendErrors.general || prev.general,
+            size: backendErrors.size || prev.size,
+            images: backendErrors.images || prev.images,
+            highlightImg: backendErrors.highlightImg || prev.highlightImg,
+            others: backendErrors.others || prev.others
+          }));
+        }
+      } else if (error.request) {
+        // Request was made but no response received
+        errorMessage = 'No response from server. Please check your connection.';
+      } else {
+        // Error in request setup
+        errorMessage = error.message;
+      }
+
       setErrors(prev => ({
         ...prev,
-        general: ['An error occurred while submitting the form']
+        general: [errorMessage]
       }));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Cleanup on unmount
+  // CHANGED: Added cleanup dependencies to properly revoke URLs
   useEffect(() => {
     return () => {
       mainImages.forEach(img => {
@@ -385,7 +442,7 @@ const AddProduct = () => {
         }
       });
     };
-  }, []);
+  }, [mainImages, highlightImages]);
 
   const ErrorDisplay = ({ errors }) => {
     if (!errors || errors.length === 0) return null;
@@ -500,7 +557,7 @@ const AddProduct = () => {
 
         <section className="main-image-add-section p-4 mt-10 bg-zinc-900 rounded-lg">
           <h2 className="section-heading font-medium mb-3 tracking-wide">Product Images</h2>
-          
+
           <ErrorDisplay errors={errors.images} />
 
           <div className="prod-images-container grid grid-cols-4 gap-2 mt-4">
@@ -517,9 +574,8 @@ const AddProduct = () => {
                   />
                   <label
                     htmlFor={`main-image-${index}`}
-                    className={`add-prod-img-${num} w-full aspect-square rounded flex justify-center items-center text-[8vw] text-zinc-400 bg-zinc-800 cursor-pointer overflow-hidden relative border-2 ${
-                      mainImages[index]?.preview ? 'border-green-500' : 'border-zinc-700'
-                    }`}
+                    className={`add-prod-img-${num} w-full aspect-square rounded flex justify-center items-center text-[8vw] text-zinc-400 bg-zinc-800 cursor-pointer overflow-hidden relative border-2 ${mainImages[index]?.preview ? 'border-green-500' : 'border-zinc-700'
+                      }`}
                   >
                     {mainImages[index]?.preview ? (
                       <>
@@ -554,7 +610,7 @@ const AddProduct = () => {
 
         <section className="highlight-image-add-section p-4 bg-zinc-900 rounded-lg mt-10">
           <h2 className="section-heading font-medium mb-3 tracking-wide">Highlight Images</h2>
-          
+
           <ErrorDisplay errors={errors.highlightImg} />
 
           <div className="prod-highlight-images-container grid grid-cols-4 gap-2 mt-4">
@@ -571,9 +627,8 @@ const AddProduct = () => {
                   />
                   <label
                     htmlFor={`highlight-image-${index}`}
-                    className={`add-prod-highlight-img-${num} w-full aspect-square rounded flex justify-center items-center text-[8vw] text-zinc-400 bg-zinc-800 cursor-pointer overflow-hidden relative border-2 ${
-                      highlightImages[index]?.preview ? 'border-green-500' : 'border-zinc-700'
-                    }`}
+                    className={`add-prod-highlight-img-${num} w-full aspect-square rounded flex justify-center items-center text-[8vw] text-zinc-400 bg-zinc-800 cursor-pointer overflow-hidden relative border-2 ${highlightImages[index]?.preview ? 'border-green-500' : 'border-zinc-700'
+                      }`}
                   >
                     {highlightImages[index]?.preview ? (
                       <>
@@ -618,7 +673,7 @@ const AddProduct = () => {
               <p className='w-[90%] truncate'>{prodInventory}</p>
               <Icon icon="iconoir:nav-arrow-down" />
             </div>
-            <ul className={`add-prod-inventory-list w-full rounded-[3px] bg-zinc-800 absolute z999 top-full left-0 overflow-hidden ${reveal.inventory ? "mt-1" : "h-0 m-0"}`}>
+            <ul className={`add-prod-inventory-list w-full rounded-[3px] bg-zinc-950 absolute z999 top-full left-0 overflow-hidden ${reveal.inventory ? "mt-1" : "h-0 m-0"}`}>
               {
                 productInventory.map(inventory => (
                   <li key={`${inventory}-inventory-key`} onClick={() => setProdInventory(inventory)} className='w-full py-1.5 px-3 cursor-pointer hover:bg-zinc-700'>{inventory}</li>
@@ -629,12 +684,12 @@ const AddProduct = () => {
         </section>
 
         <section className="add-product-btns w-full mt-10">
-          <button 
-            type='submit' 
+          <button
+            type='submit'
             disabled={isSubmitting}
-            className="add-product-draft-btn py-2.5 rounded-[3px] flex justify-center bg-indigo-600 w-full mt-2 text-sm font-medium hover:bg-indigo-700 disabled:bg-indigo-800 disabled:cursor-not-allowed"
+            className="add-product-draft-btn w-full h-10 rounded-[3px] flex justify-center items-center bg-indigo-600 mt-2 text-sm font-medium hover:bg-indigo-500 disabled:bg-indigo-950 disabled:cursor-not-allowed relative"
           >
-            {isSubmitting ? 'Adding Product...' : 'Add Product'}
+            {isSubmitting ? <MiniLoading /> : 'Add Product'}
           </button>
         </section>
       </form>
