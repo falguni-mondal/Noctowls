@@ -35,7 +35,7 @@ const isAddProductFormValid = (req, res, next) => {
     }
 
     // Validate category
-    const validCategories = ['deskmat', 'keychain', 'anime-figure', 'anime-katana'];
+    const validCategories = ['deskmat', 'anime-keychain', 'anime-figure', 'anime-katana'];
     if (!category) {
       errors.general.push('Product category is required');
     } else if (!validCategories.includes(category)) {
@@ -60,7 +60,7 @@ const isAddProductFormValid = (req, res, next) => {
       // Define allowed sizes based on category
       const SIZE_VALUES_BY_PRODUCT = {
         deskmat: ['l', 'xl', 'xxl'],
-        keychain: ['onesize'],
+        "anime-keychain": ['onesize'],
         'anime-figure': ['onesize'],
         'anime-katana': ['miniature', 'kids-short', 'full-length'],
       };
@@ -160,14 +160,14 @@ const isAddProductFormValid = (req, res, next) => {
     // Define expected image counts based on category
     const IMAGE_COUNTS_BY_CATEGORY = {
       deskmat: { main: 7, highlight: 6 },
-      keychain: { main: 4, highlight: 3 },
+      "anime-keychain": { main: 4, highlight: 3 },
       'anime-figure': { main: 4, highlight: 3 },
       'anime-katana': { main: 4, highlight: 3 },
     };
 
     const expectedCounts = IMAGE_COUNTS_BY_CATEGORY[category] || { main: 4, highlight: 3 };
     const allowedImageTypes = ['image/png', 'image/webp', 'image/jpeg'];
-    const maxFileSize = 5 * 1024 * 1024; // 5MB
+    const maxFileSize = 10 * 1024 * 1024; // 10MB
 
     // Validate main images count
     if (mainImages.length === 0) {
@@ -187,7 +187,7 @@ const isAddProductFormValid = (req, res, next) => {
 
       // Check file size
       if (image.size > maxFileSize) {
-        errors.images.push(`Product image ${index + 1} must be less than 5MB`);
+        errors.images.push(`Product image ${index + 1} must be less than 10MB`);
       }
 
       // Check if file buffer exists
@@ -219,7 +219,7 @@ const isAddProductFormValid = (req, res, next) => {
 
       // Check file size
       if (image.size > maxFileSize) {
-        errors.highlightImg.push(`Highlight image ${index + 1} must be less than 5MB`);
+        errors.highlightImg.push(`Highlight image ${index + 1} must be less than 10MB`);
       }
 
       // Check if file buffer exists
@@ -237,7 +237,7 @@ const isAddProductFormValid = (req, res, next) => {
 
     // Validate inventory
     const validInventories = ['Sanmilan, Yuri Gagarin Path, Muchipara']; // Add more as needed
-    if (!inventory || typeof inventory !== 'string') {
+    if (!inventory || typeof inventory !== 'string' || inventory.trim().length === 0) {
       errors.others.push('Inventory location is required');
     } else if (!validInventories.includes(inventory)) {
       errors.others.push('Invalid inventory location');
@@ -262,7 +262,7 @@ const isAddProductFormValid = (req, res, next) => {
     }
 
     // Attach validated and parsed data to request for controller use
-    req.validatedData = {
+    req.product = {
       name: name.trim(),
       description: description.trim(),
       category,

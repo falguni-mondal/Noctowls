@@ -25,9 +25,9 @@ const ALL_SIZE_VALUES = [
 
 const IMAGE_COUNTS = {
   deskmat: { images: 7, highlights: 6 },
-  "anime-keychain": { images: 3, highlights: 3 },
-  "anime-figure": { images: 3, highlights: 3 },
-  "anime-katana": { images: 7, highlights: 6 },
+  "anime-keychain": { images: 4, highlights: 3 },
+  "anime-figure": { images: 4, highlights: 3 },
+  "anime-katana": { images: 4, highlights: 3 },
 };
 
 // ---------- Image Schema ----------
@@ -69,14 +69,13 @@ const sizeSchema = new mongoose.Schema(
 );
 
 // ---------- Price Calculation Hook ----------
-sizeSchema.pre("validate", function (next) {
+sizeSchema.pre("validate", function () {
   if (this.originalPrice !== undefined && this.discount !== undefined) {
     const calculated =
       this.originalPrice - (this.originalPrice * this.discount) / 100;
     this.numPrice = Math.round(calculated);
     this.price = formatPriceWithCommas(this.numPrice);
   }
-  next();
 });
 
 // ---------- Main Product Schema ----------
@@ -98,7 +97,7 @@ const productSchema = new mongoose.Schema(
       maxlength: 1000,
     },
 
-    productCategory: {
+    category: {
       type: String,
       required: true,
       enum: PRODUCT_CATEGORIES,
@@ -110,7 +109,7 @@ const productSchema = new mongoose.Schema(
       required: true,
       validate: {
         validator(images) {
-          const rule = IMAGE_COUNTS[this.productCategory];
+          const rule = IMAGE_COUNTS[this.category];
           return images.length === rule.images;
         },
         message: "Invalid number of images for this product category.",
@@ -122,10 +121,11 @@ const productSchema = new mongoose.Schema(
       required: true,
       validate: {
         validator(images) {
-          const rule = IMAGE_COUNTS[this.productCategory];
+          const rule = IMAGE_COUNTS[this.category];
           return images.length === rule.highlights;
         },
-        message: "Invalid number of highlight images for this product category.",
+        message:
+          "Invalid number of highlight images for this product category.",
       },
     },
 
@@ -134,7 +134,7 @@ const productSchema = new mongoose.Schema(
       required: true,
       validate: {
         validator(sizes) {
-          const allowed = SIZE_VALUES_BY_PRODUCT[this.productCategory];
+          const allowed = SIZE_VALUES_BY_PRODUCT[this.category];
           return sizes.every((s) => allowed.includes(s.value));
         },
         message: "Invalid sizes for this product category.",
@@ -142,7 +142,10 @@ const productSchema = new mongoose.Schema(
     },
 
     inventory: {
-      address: { type: String, required: true },
+      type: String,
+      required: true,
+      trim: true,
+      minlength: 5,
     },
 
     status: {
@@ -164,7 +167,7 @@ const productSchema = new mongoose.Schema(
 );
 
 // ---------- Auto Slug ----------
-productSchema.pre("save", function (next) {
+productSchema.pre("save", function () {
   if (this.isModified("name") && this.name) {
     const base = this.name
       .toLowerCase()
@@ -173,14 +176,12 @@ productSchema.pre("save", function (next) {
       .replace(/(^-|-$)/g, "");
     this.slug = `${base}-${this._id}`;
   }
-  next();
 });
 
 // ---------- Auto Total Stock & Sales ----------
-productSchema.pre("save", function (next) {
+productSchema.pre("save", function () {
   this.totalStock = this.sizes.reduce((t, s) => t + (s.stock || 0), 0);
   this.totalSales = this.sizes.reduce((t, s) => t + (s.salesCount || 0), 0);
-  next();
 });
 
 export default mongoose.model("product", productSchema);
