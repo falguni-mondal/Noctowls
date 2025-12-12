@@ -53,6 +53,8 @@ const sizeSchema = new mongoose.Schema(
     label: { type: String, default: "" },
 
     originalPrice: { type: Number, required: true, min: 0 },
+    
+    formattedOriginalPrice: String, // ✅ NEW: Formatted original price
 
     discount: { type: Number, default: 0, min: 0, max: 100 },
 
@@ -70,13 +72,44 @@ const sizeSchema = new mongoose.Schema(
 
 // ---------- Price Calculation Hook ----------
 sizeSchema.pre("validate", function () {
-  if (this.originalPrice !== undefined && this.discount !== undefined) {
-    const calculated =
-      this.originalPrice - (this.originalPrice * this.discount) / 100;
-    this.numPrice = Math.round(calculated);
-    this.price = formatPriceWithCommas(this.numPrice);
+  if (this.originalPrice !== undefined) {
+    // Format original price
+    this.formattedOriginalPrice = formatPriceWithCommas(this.originalPrice);
+    
+    // Calculate discounted price
+    if (this.discount !== undefined) {
+      const calculated =
+        this.originalPrice - (this.originalPrice * this.discount) / 100;
+      this.numPrice = Math.round(calculated);
+      this.price = formatPriceWithCommas(this.numPrice);
+    }
   }
 });
+
+// ---------- Rating Schema ----------
+const ratingSchema = new mongoose.Schema(
+  {
+    average: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
+    },
+    count: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    distribution: {
+      1: { type: Number, default: 0, min: 0 },
+      2: { type: Number, default: 0, min: 0 },
+      3: { type: Number, default: 0, min: 0 },
+      4: { type: Number, default: 0, min: 0 },
+      5: { type: Number, default: 0, min: 0 },
+    },
+  },
+  { _id: false }
+);
 
 // ---------- Main Product Schema ----------
 const productSchema = new mongoose.Schema(
@@ -158,6 +191,16 @@ const productSchema = new mongoose.Schema(
     totalSales: { type: Number, default: 0 },
 
     slug: { type: String, unique: true, lowercase: true, sparse: true },
+
+    // ---------- RATINGS (Cached/Denormalized) ----------
+    rating: {
+      type: ratingSchema,
+      default: () => ({
+        average: 0,
+        count: 0,
+        distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+      }),
+    },
   },
   {
     timestamps: true,
@@ -165,6 +208,19 @@ const productSchema = new mongoose.Schema(
     toObject: { virtuals: true },
   }
 );
+
+// ---------- Indexes ----------
+productSchema.index({ slug: 1 });
+productSchema.index({ category: 1, status: 1 });
+productSchema.index({ "rating.average": -1, "rating.count": -1 });
+productSchema.index({ status: 1, "rating.average": -1 });
+
+// ---------- Virtual: Populate Reviews (Optional) ----------
+productSchema.virtual("reviews", {
+  ref: "review",
+  localField: "_id",
+  foreignField: "product",
+});
 
 // ---------- Auto Slug ----------
 productSchema.pre("save", function () {
@@ -183,5 +239,13 @@ productSchema.pre("save", function () {
   this.totalStock = this.sizes.reduce((t, s) => t + (s.stock || 0), 0);
   this.totalSales = this.sizes.reduce((t, s) => t + (s.salesCount || 0), 0);
 });
+
+// ---------- Instance Method: Update Rating Cache ----------
+productSchema.methods.updateRatingCache = async function () {
+  const Review = mongoose.model("review");
+  const stats = await Review.getProductRatingStats(this._id);
+  this.rating = stats;
+  return this.save();
+};
 
 export default mongoose.model("product", productSchema);

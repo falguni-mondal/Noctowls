@@ -3,7 +3,7 @@ import { generateOTP } from "../../../utils/otp-generator.js";
 import { sendEmail } from "../../../configs/nodemailer.js";
 import tokenizer from "../../../utils/tokenizer.js";
 import cookieOptions from "../../../utils/cookie-options.js";
-import userDataTrimmer from "../../../utils/user-data-trimmer.js";
+import userDataTrimmer from "../../../utils/helpers/user-data-trimmer.js";
 import sessionModel from "../../../models/session-model.js";
 import jwt from "jsonwebtoken";
 
@@ -201,7 +201,7 @@ const logoutUser = async (req, res) => {
         await sessionModel.findByIdAndDelete(payload.jti);
       } catch (err) {
         console.warn("User Logout: invalid refresh token");
-        console.warn(err.message);
+        console.warn("User Logout:", err.message);
       }
     }
 
