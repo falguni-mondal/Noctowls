@@ -1,33 +1,41 @@
-
 export const productForList = (product) => {
+  const hasMultipleSizes = product.sizes.length > 1;
+  const stocks = hasMultipleSizes
+    ? product.sizes.map((size) => ({
+        size: size.value,
+        stock: size.stock,
+      }))
+    : undefined;
+
   return {
     id: product._id,
     name: product.name,
     slug: product.slug,
     category: product.category,
-    
-    // Main image only (first image)
-    image: [product.images?.[0], product.images?.[1]] || null,
-    
-    // Rating summary
+
+    image: [product.images?.[0], product.images?.[1]].filter(Boolean) || null,
+
     rating: {
       average: product.rating?.average || 0,
       count: product.rating?.count || 0,
     },
-    
-    // Price info from first size (or lowest price)
-    originalPrice: product.formattedOriginalPrice,
-    price: product.price,
-    discount: Math.floor((product.numPrice * 100)/product.originalPrice),
-    
-    // Stock availability
+
+    originalPrice: product.sizes[0].formattedOriginalPrice,
+    price: product.sizes[0].price,
+    discount: Math.floor(
+      ((product.sizes[0].originalPrice - product.sizes[0].numPrice) /
+        product.sizes[0].originalPrice) *
+        100
+    ),
+
     inStock: product.totalStock > 0,
-    
-    // Sales count for popularity
-    salesCount: product.totalSales || 0,
+    totalStock: product.totalStock,
+
+    ...(stocks && { stocks }),
+
+    sales: product.totalSales || 0,
   };
 };
-
 
 export const productForDetail = (product) => {
   return {

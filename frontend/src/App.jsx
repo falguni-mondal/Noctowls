@@ -13,6 +13,7 @@ import { Bounce, ToastContainer } from 'react-toastify';
 import { useDispatch } from 'react-redux';
 import { checkAuth } from './store/features/user/authSlice';
 import { checkAdmin } from './store/features/admin/adminAuthSlice';
+import { getAllProducts } from './store/features/global/productSlice';
 
 const App = () => {
   const location = useLocation();
@@ -22,6 +23,7 @@ const App = () => {
   useEffect(() => {
     dispatch(checkAuth());
     dispatch(checkAdmin());
+    dispatch(getAllProducts());
   }, []);
 
   useEffect(() => {

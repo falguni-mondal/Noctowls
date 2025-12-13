@@ -127,8 +127,7 @@ export const selectProductsError = (state) => state.product.productsError;
 export const selectTotalProducts = (state) => state.product.totalProducts;
 
 export const selectCurrentProduct = (state) => state.product.currentProduct;
-export const selectCurrentProductReviews = (state) =>
-  state.product.currentProductReviews;
+export const selectCurrentProductReviews = (state) => state.product.currentProductReviews;
 export const selectProductLoading = (state) => state.product.productLoading;
 export const selectProductError = (state) => state.product.productError;
 

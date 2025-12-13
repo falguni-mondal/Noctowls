@@ -35,4 +35,39 @@ export const uploadWithRetry = async (uploadOptions, maxRetries = 3) => {
   }
 };
 
+// Delete with retry
+export const deleteWithRetry = async (fileId, maxRetries = 3) => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await imagekit.deleteFile(fileId);
+      return { success: true, fileId };
+    } catch (error) {
+      const isLastAttempt = attempt === maxRetries;
+
+      // File already deleted or doesn't exist
+      if (
+        error.message?.includes("No file found") ||
+        error.response?.status === 404
+      ) {
+        console.log(`File ${fileId} already deleted or not found, skipping`);
+        return { success: true, fileId, alreadyDeleted: true };
+      }
+
+      // Don't retry on validation errors
+      if (error.response?.status && error.response.status < 500) {
+        throw new Error(`Delete failed: ${error.message}`);
+      }
+
+      if (isLastAttempt) {
+        throw new Error(`Delete failed after ${maxRetries} attempts: ${error.message}`);
+      }
+
+      // Exponential backoff
+      const delay = Math.pow(2, attempt - 1) * 1000;
+      console.log(`Delete retry attempt ${attempt} after ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+};
+
 export default imagekit;

@@ -20,7 +20,7 @@ export const getAllProducts = async (req, res) => {
     }
 
     const trimmedProducts = products.map(product => {
-        return productForList(product);
+      return productForList(product);
     })
 
     return res.status(200).json({
