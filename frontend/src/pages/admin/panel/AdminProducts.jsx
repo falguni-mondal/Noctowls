@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Icon } from "@iconify/react";
-import AdminProductItem from "../../../components/admin/panel/product/AdminProductItem";
+import AdminProductItem from "../../../components/admin/product/AdminProductItem";
 import { useDispatch, useSelector } from "react-redux";
 import { useEffect } from "react";
 import { getAllAdminProducts } from "../../../store/features/admin/adminProductSlice";

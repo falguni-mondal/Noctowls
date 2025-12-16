@@ -81,9 +81,7 @@ const AdminProductItem = ({ product, onDelete }) => {
                     {/* Menu Button */}
                     <button
                         onClick={toggleMenu}
-                        className={`admin-product-list-item-menu-btn w-full h-full text-xl flex justify-center items-center cursor-pointer transition-colors ${
-                            isMenuOpen ? 'text-indigo-500' : 'hover:text-indigo-500'
-                        }`}
+                        className={`admin-product-list-item-menu-btn w-full aspect-square rounded text-xl flex justify-center items-center cursor-pointer transition-color bg-zinc-900`}
                         aria-label="Toggle menu"
                         aria-expanded={isMenuOpen}
                     >
