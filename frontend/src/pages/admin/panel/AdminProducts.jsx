@@ -3,14 +3,14 @@ import { Icon } from "@iconify/react";
 import AdminProductItem from "../../../components/admin/panel/product/AdminProductItem";
 import { useDispatch, useSelector } from "react-redux";
 import { useEffect } from "react";
-import { getAllProducts } from "../../../store/features/global/productSlice";
+import { getAllAdminProducts } from "../../../store/features/admin/adminProductSlice";
 
 const AdminProducts = () => {
   const dispatch = useDispatch();
-  const products = useSelector(state => state.product.products);
+  const products = useSelector(state => state.adminProducts.adminProducts);
 
   useEffect(() => {
-    dispatch(getAllProducts());
+    dispatch(getAllAdminProducts());
   }, [])
 
   return (
@@ -22,14 +22,18 @@ const AdminProducts = () => {
         <h1 className="text-2xl font-semibold">Products</h1>
       </div>
       {
-        products ?
-          <ul className="admin-products-list-container mt-10 flex flex-col gap-3">
-            {
-              products.map(product => (
-                <AdminProductItem product={product} />
-              ))
-            }
-          </ul>
+        products ? products.map((product) => (
+          <div className="admin-list-product-group mt-5 border-b border-zinc-700 py-5 relative">
+            <h2 className="font-semibold text-sm uppercase sticky top-0">{product.category}s</h2>
+            <ul className="admin-products-list-container mt-3 flex flex-col gap-3">
+              {
+                product.products.map(productItem => (
+                  <AdminProductItem product={productItem} />
+                ))
+              }
+            </ul>
+          </div>
+        ))
           :
           <p className="text-2xl w-fit mx-auto py-20">No Products</p>
       }

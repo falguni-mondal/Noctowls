@@ -66,12 +66,12 @@ const AdminProductItem = ({ product, onDelete }) => {
                 <div className="product-dets flex items-center gap-4 w-[90%]">
                     <div className="admin-product-image-container w-1/4 aspect-square rounded-[3px] border-zinc-800 border overflow-hidden">
                         <img 
-                            src={product.image[0]?.url} 
+                            src={product.image.url} 
                             alt={`${product.name}-image`}
                             className="w-full h-full object-cover"
                         />
                     </div>
-                    <p className="admin-product-list-item-name text-lg font-medium w-3/4 truncate">
+                    <p className="admin-product-list-item-name font-medium w-3/4 truncate">
                         {product.name}
                     </p>
                 </div>
@@ -93,7 +93,7 @@ const AdminProductItem = ({ product, onDelete }) => {
                     {/* Menu Options */}
                     {isMenuOpen && (
                         <div className="admin-product-list-options absolute w-[600%] rounded-[3px] bg-zinc-950 -top-full right-0 shadow-xl border border-zinc-800 z-10">
-                            <p className='admin-product-list-item-name font-medium truncate px-3 py-4 border-b border-zinc-700 text-lg'>
+                            <p className='admin-product-list-item-name font-medium truncate px-3 py-4 border-b border-zinc-700 tracking-wide'>
                                 {product.name}
                             </p>
                             <ul className="admin-product-list-item-dets p-3">
@@ -111,7 +111,7 @@ const AdminProductItem = ({ product, onDelete }) => {
                                             {product.stocks.map((stock, index) => (
                                                 <li key={index}>
                                                     <span className='font-medium uppercase'>{stock.size}: </span>
-                                                    <span>{stock.stock}</span>
+                                                    <span>{stock.count}</span>
                                                 </li>
                                             ))}
                                         </ul>

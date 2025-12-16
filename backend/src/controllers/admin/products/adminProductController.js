@@ -2,8 +2,8 @@ import { deleteWithRetry } from "../../../configs/imagekit.js";
 import orderModel from "../../../models/order-model.js";
 import productModel from "../../../models/product-model.js";
 import reviewModel from "../../../models/review-model.js";
+import { productForAdminDetail, productForAdminList } from "../../../utils/helpers/product-data-trimmer.js";
 import { uploadImageInWorker } from "../../../utils/imageWorker.js";
-
 
 /**
  * Helper: Delete images from ImageKit with retry logic
@@ -22,7 +22,6 @@ const deleteImagesFromImageKit = async (fileIds) => {
     throw error;
   }
 };
-
 
 const productAdder = async (req, res) => {
   const sanitizeFolderName = (name) => {
@@ -137,8 +136,7 @@ const productDeleter = async (req, res) => {
         success: false,
         message:
           "Cannot delete product with existing orders. Consider archiving instead.",
-        suggestion:
-          "Change product status to 'archived'.",
+        suggestion: "Change product status to 'archived'.",
       });
     }
 
@@ -201,4 +199,100 @@ const productDeleter = async (req, res) => {
   }
 };
 
-export { productAdder, productDeleter };
+const getAllAdminProducts = async (req, res) => {
+  try {
+    const products = await productModel.find().select("-__v").lean();
+
+    if (!products || products.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No products found",
+      });
+    }
+
+    const uniqueCategories = [...new Set(products.map((p) => p.category))];
+
+    // Group products by category
+    const groupedByCategory = uniqueCategories.map((category) => {
+      // Filter products for this category
+      const categoryProducts = products.filter((p) => p.category === category);
+
+      // Trim each product
+      const trimmedProducts = categoryProducts.map((product) =>
+        productForAdminList(product)
+      );
+
+      return {
+        category,
+        count: trimmedProducts.length,
+        products: trimmedProducts,
+      };
+    });
+
+    // Calculate total count
+    const totalCount = groupedByCategory.reduce(
+      (sum, cat) => sum + cat.count,
+      0
+    );
+
+    return res.status(200).json({
+      success: true,
+      totalProducts: totalCount,
+      productGroups: groupedByCategory,
+    });
+  } catch (err) {
+    console.error("Get all admin products error:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch products",
+      error: process.env.NODE_ENV === "development" ? err.message : undefined,
+    });
+  }
+};
+
+const getOneAdminProduct = async (req, res) => {
+  try {
+    const { productId } = req.params;
+
+    // Validate MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product ID format",
+      });
+    }
+
+    // Get product
+    const product = await productModel
+      .findById(productId)
+      .select("-__v")
+      .lean();
+
+    // Check if product exists
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      product: productForAdminDetail(product),
+    });
+  } catch (err) {
+    console.error("Get one admin product error:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch product",
+      error: process.env.NODE_ENV === "development" ? err.message : undefined,
+    });
+  }
+};
+
+export {
+  productAdder,
+  productDeleter,
+  getAllAdminProducts,
+  getOneAdminProduct,
+};

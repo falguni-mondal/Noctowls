@@ -7,8 +7,10 @@ const Navbar = ({ setShowNav }) => {
     const admin = useSelector(state => state.adminAuth.admin);
     return (
         <header className='sticky top-0 left-0 z-999 bg-black flex justify-between items-center text-2xl w-full py-4 border-t border-zinc-700 px-5' id="mobile-navbar">
-            <div onClick={() => setShowNav(true)} className="nav-icon w-[30%]">
-                <Icon icon="fluent:navigation-24-regular" />
+            <div className="nav-icon w-[30%]">
+                <div onClick={() => setShowNav(true)} className="hamburger w-fit">
+                    <Icon icon="fluent:navigation-24-regular" />
+                </div>
             </div>
             <div className="logo">
                 <Logo width="w-[88px]" />

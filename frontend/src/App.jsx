@@ -13,7 +13,7 @@ import { Bounce, ToastContainer } from 'react-toastify';
 import { useDispatch } from 'react-redux';
 import { checkAuth } from './store/features/user/authSlice';
 import { checkAdmin } from './store/features/admin/adminAuthSlice';
-import { getAllProducts } from './store/features/global/productSlice';
+import { getAllProducts } from './store/features/user/productSlice';
 
 const App = () => {
   const location = useLocation();

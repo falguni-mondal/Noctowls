@@ -1,3 +1,84 @@
+export const trimReview = (review) => {
+  return {
+    id: review._id,
+    userName: review.userName,
+    rating: review.rating,
+    comment: review.comment,
+    images: review.images || [],
+    createdAt: review.createdAt,
+    
+    // Optional: Show if verified purchase (if you add this feature later)
+    // verifiedPurchase: review.verifiedPurchase || false,
+  };
+};
+
+
+export const trimReviews = (reviews) => {
+  return reviews.map(trimReview);
+};
+
+export const productForAdminList = (product) => {
+  const hasMultipleSizes = product.sizes.length > 1;
+  const stocks = hasMultipleSizes
+    ? product.sizes.map((size) => ({
+        size: size.value,
+        count: size.stock,
+      }))
+    : undefined;
+
+  return {
+    id: product._id,
+    name: product.name,
+    slug: product.slug,
+    category: product.category,
+
+    image: product.images[0] || null,
+
+    rating: {
+      average: product.rating?.average || 0,
+      count: product.rating?.count || 0,
+    },
+
+    originalPrice: product.sizes[0].formattedOriginalPrice,
+    price: product.sizes[0].price,
+    discount: Math.floor(
+      ((product.sizes[0].originalPrice - product.sizes[0].numPrice) /
+        product.sizes[0].originalPrice) *
+        100
+    ),
+
+    inStock: product.totalStock > 0,
+    totalStock: product.totalStock,
+
+    ...(stocks && { stocks }),
+
+    sales: product.totalSales || 0,
+  };
+}
+
+export const productForAdminDetail = (product) => {
+  return {
+    id: product._id,
+    name: product.name,
+    slug: product.slug,
+    description: product.description,
+    category: product.category,
+    
+    // All images
+    images: product.images || [],
+    highlightImages: product.highlightImages || [],
+
+    // All size variants with prices
+    sizes: product.sizes?.map((size) => ({
+      value: size.value,
+      originalPrice: size.originalPrice,
+      discount: size.discount,
+      price: size.numPrice,
+      stock: size.stock,
+    })) || [],
+  };
+};
+
 export const productForList = (product) => {
   const hasMultipleSizes = product.sizes.length > 1;
   const stocks = hasMultipleSizes
@@ -79,30 +160,6 @@ export const productForDetail = (product) => {
 
     salesCount: product.totalSales || 0,
   };
-};
-
-
-export const trimReview = (review) => {
-  return {
-    id: review._id,
-    userName: review.userName,
-    rating: review.rating,
-    comment: review.comment,
-    images: review.images || [],
-    createdAt: review.createdAt,
-    
-    // Optional: Show if verified purchase (if you add this feature later)
-    // verifiedPurchase: review.verifiedPurchase || false,
-  };
-};
-
-/**
- * Trim multiple reviews
- * @param {Array} reviews - Array of review documents
- * @returns {Array} Array of trimmed reviews
- */
-export const trimReviews = (reviews) => {
-  return reviews.map(trimReview);
 };
 
 

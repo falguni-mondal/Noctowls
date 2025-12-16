@@ -39,8 +39,8 @@ const initialState = {
   productsError: null,
 
   // Single Product
-  currentProduct: null,
-  currentProductReviews: [],
+  product: null,
+  productReviews: [],
   productLoading: false,
   productError: null,
 
@@ -56,9 +56,9 @@ const productSlice = createSlice({
   initialState,
   reducers: {
     // Clear current product
-    clearCurrentProduct: (state) => {
-      state.currentProduct = null;
-      state.currentProductReviews = [];
+    clearProduct: (state) => {
+      state.product = null;
+      state.productReviews = [];
       state.productError = null;
     },
 
@@ -101,15 +101,15 @@ const productSlice = createSlice({
       })
       .addCase(getOneProduct.fulfilled, (state, action) => {
         state.productLoading = false;
-        state.currentProduct = action.payload.product;
-        state.currentProductReviews = action.payload.reviews;
+        state.product = action.payload.product;
+        state.productReviews = action.payload.reviews;
         state.productError = null;
       })
       .addCase(getOneProduct.rejected, (state, action) => {
         state.productLoading = false;
         state.productError = action.payload;
-        state.currentProduct = null;
-        state.currentProductReviews = [];
+        state.product = null;
+        state.productReviews = [];
       });
   },
 });
@@ -117,19 +117,8 @@ const productSlice = createSlice({
 // ==================== EXPORTS ====================
 
 // Actions
-export const { clearCurrentProduct, clearProducts, clearErrors } =
+export const { clearProduct, clearProducts, clearErrors } =
   productSlice.actions;
-
-// Selectors
-export const selectAllProducts = (state) => state.product.products;
-export const selectProductsLoading = (state) => state.product.productsLoading;
-export const selectProductsError = (state) => state.product.productsError;
-export const selectTotalProducts = (state) => state.product.totalProducts;
-
-export const selectCurrentProduct = (state) => state.product.currentProduct;
-export const selectCurrentProductReviews = (state) => state.product.currentProductReviews;
-export const selectProductLoading = (state) => state.product.productLoading;
-export const selectProductError = (state) => state.product.productError;
 
 // Reducer
 export default productSlice.reducer;

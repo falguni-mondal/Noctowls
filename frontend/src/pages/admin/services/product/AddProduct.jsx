@@ -4,7 +4,7 @@ import MiniLoading from '../../../../utils/loader/MiniLoading';
 import { useDispatch, useSelector } from 'react-redux';
 import { toast } from "react-toastify";
 import toastControls from "../../../../utils/global/toastControls";
-import { addProduct, resetAdminProductState } from '../../../../store/features/admin/adminProductSlice';
+import { addProduct, resetAddProductState } from '../../../../store/features/admin/adminProductSlice';
 
 const AddProduct = () => {
   const dispatch = useDispatch();
@@ -141,7 +141,7 @@ const AddProduct = () => {
 
       // Reset Redux state
       const timer = setTimeout(() => {
-        dispatch(resetAdminProductState());
+        dispatch(resetAddProductState());
       }, 100);
 
       return () => clearTimeout(timer);
@@ -178,7 +178,7 @@ const AddProduct = () => {
 
       // Reset Redux error state
       const timer = setTimeout(() => {
-        dispatch(resetAdminProductState());
+        dispatch(resetAddProductState());
       }, 100);
 
       return () => clearTimeout(timer);
@@ -188,7 +188,7 @@ const AddProduct = () => {
   // ✅ Cleanup Redux state on unmount
   useEffect(() => {
     return () => {
-      dispatch(resetAdminProductState());
+      dispatch(resetAddProductState());
     };
   }, [dispatch]);
 
