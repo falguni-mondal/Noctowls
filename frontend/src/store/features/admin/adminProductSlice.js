@@ -53,6 +53,31 @@ export const addProduct = createAsyncThunk(
   }
 );
 
+export const updateProduct = createAsyncThunk(
+  "adminProducts/updateProduct",
+  async ({ productId, formData }, { rejectWithValue }) => {
+    try {
+      const res = await adminApi.put(
+        `/products/update/${productId}`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+      return res.data;
+    } catch (error) {
+      const err = error?.response?.data;
+      return rejectWithValue({
+        message: err?.message || "Failed to update product",
+        errors: err?.errors || null,
+        success: err?.success || false,
+      });
+    }
+  }
+);
+
 // ==================== SLICE ====================
 
 const adminProductSlice = createSlice({
@@ -75,6 +100,13 @@ const adminProductSlice = createSlice({
 
     // Add Product
     add: {
+      loading: false,
+      success: null,
+      error: null,
+    },
+
+    // Update Product
+    update: {
       loading: false,
       success: null,
       error: null,
@@ -106,6 +138,13 @@ const adminProductSlice = createSlice({
       state.add.loading = false;
       state.add.success = null;
       state.add.error = null;
+    },
+
+    // Clear Update Product State
+    resetUpdateProductState: (state) => {
+      state.update.loading = false;
+      state.update.success = null;
+      state.update.error = null;
     },
   },
 
@@ -167,6 +206,40 @@ const adminProductSlice = createSlice({
           errors: null,
         };
       });
+
+    // ===== UPDATE PRODUCT =====
+    builder
+      .addCase(updateProduct.pending, (state) => {
+        state.update.loading = true;
+        state.update.success = null;
+        state.update.error = null;
+      })
+      .addCase(updateProduct.fulfilled, (state, action) => {
+        state.update.loading = false;
+        state.update.success = action.payload;
+        state.update.error = null;
+
+        // Update the product in adminProducts array if it exists
+        const index = state.adminProducts.findIndex(
+          (p) => p._id === action.payload.product._id
+        );
+        if (index !== -1) {
+          state.adminProducts[index] = action.payload.product;
+        }
+
+        // Update current product if viewing it
+        if (state.adminProduct?._id === action.payload.product._id) {
+          state.adminProduct = action.payload.product;
+        }
+      })
+      .addCase(updateProduct.rejected, (state, action) => {
+        state.update.loading = false;
+        state.update.success = null;
+        state.update.error = action.payload || {
+          message: "Something went wrong",
+          errors: null,
+        };
+      });
   },
 });
 
@@ -178,8 +251,8 @@ export const {
   clearAdminProducts,
   clearErrors,
   resetAddProductState,
+  resetUpdateProductState,
 } = adminProductSlice.actions;
-
 
 // Reducer
 export default adminProductSlice.reducer;

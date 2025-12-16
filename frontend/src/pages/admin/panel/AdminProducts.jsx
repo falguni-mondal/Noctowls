@@ -23,12 +23,14 @@ const AdminProducts = () => {
       </div>
       {
         products ? products.map((product) => (
-          <div className="admin-list-product-group mt-5 border-b border-zinc-700 py-5 relative">
+          <div key={`admin-products-${product.category}-category-key`} className="admin-list-product-group mt-5 border-b border-zinc-700 py-5 relative">
             <h2 className="font-semibold text-sm uppercase sticky top-0">{product.category}s</h2>
             <ul className="admin-products-list-container mt-3 flex flex-col gap-3">
               {
                 product.products.map(productItem => (
-                  <AdminProductItem product={productItem} />
+                  <li key={`admi-product-item-${productItem.id}`}>
+                    <AdminProductItem product={productItem} />
+                  </li>
                 ))
               }
             </ul>

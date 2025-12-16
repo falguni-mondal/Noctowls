@@ -63,6 +63,8 @@ export const productForAdminDetail = (product) => {
     slug: product.slug,
     description: product.description,
     category: product.category,
+    status: product.status,
+    inventory: product.inventory,
     
     // All images
     images: product.images || [],
@@ -75,6 +77,7 @@ export const productForAdminDetail = (product) => {
       discount: size.discount,
       price: size.numPrice,
       stock: size.stock,
+      skuCode: size.skuCode,
     })) || [],
   };
 };

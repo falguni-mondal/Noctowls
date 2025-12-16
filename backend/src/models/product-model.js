@@ -183,8 +183,8 @@ const productSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["draft", "published", "archived"],
-      default: "draft",
+      enum: ["published", "archived"],
+      default: "published",
     },
 
     totalStock: { type: Number, default: 0 },

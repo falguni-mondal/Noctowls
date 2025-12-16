@@ -121,7 +121,7 @@ const AdminProductItem = ({ product, onDelete }) => {
                             <div className="admin-product-list-item-btns p-2 flex flex-col gap-1">
                                 <Link
                                     className='w-full py-2 rounded-[3px] bg-indigo-700 text-sm font-medium flex justify-center items-center gap-1 hover:bg-indigo-600 transition-colors'
-                                    to={`/admin/products/${product.id}/update`}
+                                    to={`/admin/products/update/${product.id}`}
                                 >
                                     <Icon icon="solar:pen-2-linear" />
                                     <span>Update</span>

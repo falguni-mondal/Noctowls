@@ -1,8 +1,12 @@
+import mongoose from "mongoose";
 import { deleteWithRetry } from "../../../configs/imagekit.js";
 import orderModel from "../../../models/order-model.js";
 import productModel from "../../../models/product-model.js";
 import reviewModel from "../../../models/review-model.js";
-import { productForAdminDetail, productForAdminList } from "../../../utils/helpers/product-data-trimmer.js";
+import {
+  productForAdminDetail,
+  productForAdminList,
+} from "../../../utils/helpers/product-data-trimmer.js";
 import { uploadImageInWorker } from "../../../utils/imageWorker.js";
 
 /**
@@ -23,17 +27,18 @@ const deleteImagesFromImageKit = async (fileIds) => {
   }
 };
 
-const productAdder = async (req, res) => {
-  const sanitizeFolderName = (name) => {
-    if (!name || typeof name !== "string") return "default";
+const sanitizeFolderName = (name) => {
+  if (!name || typeof name !== "string") return "default";
 
-    return name
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9-_]/g, "-") // Replace invalid chars with hyphens
-      .replace(/-+/g, "-") // Remove duplicate hyphens
-      .replace(/^-|-$/g, ""); // Remove leading/trailing hyphens
-  };
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-_]/g, "-") // Replace invalid chars with hyphens
+    .replace(/-+/g, "-") // Remove duplicate hyphens
+    .replace(/^-|-$/g, ""); // Remove leading/trailing hyphens
+};
+
+const productAdder = async (req, res) => {
   try {
     const { name, description, category, sizes, inventory } = req.product;
 
@@ -102,6 +107,206 @@ const productAdder = async (req, res) => {
       success: false,
       message: "Failed to add product",
       error: error.message,
+    });
+  }
+};
+
+const productUpdater = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const {
+      name,
+      description,
+      category,
+      sizes,
+      inventory,
+      status,
+      newMainImages,
+      newHighlightImages,
+      mainImagesIndices,
+      highlightImagesIndices,
+      existingMainImages,
+      existingHighlightImages,
+    } = req.product;
+
+    // ==================== FIND EXISTING PRODUCT ====================
+    const product = await productModel.findById(productId);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    // STORE ORIGINAL IMAGES BEFORE ANY MODIFICATIONS
+    const originalMainImages = product.images ? [...product.images] : [];
+    const originalHighlightImages = product.highlightImages
+      ? [...product.highlightImages]
+      : [];
+
+    // ==================== PROCESS NEW MAIN IMAGES (WORKERS) ====================
+    const processedMainImages = await Promise.all(
+      newMainImages.map((file) =>
+        uploadImageInWorker(
+          file,
+          `/products/${category}/${sanitizeFolderName(name)}/main`
+        )
+      )
+    );
+
+    const formattedNewMainImages = processedMainImages.map((img) => ({
+      url: img.url,
+      imageId: img.imageId,
+      alt: sanitizeFolderName(name),
+    }));
+
+    // ==================== PROCESS NEW HIGHLIGHT IMAGES (WORKERS) ====================
+    const processedHighlightImages = await Promise.all(
+      newHighlightImages.map((file) =>
+        uploadImageInWorker(
+          file,
+          `/products/${category}/${sanitizeFolderName(name)}/highlight`
+        )
+      )
+    );
+
+    const formattedNewHighlightImages = processedHighlightImages.map((img) => ({
+      url: img.url,
+      imageId: img.imageId,
+      alt: sanitizeFolderName(name),
+    }));
+
+    // ==================== MERGE EXISTING AND NEW IMAGES ====================
+    const IMAGE_COUNTS = {
+      deskmat: { main: 7, highlight: 6 },
+      "anime-keychain": { main: 4, highlight: 3 },
+      "anime-figure": { main: 4, highlight: 3 },
+      "anime-katana": { main: 4, highlight: 3 },
+    };
+
+    const counts = IMAGE_COUNTS[category];
+
+    // Initialize arrays
+    const finalMainImages = new Array(counts.main);
+    const finalHighlightImages = new Array(counts.highlight);
+
+    // Place existing images (these are the ones user wants to KEEP)
+    existingMainImages.forEach((img) => {
+      finalMainImages[img.index] = {
+        url: img.url,
+        imageId: img.imageId,
+        alt: img.alt || sanitizeFolderName(name),
+      };
+    });
+
+    existingHighlightImages.forEach((img) => {
+      finalHighlightImages[img.index] = {
+        url: img.url,
+        imageId: img.imageId,
+        alt: img.alt || sanitizeFolderName(name),
+      };
+    });
+
+    // TRACK IMAGES TO DELETE FROM IMAGEKIT
+    const imagesToDelete = [];
+
+    // Place new main images and track old ones for deletion
+    formattedNewMainImages.forEach((img, idx) => {
+      const targetIndex = parseInt(mainImagesIndices[idx]);
+
+      // CHECK ORIGINAL PRODUCT IMAGES (before any modifications)
+      if (originalMainImages[targetIndex]?.imageId) {
+        const oldImageId = originalMainImages[targetIndex].imageId;
+
+        // Only delete if it's not in the "keep" list
+        const isKept = existingMainImages.some(
+          (existing) => existing.imageId === oldImageId
+        );
+
+        if (!isKept) {
+          imagesToDelete.push(oldImageId);
+        }
+      }
+
+      finalMainImages[targetIndex] = img;
+    });
+
+    // Place new highlight images and track old ones for deletion
+    formattedNewHighlightImages.forEach((img, idx) => {
+      const targetIndex = parseInt(highlightImagesIndices[idx]);
+
+      // CHECK ORIGINAL PRODUCT IMAGES (before any modifications)
+      if (originalHighlightImages[targetIndex]?.imageId) {
+        const oldImageId = originalHighlightImages[targetIndex].imageId;
+
+        // Only delete if it's not in the "keep" list
+        const isKept = existingHighlightImages.some(
+          (existing) => existing.imageId === oldImageId
+        );
+
+        if (!isKept) {
+          imagesToDelete.push(oldImageId);
+        }
+      }
+
+      finalHighlightImages[targetIndex] = img;
+    });
+
+    // ==================== DELETE OLD IMAGES FROM IMAGEKIT ====================
+    if (imagesToDelete.length > 0) {
+      console.log(
+        `Deleting ${imagesToDelete.length} old images:`,
+        imagesToDelete
+      );
+
+      // ✅ Use deleteWithRetry from your imagekit config
+      const deletionResults = await Promise.allSettled(
+        imagesToDelete.map((imageId) => deleteWithRetry(imageId))
+      );
+
+      // Log results
+      deletionResults.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          if (result.value.alreadyDeleted) {
+            console.log(`Image ${imagesToDelete[index]} was already deleted`);
+          } else {
+            console.log(`Successfully deleted image ${imagesToDelete[index]}`);
+          }
+        } else {
+          console.error(
+            `Failed to delete image ${imagesToDelete[index]}:`,
+            result.reason
+          );
+        }
+      });
+    } else {
+      console.log("No images to delete");
+    }
+
+    // ==================== UPDATE PRODUCT ====================
+    product.name = name;
+    product.description = description;
+    product.category = category;
+    product.sizes = sizes;
+    product.inventory = inventory;
+    product.status = status;
+    product.images = finalMainImages;
+    product.highlightImages = finalHighlightImages;
+
+    await product.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Product updated successfully",
+      product,
+    });
+  } catch (error) {
+    console.error("PRODUCT UPDATE ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update product",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
@@ -292,6 +497,7 @@ const getOneAdminProduct = async (req, res) => {
 
 export {
   productAdder,
+  productUpdater,
   productDeleter,
   getAllAdminProducts,
   getOneAdminProduct,

@@ -15,6 +15,7 @@ import AdminOrders from '../pages/admin/panel/AdminOrders';
 import AdminCarts from '../pages/admin/panel/AdminCarts';
 import AdminWishlists from '../pages/admin/panel/AdminWishlists';
 import AddProduct from '../pages/admin/services/product/AddProduct';
+import UpdateProduct from '../pages/admin/services/product/UpdateProduct';
 
 
 const PageRouter = () => {
@@ -47,6 +48,7 @@ const PageRouter = () => {
 
         {/* PRODUCT SERVICES */}
         <Route path='/admin/products/add' element={<AddProduct />} />
+        <Route path='/admin/products/update/:productId' element={<UpdateProduct />} />
       </Route>
     </Routes>
   )
