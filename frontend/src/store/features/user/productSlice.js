@@ -31,6 +31,26 @@ export const getOneProduct = createAsyncThunk(
   }
 );
 
+export const validateProductStock = createAsyncThunk(
+  "product/validateStock",
+  async ({ productId, size, requestedQuantity }, { rejectWithValue }) => {
+    try {
+      const response = await userApi.post(
+        `/products/${productId}/validate-stock`,
+        {
+          size,
+          requestedQuantity,
+        }
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to validate stock"
+      );
+    }
+  }
+);
+
 // Initial state
 const initialState = {
   // All Products
@@ -44,10 +64,16 @@ const initialState = {
   productLoading: false,
   productError: null,
 
+  // Stock Validation
+  stockValidation: {
+    loading: false,
+    error: null,
+    data: null,
+  },
+
   // UI States
   totalProducts: 0,
 };
-
 
 // ==================== SLICE ====================
 
@@ -73,6 +99,15 @@ const productSlice = createSlice({
       state.productsError = null;
       state.productError = null;
     },
+
+    // Clear stock validation
+    clearStockValidation: (state) => {
+      state.stockValidation = {
+        loading: false,
+        error: null,
+        data: null,
+      };
+    },
   },
   extraReducers: (builder) => {
     // ===== GET ALL PRODUCTS =====
@@ -83,7 +118,7 @@ const productSlice = createSlice({
       })
       .addCase(getAllProducts.fulfilled, (state, action) => {
         state.productsLoading = false;
-        state.products = action.payload.products;
+        state.products = action.payload.productGroups;
         state.totalProducts = action.payload.count;
         state.productsError = null;
       })
@@ -111,13 +146,30 @@ const productSlice = createSlice({
         state.product = null;
         state.productReviews = [];
       });
+
+    // ===== VALIDATE STOCK =====
+    builder
+      .addCase(validateProductStock.pending, (state) => {
+        state.stockValidation.loading = true;
+        state.stockValidation.error = null;
+      })
+      .addCase(validateProductStock.fulfilled, (state, action) => {
+        state.stockValidation.loading = false;
+        state.stockValidation.data = action.payload.data;
+        state.stockValidation.error = null;
+      })
+      .addCase(validateProductStock.rejected, (state, action) => {
+        state.stockValidation.loading = false;
+        state.stockValidation.error = action.payload;
+        state.stockValidation.data = null;
+      });
   },
 });
 
 // ==================== EXPORTS ====================
 
 // Actions
-export const { clearProduct, clearProducts, clearErrors } =
+export const { clearProduct, clearProducts, clearErrors, clearStockValidation } =
   productSlice.actions;
 
 // Reducer

@@ -74,8 +74,7 @@ export const productForAdminDetail = (product) => {
     sizes: product.sizes?.map((size) => ({
       value: size.value,
       originalPrice: size.originalPrice,
-      discount: size.discount,
-      price: size.numPrice,
+      numPrice: size.numPrice,
       stock: size.stock,
       skuCode: size.skuCode,
     })) || [],
@@ -83,21 +82,12 @@ export const productForAdminDetail = (product) => {
 };
 
 export const productForList = (product) => {
-  const hasMultipleSizes = product.sizes.length > 1;
-  const stocks = hasMultipleSizes
-    ? product.sizes.map((size) => ({
-        size: size.value,
-        stock: size.stock,
-      }))
-    : undefined;
-
   return {
     id: product._id,
     name: product.name,
-    slug: product.slug,
     category: product.category,
 
-    image: [product.images?.[0], product.images?.[1]].filter(Boolean) || null,
+    images: [product.images?.[0], product.images?.[1]],
 
     rating: {
       average: product.rating?.average || 0,
@@ -113,9 +103,6 @@ export const productForList = (product) => {
     ),
 
     inStock: product.totalStock > 0,
-    totalStock: product.totalStock,
-
-    ...(stocks && { stocks }),
 
     sales: product.totalSales || 0,
   };
@@ -125,7 +112,6 @@ export const productForDetail = (product) => {
   return {
     id: product._id,
     name: product.name,
-    slug: product.slug,
     description: product.description,
     category: product.category,
     

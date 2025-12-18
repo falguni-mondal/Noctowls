@@ -28,7 +28,7 @@ const PageRouter = () => {
         <Route path='/account/*' element={<Account />} />
       </Route>
 
-      <Route path='/products/:id' element={<Productpage />} />
+      <Route path='/products/:productId' element={<Productpage />} />
 
       {/* ADMIN AUTH */}
       <Route element={<AdminPublicOnly />}>

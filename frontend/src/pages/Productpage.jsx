@@ -1,7 +1,7 @@
+import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react/dist/iconify.js"
 import ImageSlider from "../components/product/ImageSlider"
-import { Link } from "react-router-dom";
-import { useState } from "react";
+import { Link, useParams } from "react-router-dom";
 import offerImg from "../assets/images/offers.png"
 import ProductFeature from "../components/product/product-features/ProductFeature";
 import MainDets from "../components/product/product-dets/MainDets";
@@ -10,281 +10,44 @@ import DeliveryTimeline from "../components/product/product-extra-dets/DeliveryT
 import NoReview from "../components/product/product-review/NoReview";
 import ProductSpecs from "../components/product/product-specs/ProductSpecs";
 import MoreOptions from "../components/product/more-options/MoreOptions";
+import { useDispatch, useSelector } from "react-redux";
+import { getOneProduct } from "../store/features/user/productSlice";
+import Loader from "../utils/loader/Loader";
 
 const Productpage = () => {
     const [selectedSize, setselectedSize] = useState("l");
     const [quantity, setQuantity] = useState(1);
+    const dispatch = useDispatch();
+    const { productId } = useParams();
+    const { product, productLoading, productError } = useSelector(state => state.products);
 
-    const images = [
-        "https://noctowls.com/cdn/shop/files/01_02ea59d5-e679-4400-85f1-89b62b8772ac.png?v=1764082348&width=823",
-        "https://noctowls.com/cdn/shop/files/02.png?v=1764082347&width=823",
-        "https://noctowls.com/cdn/shop/files/03.png?v=1764082348&width=823",
-        "https://noctowls.com/cdn/shop/files/04.png?v=1764082349&width=823",
-        "https://noctowls.com/cdn/shop/files/05.png?v=1764082349&width=823",
-        "https://noctowls.com/cdn/shop/files/06.png?v=1764082348&width=823",
-        "https://noctowls.com/cdn/shop/files/07_1ed4576f-3063-4e2e-9f54-82fe31ad81d7.png?v=1764082348&width=823",
-        "https://noctowls.com/cdn/shop/files/08_48f4b605-c26d-48ec-a55f-3db289702cd7.png?v=1764082347&width=823",
-        "https://noctowls.com/cdn/shop/files/09_78f71ba7-d237-4538-8400-810744715094.png?v=1764082345&width=823",
-        "https://noctowls.com/cdn/shop/files/10_c2ef1635-ac01-4f21-8745-e262e7a6d228.png?v=1764082346&width=823",
-        "https://noctowls.com/cdn/shop/files/11_6d854a91-a125-409b-aee7-6562aef616e4.png?v=1764082345&width=823",
-        "https://noctowls.com/cdn/shop/files/12_fb772405-75c7-4353-8701-a5f785391185.png?v=1764082347&width=823",
-        "https://noctowls.com/cdn/shop/files/13_22ada8d0-273a-499c-aac2-b65bb05f72be.png?v=1764082344&width=823",
-    ];
+    useEffect(() => {
+        dispatch(getOneProduct(productId));
+    }, [dispatch, productId])
 
-    const highlight_images = [
-        "https://noctowls.com/cdn/shop/files/08_48f4b605-c26d-48ec-a55f-3db289702cd7.png?v=1764082347&width=823",
-        "https://noctowls.com/cdn/shop/files/09_78f71ba7-d237-4538-8400-810744715094.png?v=1764082345&width=823",
-        "https://noctowls.com/cdn/shop/files/10_c2ef1635-ac01-4f21-8745-e262e7a6d228.png?v=1764082346&width=823",
-        "https://noctowls.com/cdn/shop/files/11_6d854a91-a125-409b-aee7-6562aef616e4.png?v=1764082345&width=823",
-        "https://noctowls.com/cdn/shop/files/12_fb772405-75c7-4353-8701-a5f785391185.png?v=1764082347&width=823",
-    ]
+    useEffect(() => {
+        if (product?.sizes) {
+            const firstAvailableSize = product.sizes.find(s => s.stock > 0);
+            if (firstAvailableSize) {
+                setselectedSize(firstAvailableSize.value);
+            }
+        }
+    }, [product])
 
-    const products = [
-        {
-            id: 1,
-            name: "chains of desire",
-            sizes: [
-                {
-                    value: "l",
-                    price: "649.00",
-                    originalPrice: "1,199.00"
-                },
-                {
-                    value: "xl",
-                    price: "849.00",
-                    originalPrice: "1,599.00"
-                },
-                {
-                    value: "2xl",
-                    price: "1,049.00",
-                    originalPrice: "1,899.00"
-                },
-            ],
-            reviews: [
-                {
-                    user: {
-                        name: "Test User",
-                        review: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                    },
-                    user: {
-                        name: "Test User 2",
-                        review: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                    },
-                    user: {
-                        name: "Test User 3",
-                        review: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                    },
-                    user: {
-                        name: "Test User 4",
-                        review: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                    },
-                    user: {
-                        name: "Test User 5",
-                        review: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                    },
-                }
-            ],
-            rating: 4.5,
-            images: [
-                "https://noctowls.com/cdn/shop/files/01_02ea59d5-e679-4400-85f1-89b62b8772ac.png?v=1764082348&width=823",
-                "https://noctowls.com/cdn/shop/files/02.png?v=1764082347&width=823",
-                "https://noctowls.com/cdn/shop/files/03.png?v=1764082348&width=823",
-                "https://noctowls.com/cdn/shop/files/04.png?v=1764082349&width=823",
-                "https://noctowls.com/cdn/shop/files/05.png?v=1764082349&width=823",
-                "https://noctowls.com/cdn/shop/files/06.png?v=1764082348&width=823",
-                "https://noctowls.com/cdn/shop/files/07_1ed4576f-3063-4e2e-9f54-82fe31ad81d7.png?v=1764082348&width=823",
-                "https://noctowls.com/cdn/shop/files/08_48f4b605-c26d-48ec-a55f-3db289702cd7.png?v=1764082347&width=823",
-                "https://noctowls.com/cdn/shop/files/09_78f71ba7-d237-4538-8400-810744715094.png?v=1764082345&width=823",
-                "https://noctowls.com/cdn/shop/files/10_c2ef1635-ac01-4f21-8745-e262e7a6d228.png?v=1764082346&width=823",
-                "https://noctowls.com/cdn/shop/files/11_6d854a91-a125-409b-aee7-6562aef616e4.png?v=1764082345&width=823",
-                "https://noctowls.com/cdn/shop/files/12_fb772405-75c7-4353-8701-a5f785391185.png?v=1764082347&width=823",
-                "https://noctowls.com/cdn/shop/files/13_22ada8d0-273a-499c-aac2-b65bb05f72be.png?v=1764082344&width=823",
-            ]
-        },
-        {
-            id: 2,
-            name: "chains of desire",
-            sizes: [
-                {
-                    value: "l",
-                    price: "649.00",
-                    originalPrice: "1,199.00"
-                },
-                {
-                    value: "xl",
-                    price: "849.00",
-                    originalPrice: "1,599.00"
-                },
-                {
-                    value: "2xl",
-                    price: "1,049.00",
-                    originalPrice: "1,899.00"
-                },
-            ],
-            reviews: [
-                {
-                    user: {
-                        name: "Test User",
-                        review: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                    },
-                    user: {
-                        name: "Test User 2",
-                        review: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                    },
-                    user: {
-                        name: "Test User 3",
-                        review: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                    },
-                    user: {
-                        name: "Test User 4",
-                        review: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                    },
-                    user: {
-                        name: "Test User 5",
-                        review: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                    },
-                }
-            ],
-            rating: 4.5,
-            images: [
-                "https://noctowls.com/cdn/shop/files/01_02ea59d5-e679-4400-85f1-89b62b8772ac.png?v=1764082348&width=823",
-                "https://noctowls.com/cdn/shop/files/02.png?v=1764082347&width=823",
-                "https://noctowls.com/cdn/shop/files/03.png?v=1764082348&width=823",
-                "https://noctowls.com/cdn/shop/files/04.png?v=1764082349&width=823",
-                "https://noctowls.com/cdn/shop/files/05.png?v=1764082349&width=823",
-                "https://noctowls.com/cdn/shop/files/06.png?v=1764082348&width=823",
-                "https://noctowls.com/cdn/shop/files/07_1ed4576f-3063-4e2e-9f54-82fe31ad81d7.png?v=1764082348&width=823",
-                "https://noctowls.com/cdn/shop/files/08_48f4b605-c26d-48ec-a55f-3db289702cd7.png?v=1764082347&width=823",
-                "https://noctowls.com/cdn/shop/files/09_78f71ba7-d237-4538-8400-810744715094.png?v=1764082345&width=823",
-                "https://noctowls.com/cdn/shop/files/10_c2ef1635-ac01-4f21-8745-e262e7a6d228.png?v=1764082346&width=823",
-                "https://noctowls.com/cdn/shop/files/11_6d854a91-a125-409b-aee7-6562aef616e4.png?v=1764082345&width=823",
-                "https://noctowls.com/cdn/shop/files/12_fb772405-75c7-4353-8701-a5f785391185.png?v=1764082347&width=823",
-                "https://noctowls.com/cdn/shop/files/13_22ada8d0-273a-499c-aac2-b65bb05f72be.png?v=1764082344&width=823",
-            ]
-        },
-        {
-            id: 3,
-            name: "chains of desire",
-            sizes: [
-                {
-                    value: "l",
-                    price: "649.00",
-                    originalPrice: "1,199.00"
-                },
-                {
-                    value: "xl",
-                    price: "849.00",
-                    originalPrice: "1,599.00"
-                },
-                {
-                    value: "2xl",
-                    price: "1,049.00",
-                    originalPrice: "1,899.00"
-                },
-            ],
-            reviews: [
-                {
-                    user: {
-                        name: "Test User",
-                        review: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                    },
-                    user: {
-                        name: "Test User 2",
-                        review: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                    },
-                    user: {
-                        name: "Test User 3",
-                        review: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                    },
-                    user: {
-                        name: "Test User 4",
-                        review: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                    },
-                    user: {
-                        name: "Test User 5",
-                        review: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                    },
-                }
-            ],
-            rating: 4.5,
-            images: [
-                "https://noctowls.com/cdn/shop/files/01_02ea59d5-e679-4400-85f1-89b62b8772ac.png?v=1764082348&width=823",
-                "https://noctowls.com/cdn/shop/files/02.png?v=1764082347&width=823",
-                "https://noctowls.com/cdn/shop/files/03.png?v=1764082348&width=823",
-                "https://noctowls.com/cdn/shop/files/04.png?v=1764082349&width=823",
-                "https://noctowls.com/cdn/shop/files/05.png?v=1764082349&width=823",
-                "https://noctowls.com/cdn/shop/files/06.png?v=1764082348&width=823",
-                "https://noctowls.com/cdn/shop/files/07_1ed4576f-3063-4e2e-9f54-82fe31ad81d7.png?v=1764082348&width=823",
-                "https://noctowls.com/cdn/shop/files/08_48f4b605-c26d-48ec-a55f-3db289702cd7.png?v=1764082347&width=823",
-                "https://noctowls.com/cdn/shop/files/09_78f71ba7-d237-4538-8400-810744715094.png?v=1764082345&width=823",
-                "https://noctowls.com/cdn/shop/files/10_c2ef1635-ac01-4f21-8745-e262e7a6d228.png?v=1764082346&width=823",
-                "https://noctowls.com/cdn/shop/files/11_6d854a91-a125-409b-aee7-6562aef616e4.png?v=1764082345&width=823",
-                "https://noctowls.com/cdn/shop/files/12_fb772405-75c7-4353-8701-a5f785391185.png?v=1764082347&width=823",
-                "https://noctowls.com/cdn/shop/files/13_22ada8d0-273a-499c-aac2-b65bb05f72be.png?v=1764082344&width=823",
-            ]
-        },
-        {
-            id: 4,
-            name: "chains of desire",
-            sizes: [
-                {
-                    value: "l",
-                    price: "649.00",
-                    originalPrice: "1,199.00"
-                },
-                {
-                    value: "xl",
-                    price: "849.00",
-                    originalPrice: "1,599.00"
-                },
-                {
-                    value: "2xl",
-                    price: "1,049.00",
-                    originalPrice: "1,899.00"
-                },
-            ],
-            reviews: [
-                {
-                    user: {
-                        name: "Test User",
-                        review: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                    },
-                    user: {
-                        name: "Test User 2",
-                        review: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                    },
-                    user: {
-                        name: "Test User 3",
-                        review: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                    },
-                    user: {
-                        name: "Test User 4",
-                        review: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                    },
-                    user: {
-                        name: "Test User 5",
-                        review: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                    },
-                }
-            ],
-            rating: 4.5,
-            images: [
-                "https://noctowls.com/cdn/shop/files/01_02ea59d5-e679-4400-85f1-89b62b8772ac.png?v=1764082348&width=823",
-                "https://noctowls.com/cdn/shop/files/02.png?v=1764082347&width=823",
-                "https://noctowls.com/cdn/shop/files/03.png?v=1764082348&width=823",
-                "https://noctowls.com/cdn/shop/files/04.png?v=1764082349&width=823",
-                "https://noctowls.com/cdn/shop/files/05.png?v=1764082349&width=823",
-                "https://noctowls.com/cdn/shop/files/06.png?v=1764082348&width=823",
-                "https://noctowls.com/cdn/shop/files/07_1ed4576f-3063-4e2e-9f54-82fe31ad81d7.png?v=1764082348&width=823",
-                "https://noctowls.com/cdn/shop/files/08_48f4b605-c26d-48ec-a55f-3db289702cd7.png?v=1764082347&width=823",
-                "https://noctowls.com/cdn/shop/files/09_78f71ba7-d237-4538-8400-810744715094.png?v=1764082345&width=823",
-                "https://noctowls.com/cdn/shop/files/10_c2ef1635-ac01-4f21-8745-e262e7a6d228.png?v=1764082346&width=823",
-                "https://noctowls.com/cdn/shop/files/11_6d854a91-a125-409b-aee7-6562aef616e4.png?v=1764082345&width=823",
-                "https://noctowls.com/cdn/shop/files/12_fb772405-75c7-4353-8701-a5f785391185.png?v=1764082347&width=823",
-                "https://noctowls.com/cdn/shop/files/13_22ada8d0-273a-499c-aac2-b65bb05f72be.png?v=1764082344&width=823",
-            ]
-        },
-    ]
+    if (productLoading) {
+        return <Loader />
+    }
+
+    if (productError || !product) {
+        return (
+            <div className="w-full py-20 flex justify-center items-center">
+                <p className="bg-red-950 border-red-700 border rounded px-5 py-2">Product not found.</p>
+            </div>
+        )
+    }
+
+    const { name, description, category, images, highlightImages, sizes, inStock, salesCount, rating } = product;
+
 
     const handleShare = async () => {
         const url = window.location.href;
@@ -324,7 +87,7 @@ const Productpage = () => {
             </div>
 
             <div className="product-dets-container">
-                <MainDets selectedSize={selectedSize} setselectedSize={setselectedSize} />
+                <MainDets selectedSize={selectedSize} setselectedSize={setselectedSize} dets={{ name, description, category, sizes, reviewCount: rating.count }} />
 
                 <ProductQuantity quantitySetter={quantitySetter} quantity={quantity} />
 
@@ -370,9 +133,9 @@ const Productpage = () => {
                 </div>
                 <div className="product-hightlights-image-container mt-10">
                     {
-                        highlight_images.map(highlight => (
+                        highlightImages.map(highlight => (
                             <div key={`${highlight}-highlight-img-key`} className="highlight-img-container w-full bg-zinc-950 rounded mt-3">
-                                <img className="w-full aspect-auto" src={highlight} alt="" />
+                                <img className="w-full aspect-auto" src={highlight.url} alt="" />
                             </div>
                         ))
                     }
@@ -385,10 +148,10 @@ const Productpage = () => {
                 </div>
             </div>
             <ProductSpecs />
-            <section className="more-options-section py-10 px-3">
+            {/* <section className="more-options-section py-10 px-3">
                 <h2 className="text-xl font-semibold uppercase mb-10">more options to choose</h2>
-                <MoreOptions products={products}/>
-            </section>
+                <MoreOptions products={products} />
+            </section> */}
         </div>
     )
 }

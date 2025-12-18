@@ -5,7 +5,7 @@ import adminAuthReducer from "./features/admin/adminAuthSlice";
 import adminProductsReducer from "./features/admin/adminProductSlice";
 export const store = configureStore({
     reducer : {
-        product: productReducer,
+        products: productReducer,
         auth: authReducer,
         adminAuth: adminAuthReducer,
         adminProducts: adminProductsReducer,

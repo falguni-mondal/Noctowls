@@ -8,9 +8,9 @@ const AdminOnly = () => {
   const location = useLocation();
   const dispatch = useDispatch();
   
-  useEffect(() => {
-    dispatch(checkAdmin());
-  }, [location.pathname])
+  // useEffect(() => {
+  //   dispatch(checkAdmin());
+  // }, [location.pathname])
 
   const { user } = useSelector(state => state.auth);
   const { admin, status } = useSelector(state => state.adminAuth);

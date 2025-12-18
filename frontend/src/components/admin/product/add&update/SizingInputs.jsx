@@ -15,7 +15,7 @@ const SizingInputs = ({ sizes, updateSize, errors }) => {
 
           <ErrorDisplay errors={errors.size[size.value] || []} />
 
-          {/* Original Price & Discount */}
+          {/* Original Price & Discounted Price */}
           <div className="grid grid-cols-2 gap-3 mb-3">
             <div>
               <label className="text-sm">Original Price</label>
@@ -29,18 +29,26 @@ const SizingInputs = ({ sizes, updateSize, errors }) => {
               />
             </div>
 
+            {/* Now taking discounted price instead of discount percentage */}
             <div>
-              <label className="text-sm">Discount %</label>
+              <label className="text-sm">Discounted Price</label>
               <input
                 type="number"
                 onWheel={(e) => e.target.blur()}
                 className="w-full bg-zinc-800 p-2 rounded-[3px] border-0 outline-0 placeholder:text-zinc-400"
                 placeholder='0'
-                value={size.discount || ''}
-                onChange={e => updateSize(size.value, "discount", Number(e.target.value))}
+                value={size.numPrice || ''}
+                onChange={e => updateSize(size.value, "numPrice", Number(e.target.value))}
               />
             </div>
           </div>
+
+          {/* Show calculated discount */}
+          {size.originalPrice > 0 && size.numPrice > 0 && size.numPrice < size.originalPrice && (
+            <div className="mb-3 text-sm text-green-400">
+              Discount: {Math.round(((size.originalPrice - size.numPrice) / size.originalPrice) * 100)}%
+            </div>
+          )}
 
           {/* Stock */}
           <div className="mb-3">

@@ -5,7 +5,7 @@ import cors from "cors";
 import connectToDB from "./database/db.js";
 
 // ROUTES Imports................................
-import productsRouter from "./routes/global/product-routes.js";
+import productsRouter from "./routes/user/product/product-routes.js";
 import authRouter from "./routes/user/auth/auth-routes.js";
 import adminAuthRouter from "./routes/admin/auth/admin-auth-routes.js"
 import adminProductsRouter from "./routes/admin/products/admin-product-routes.js"

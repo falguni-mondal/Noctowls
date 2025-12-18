@@ -54,12 +54,15 @@ const sizeSchema = new mongoose.Schema(
 
     originalPrice: { type: Number, required: true, min: 0 },
     
-    formattedOriginalPrice: String, // ✅ NEW: Formatted original price
+    formattedOriginalPrice: String,
 
+    // Price is now required from frontend
+    numPrice: { type: Number, required: true, min: 0 },
+    
+    price: String, // Formatted price
+
+    // Discount is now calculated, not required from frontend
     discount: { type: Number, default: 0, min: 0, max: 100 },
-
-    numPrice: Number,
-    price: String,
 
     stock: { type: Number, required: true, min: 0, default: 0 },
 
@@ -70,19 +73,27 @@ const sizeSchema = new mongoose.Schema(
   { _id: false }
 );
 
-// ---------- Price Calculation Hook ----------
 sizeSchema.pre("validate", function () {
   if (this.originalPrice !== undefined) {
     // Format original price
     this.formattedOriginalPrice = formatPriceWithCommas(this.originalPrice);
-    
-    // Calculate discounted price
-    if (this.discount !== undefined) {
-      const calculated =
-        this.originalPrice - (this.originalPrice * this.discount) / 100;
-      this.numPrice = Math.round(calculated);
-      this.price = formatPriceWithCommas(this.numPrice);
+  }
+
+  // Calculate discount percentage from originalPrice and numPrice
+  if (this.originalPrice !== undefined && this.numPrice !== undefined) {
+    if (this.numPrice > this.originalPrice) {
+      throw new Error("Discounted price cannot be greater than original price");
     }
+    
+    if (this.numPrice === this.originalPrice) {
+      this.discount = 0;
+    } else {
+      const discountAmount = this.originalPrice - this.numPrice;
+      this.discount = Math.round((discountAmount / this.originalPrice) * 100);
+    }
+
+    // Format the price
+    this.price = formatPriceWithCommas(this.numPrice);
   }
 });
 

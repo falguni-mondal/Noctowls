@@ -21,10 +21,10 @@ import UpdateHighlightImages from '../../../../components/admin/product/add&upda
 import StatusInput from '../../../../components/admin/product/add&update/StatusInput';
 
 // Constants
-import { 
-  SIZE_VALUES_BY_PRODUCT, 
+import {
+  SIZE_VALUES_BY_PRODUCT,
   ALLOWED_IMAGE_TYPES,
-  IMAGE_COUNTS_BY_CATEGORY 
+  IMAGE_COUNTS_BY_CATEGORY
 } from '../../../../constants/adminProductConstants';
 
 const UpdateProduct = () => {
@@ -266,12 +266,18 @@ const UpdateProduct = () => {
       if (size.originalPrice <= 0) {
         sizeErrors.push('Original price must be greater than 0');
       }
-      if (size.discount < 0 || size.discount > 100) {
-        sizeErrors.push('Discount must be between 0 and 100');
+
+      // ✅ UPDATE: Validate numPrice instead of discount
+      if (size.numPrice === undefined || size.numPrice === null || size.numPrice < 0) {
+        sizeErrors.push('Discounted price is required and cannot be negative');
+      } else if (size.numPrice > size.originalPrice) {
+        sizeErrors.push('Discounted price cannot be greater than original price');
       }
+
       if (size.stock < 0) {
         sizeErrors.push('Stock cannot be negative');
       }
+
       if (!size.skuCode || size.skuCode.trim().length === 0) {
         sizeErrors.push('SKU code is required');
       }
@@ -399,6 +405,7 @@ const UpdateProduct = () => {
         setSizes(adminProduct.sizes.map(size => ({
           value: size.value,
           originalPrice: size.originalPrice || 0,
+          numPrice: size.numPrice || 0,
           discount: size.discount || 0,
           stock: size.stock || 0,
           skuCode: size.skuCode || "",
@@ -501,6 +508,7 @@ const UpdateProduct = () => {
         .map(v => ({
           value: v,
           originalPrice: 0,
+          numPrice: 0, // ✅ ADD THIS
           discount: 0,
           stock: 0,
           skuCode: "",

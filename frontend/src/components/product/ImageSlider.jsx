@@ -23,7 +23,7 @@ const ImageSlider = ({ images }) => {
                 {images.map((img, idx) => (
                     <SwiperSlide key={idx}>
                         <img
-                            src={img}
+                            src={img.url}
                             alt="slide"
                             className="w-full object-cover"
                         />
@@ -44,7 +44,7 @@ const ImageSlider = ({ images }) => {
                     {images.map((img, idx) => (
                         <SwiperSlide key={idx}>
                             <img
-                                src={img}
+                                src={img.url}
                                 alt="thumbnail"
                                 className={`w-full h-18 object-cover border 
                 ${idx === activeIndex ? "border-white" : "border-transparent"}
