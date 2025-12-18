@@ -106,7 +106,7 @@ const MainDets = ({selectedSize, setselectedSize, dets}) => {
           }
         </div>
         
-        {/* ✅ Optional: Show out of stock message */}
+        {/* Show out of stock message */}
         {!isSizeInStock(selectedSize) && (
           <p className="text-red-500 text-xs mt-2">Selected size is out of stock</p>
         )}

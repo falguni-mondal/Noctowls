@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Icon } from "@iconify/react/dist/iconify.js"
 import ImageSlider from "../components/product/ImageSlider"
 import { Link, useParams } from "react-router-dom";
@@ -11,7 +11,7 @@ import NoReview from "../components/product/product-review/NoReview";
 import ProductSpecs from "../components/product/product-specs/ProductSpecs";
 import MoreOptions from "../components/product/more-options/MoreOptions";
 import { useDispatch, useSelector } from "react-redux";
-import { getOneProduct } from "../store/features/user/productSlice";
+import { getOneProduct, validateProductStock, clearStockValidation } from "../store/features/user/productSlice";
 import Loader from "../utils/loader/Loader";
 
 const Productpage = () => {
@@ -19,10 +19,18 @@ const Productpage = () => {
     const [quantity, setQuantity] = useState(1);
     const dispatch = useDispatch();
     const { productId } = useParams();
-    const { product, productLoading, productError } = useSelector(state => state.products);
+    const { product, productLoading, productError, stockValidation } = useSelector(state => state.products);
+    
+    // Debounce timer ref
+    const validationTimerRef = useRef(null);
 
     useEffect(() => {
         dispatch(getOneProduct(productId));
+        
+        return () => {
+            // Clear validation on unmount
+            dispatch(clearStockValidation());
+        };
     }, [dispatch, productId])
 
     useEffect(() => {
@@ -33,6 +41,53 @@ const Productpage = () => {
             }
         }
     }, [product])
+
+    // Clear validation when size changes
+    useEffect(() => {
+        dispatch(clearStockValidation());
+        setQuantity(1); // Reset quantity when size changes
+    }, [selectedSize, dispatch]);
+
+    // Debounced stock validation
+    const validateStock = useCallback((newQuantity, size) => {
+        // Clear previous timer
+        if (validationTimerRef.current) {
+            clearTimeout(validationTimerRef.current);
+        }
+
+        // Set new timer
+        validationTimerRef.current = setTimeout(() => {
+            dispatch(validateProductStock({
+                productId,
+                size,
+                requestedQuantity: newQuantity
+            }));
+        }, 500); // 500ms debounce
+    }, [dispatch, productId]);
+
+    const quantitySetter = (action) => {
+        let newQuantity = quantity;
+        let shouldValidate = false;
+
+        if (action === "increment") {
+            newQuantity = quantity + 1;
+            setQuantity(newQuantity);
+            shouldValidate = true;
+        }
+        else if (action === "decrement" && quantity > 1) {
+            newQuantity = quantity - 1;
+            setQuantity(newQuantity);
+            shouldValidate = true;
+        }
+
+        // Only validate if quantity actually changed
+        if (shouldValidate && newQuantity !== quantity) {
+            validateStock(newQuantity, selectedSize);
+        }
+    }
+
+    // Effect to prevent adding to cart/buying if stock is not available
+    const canPurchase = stockValidation?.data?.isAvailable !== false && !stockValidation.loading;
 
     if (productLoading) {
         return <Loader />
@@ -47,7 +102,6 @@ const Productpage = () => {
     }
 
     const { name, description, category, images, highlightImages, sizes, inStock, salesCount, rating } = product;
-
 
     const handleShare = async () => {
         const url = window.location.href;
@@ -68,15 +122,6 @@ const Productpage = () => {
         }
     };
 
-    const quantitySetter = (action) => {
-        if (action === "increment") {
-            setQuantity(prev => prev + 1);
-        }
-        else if (action === "decrement" && quantity > 1) {
-            setQuantity(prev => prev - 1);
-        }
-    }
-
     return (
         <div className="product-page-wrapper pb-10">
             <div className="product-image-slider w-full pt-5 relative">
@@ -87,13 +132,41 @@ const Productpage = () => {
             </div>
 
             <div className="product-dets-container">
-                <MainDets selectedSize={selectedSize} setselectedSize={setselectedSize} dets={{ name, description, category, sizes, reviewCount: rating.count }} />
+                <MainDets 
+                    selectedSize={selectedSize} 
+                    setselectedSize={setselectedSize} 
+                    dets={{ name, description, category, sizes, reviewCount: rating.count }} 
+                />
 
-                <ProductQuantity quantitySetter={quantitySetter} quantity={quantity} />
+                <ProductQuantity 
+                    quantitySetter={quantitySetter} 
+                    quantity={quantity}
+                    stockValidation={stockValidation}
+                    isValidating={stockValidation.loading}
+                />
 
                 <div className="product-page-btns px-3 mt-5">
-                    <div className="product-add-to-cart-btn bg-red-600 text-white py-3 text-center uppercase text-xs font-semibold">Add to cart</div>
-                    <div className="product-buy-btn mt-2 bg-zinc-100 text-black py-3 text-center uppercase text-xs font-semibold">Buy now</div>
+                    <button 
+                        disabled={!canPurchase}
+                        className={`product-add-to-cart-btn w-full py-3 text-center uppercase text-xs font-semibold transition-all ${
+                            canPurchase 
+                                ? 'bg-red-600 text-white hover:bg-red-700' 
+                                : 'bg-red-400 text-zinc-100 cursor-not-allowed'
+                        }`}
+                    >
+                        Add to cart
+                    </button>
+                    
+                    <button 
+                        disabled={!canPurchase}
+                        className={`product-buy-btn w-full mt-2 py-3 text-center uppercase text-xs font-semibold transition-all ${
+                            canPurchase 
+                                ? 'bg-zinc-100 text-black hover:bg-zinc-200' 
+                                : 'bg-gray-500 text-zinc-800 cursor-not-allowed'
+                        }`}
+                    >
+                        Buy now
+                    </button>
                 </div>
 
                 <div className="product-extra-dets">
@@ -148,10 +221,6 @@ const Productpage = () => {
                 </div>
             </div>
             <ProductSpecs />
-            {/* <section className="more-options-section py-10 px-3">
-                <h2 className="text-xl font-semibold uppercase mb-10">more options to choose</h2>
-                <MoreOptions products={products} />
-            </section> */}
         </div>
     )
 }
