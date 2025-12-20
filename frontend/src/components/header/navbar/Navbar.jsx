@@ -24,7 +24,7 @@ const Navbar = ({ setShowNav }) => {
                 </Link>
                 {
                     !admin &&
-                    <Link to="/cart">
+                    <Link to="/bag">
                         <Icon icon="solar:bag-3-outline" />
                     </Link>
                 }

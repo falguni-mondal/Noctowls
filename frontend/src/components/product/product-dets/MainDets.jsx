@@ -97,6 +97,7 @@ const MainDets = ({selectedSize, setselectedSize, dets}) => {
                       ? `cursor-pointer ${isSelected ? "bg-white text-black" : "border-zinc-500 hover:border-zinc-300"}` 
                       : "border-zinc-700 text-zinc-600 cursor-not-allowed opacity-50 line-through"
                     }
+                    ${sizeObj.value === "onesize" && "px-10"}
                   `}
                 >
                   {sizeObj.label || sizeObj.value}

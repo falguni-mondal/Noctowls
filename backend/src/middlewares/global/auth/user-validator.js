@@ -143,9 +143,7 @@ const refreshTokenSetup = async (req, res, next, refreshToken) => {
       },
       refreshSecret,
       {
-        expiresIn: Math.floor(
-          (oldExpiry.getTime() - Date.now()) / 1000
-        ),
+        expiresIn: Math.floor((oldExpiry.getTime() - Date.now()) / 1000),
       }
     );
 
@@ -183,6 +181,34 @@ const isValidUser = async (req, res, next) => {
   const accessToken = req.cookies.accessToken;
   const refreshToken = req.cookies.refreshToken;
 
+  if (!accessToken) {
+    return await refreshTokenSetup(req, res, next, refreshToken);
+  } else {
+    try {
+      const accessTokenData = jwt.verify(accessToken, accessSecret);
+      req.user = accessTokenData.sub;
+      return next();
+    } catch (accessTokenErr) {
+      console.error(
+        "User Validation Error (auth mid): ",
+        accessTokenErr.message
+      );
+      return await refreshTokenSetup(req, res, next, refreshToken);
+    }
+  }
+};
+
+export const optionalAuth = async (req, res, next) => {
+  const accessToken = req.cookies.accessToken;
+  const refreshToken = req.cookies.refreshToken;
+
+  // If no tokens at all, continue as guest
+  if (!accessToken && !refreshToken) {
+    req.user = null;
+    return next();
+  }
+
+  // If access token exists, try to verify it
   if (!accessToken) {
     return await refreshTokenSetup(req, res, next, refreshToken);
   } else {

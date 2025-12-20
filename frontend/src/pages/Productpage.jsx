@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Icon } from "@iconify/react/dist/iconify.js"
 import ImageSlider from "../components/product/ImageSlider"
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import offerImg from "../assets/images/offers.png"
 import ProductFeature from "../components/product/product-features/ProductFeature";
 import MainDets from "../components/product/product-dets/MainDets";
@@ -12,21 +12,30 @@ import ProductSpecs from "../components/product/product-specs/ProductSpecs";
 import MoreOptions from "../components/product/more-options/MoreOptions";
 import { useDispatch, useSelector } from "react-redux";
 import { getOneProduct, validateProductStock, clearStockValidation } from "../store/features/user/productSlice";
+import { addToCart, selectActionLoading } from "../store/features/user/cartSlice";
 import Loader from "../utils/loader/Loader";
+import { toast } from "react-toastify";
+import toastControls from "../utils/global/toastControls";
 
 const Productpage = () => {
     const [selectedSize, setselectedSize] = useState("l");
     const [quantity, setQuantity] = useState(1);
     const dispatch = useDispatch();
+    const navigate = useNavigate();
     const { productId } = useParams();
+
+    // Product state
     const { product, productLoading, productError, stockValidation } = useSelector(state => state.products);
-    
+
+    // Cart state
+    const cartActionLoading = useSelector(selectActionLoading); // ✅ Get cart loading state
+
     // Debounce timer ref
     const validationTimerRef = useRef(null);
 
     useEffect(() => {
         dispatch(getOneProduct(productId));
-        
+
         return () => {
             // Clear validation on unmount
             dispatch(clearStockValidation());
@@ -86,6 +95,45 @@ const Productpage = () => {
         }
     }
 
+    // ADD TO CART HANDLER
+    const addToCartHandler = async () => {
+        if (!canPurchase || cartActionLoading) return;
+
+        try {
+            await dispatch(addToCart({
+                productId,
+                sizeValue: selectedSize,
+                quantity: quantity
+            })).unwrap();
+
+            // Success feedback
+            toast.success("Added to cart!", toastControls);
+
+        } catch (error) {
+            // Error feedback
+            toast.error("Failed to add!", toastControls);
+        }
+    };
+
+    // BUY NOW HANDLER
+    const buyNowHandler = async () => {
+        if (!canPurchase || cartActionLoading) return;
+
+        try {
+            // Add to cart first
+            await dispatch(addToCart({
+                productId: product._id,
+                sizeValue: selectedSize,
+                quantity: quantity
+            })).unwrap();
+
+            // Then navigate to checkout/buy page
+            navigate("/buy", { replace: true });
+        } catch (error) {
+            alert(error || 'Failed to proceed to checkout');
+        }
+    };
+
     // Effect to prevent adding to cart/buying if stock is not available
     const canPurchase = stockValidation?.data?.isAvailable !== false && !stockValidation.loading;
 
@@ -132,40 +180,47 @@ const Productpage = () => {
             </div>
 
             <div className="product-dets-container">
-                <MainDets 
-                    selectedSize={selectedSize} 
-                    setselectedSize={setselectedSize} 
-                    dets={{ name, description, category, sizes, reviewCount: rating.count }} 
+                <MainDets
+                    selectedSize={selectedSize}
+                    setselectedSize={setselectedSize}
+                    dets={{ name, description, category, sizes, reviewCount: rating.count }}
                 />
 
-                <ProductQuantity 
-                    quantitySetter={quantitySetter} 
+                <ProductQuantity
+                    quantitySetter={quantitySetter}
                     quantity={quantity}
                     stockValidation={stockValidation}
                     isValidating={stockValidation.loading}
                 />
 
                 <div className="product-page-btns px-3 mt-5">
-                    <button 
-                        disabled={!canPurchase}
-                        className={`product-add-to-cart-btn w-full py-3 text-center uppercase text-xs font-semibold transition-all ${
-                            canPurchase 
-                                ? 'bg-red-600 text-white hover:bg-red-700' 
+                    <button
+                        onClick={addToCartHandler}
+                        disabled={!canPurchase || cartActionLoading}
+                        className={`product-add-to-cart-btn w-full py-3 text-center rounded-[3px] uppercase text-xs font-semibold transition-all relative ${canPurchase && !cartActionLoading
+                                ? 'bg-red-600 text-white hover:bg-red-700'
                                 : 'bg-red-400 text-zinc-100 cursor-not-allowed'
-                        }`}
+                            }`}
                     >
-                        Add to cart
+                        {cartActionLoading ? (
+                            <span className="flex items-center justify-center gap-2">
+                                <Icon icon="eos-icons:loading" className="text-lg" />
+                                Adding...
+                            </span>
+                        ) : (
+                            'Add to cart'
+                        )}
                     </button>
-                    
-                    <button 
-                        disabled={!canPurchase}
-                        className={`product-buy-btn w-full mt-2 py-3 text-center uppercase text-xs font-semibold transition-all ${
-                            canPurchase 
-                                ? 'bg-zinc-100 text-black hover:bg-zinc-200' 
+
+                    <button
+                        onClick={buyNowHandler}
+                        disabled={!canPurchase || cartActionLoading}
+                        className={`product-buy-btn w-full mt-2 py-3 text-center rounded-[3px] uppercase text-xs font-semibold transition-all ${canPurchase && !cartActionLoading
+                                ? 'bg-zinc-100 text-black hover:bg-zinc-300'
                                 : 'bg-gray-500 text-zinc-800 cursor-not-allowed'
-                        }`}
+                            }`}
                     >
-                        Buy now
+                        {cartActionLoading ? 'Processing...' : 'Buy now'}
                     </button>
                 </div>
 

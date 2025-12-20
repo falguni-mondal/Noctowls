@@ -16,6 +16,8 @@ import AdminCarts from '../pages/admin/panel/AdminCarts';
 import AdminWishlists from '../pages/admin/panel/AdminWishlists';
 import AddProduct from '../pages/admin/services/product/AddProduct';
 import UpdateProduct from '../pages/admin/services/product/UpdateProduct';
+import Bagpage from '../pages/Bagpage';
+import NoAdmin from '../guards/NoAdmin';
 
 
 const PageRouter = () => {
@@ -23,12 +25,15 @@ const PageRouter = () => {
     <Routes>
       <Route path='/' element={<Homepage />} />
       <Route path='/catalog' element={<Catalog />} />
+      <Route path='/products/:productId' element={<Productpage />} />
 
       <Route element={<PublicOnly />}>
         <Route path='/account/*' element={<Account />} />
       </Route>
 
-      <Route path='/products/:productId' element={<Productpage />} />
+      <Route element={<NoAdmin />}>
+        <Route path='/bag' element={<Bagpage />} />
+      </Route>
 
       {/* ADMIN AUTH */}
       <Route element={<AdminPublicOnly />}>
