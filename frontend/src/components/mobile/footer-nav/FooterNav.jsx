@@ -77,6 +77,7 @@ const FooterNav = () => {
 
         if (res?.meta?.requestStatus === "fulfilled") {
             toast.success("Signed Out", toastControls);
+            window.location.reload();
         } else {
             toast.error(res?.payload?.message || "Failed to Sign Out!", toastControls);
         }

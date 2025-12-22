@@ -12,23 +12,26 @@ const Bagpage = () => {
   const cart = useSelector(selectCart);
   const loading = useSelector(selectCartLoading);
   const error = useSelector(selectCartError);
+  const user = useSelector(state => state.auth.user);
+  const admin = useSelector(state => state.adminAuth.admin);
 
   useEffect(() => {
     dispatch(getCart());
-  }, [dispatch]);
+  }, [dispatch, user, admin]);
 
   // Filter purchased items
   const purchasedItems = cart?.items?.filter(item => !item.isFreeGift) || [];
-  
+
   // Convert freeGifts.gifts array to items format
   const freeGiftItems = cart?.freeGifts?.eligible && cart?.freeGifts?.gifts?.length > 0
     ? cart.freeGifts.gifts.map((gift, index) => ({
-        _id: `gift-${gift.name}-${index}`,
-        name: gift.name,
-        image: gift.image,
-        category: gift.category || "gift",
-        quantity: gift.quantity,
-      }))
+      _id: `gift-${gift.category}-${index}`,
+      name: gift.name,
+      image: gift.image,
+      category: gift.category || "gift",
+      quantity: gift.quantity,
+      originalPrice: (gift.originalPrice * gift.quantity) || 0,
+    }))
     : [];
 
   if (loading) {
@@ -107,7 +110,7 @@ const Bagpage = () => {
                   )}
                 </h2>
               </div>
-              
+
               <ul className="bag-items-collection space-y-5">
                 {freeGiftItems.map((gift) => (
                   <BagGiftItem key={gift._id} gift={gift} />

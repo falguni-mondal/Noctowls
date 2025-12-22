@@ -7,11 +7,23 @@ import { randomUUID } from "crypto";
 // Helper to get cart identifier
 const getCartIdentifier = (req, res) => {
   const userId = req.user || null;
-  const deviceId = req.cookies?.device_id || randomUUID();
-  res.cookie("device_id", deviceId, {
-    ...cookieOptions,
-    maxAge: 365 * 24 * 60 * 60 * 1000,
-  });
+  let deviceId = null;
+
+  // ONLY use deviceId if user is NOT logged in
+  if (!userId) {
+    const reqDeviceId = req.cookies.device_id;
+    deviceId = reqDeviceId || randomUUID();
+
+    // Set cookie only for guest users
+    if (!reqDeviceId) {
+      res.cookie("device_id", deviceId, {
+        ...cookieOptions,
+        maxAge: 365 * 24 * 60 * 60 * 1000,
+      });
+    }
+  }
+  // If userId exists, deviceId remains null
+
   return { userId, deviceId };
 };
 
@@ -28,7 +40,7 @@ export const getCart = async (req, res) => {
     }
 
     const cart = await Cart.getOrCreateCart({ userId, deviceId });
-    
+
     return res.status(200).json({
       success: true,
       cart,

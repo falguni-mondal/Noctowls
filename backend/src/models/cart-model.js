@@ -5,8 +5,13 @@ const freeGiftSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     quantity: { type: Number, required: true, min: 1 },
-    image: { type: String, default: "https://ik.imagekit.io/noctowls/Gifts/gift.png?updatedAt=1766128110166" },
+    image: {
+      type: String,
+      default:
+        "https://ik.imagekit.io/noctowls/Gifts/gift.png?updatedAt=1766128110166",
+    },
     category: { type: String, default: "" },
+    originalPrice: { type: Number, default: 0 },
   },
   { _id: false }
 );
@@ -160,21 +165,69 @@ function calculateFreeGifts(totalQuantity) {
   let highestTier = 0;
   let totalTiers = 0;
 
+  // Gift prices mapping
+  const giftPrices = {
+    "Anime Keychain": 150,
+    "Anime Figure": 300,
+    "Anime Katana": 600,
+    Stickers: 0,
+  };
+
   // Base tiers definition
   const tierGifts = {
     1: [
-      { name: "Anime Keychain", quantity: 1, category: "anime-keychain" },
-      { name: "Stickers", quantity: 5, category: "sticker" },
+      {
+        name: "Anime Keychain",
+        quantity: 1,
+        category: "anime-keychain",
+        originalPrice: giftPrices["Anime Keychain"],
+      },
+      {
+        name: "Stickers",
+        quantity: 5,
+        category: "sticker",
+        originalPrice: giftPrices["Stickers"],
+      },
     ],
     2: [
-      { name: "Anime Figure", quantity: 1, category: "anime-figure" },
-      { name: "Anime Keychain", quantity: 2, category: "anime-keychain" },
-      { name: "Stickers", quantity: 10, category: "sticker" },
+      {
+        name: "Anime Figure",
+        quantity: 1,
+        category: "anime-figure",
+        originalPrice: giftPrices["Anime Figure"],
+      },
+      {
+        name: "Anime Keychain",
+        quantity: 2,
+        category: "anime-keychain",
+        originalPrice: giftPrices["Anime Keychain"],
+      },
+      {
+        name: "Stickers",
+        quantity: 10,
+        category: "sticker",
+        originalPrice: giftPrices["Stickers"],
+      },
     ],
     3: [
-      { name: "Anime Katana", quantity: 1, category: "anime-katana" },
-      { name: "Anime Keychain", quantity: 3, category: "anime-keychain" },
-      { name: "Stickers", quantity: 15, category: "sticker" },
+      {
+        name: "Anime Katana",
+        quantity: 1,
+        category: "anime-katana",
+        originalPrice: giftPrices["Anime Katana"],
+      },
+      {
+        name: "Anime Keychain",
+        quantity: 3,
+        category: "anime-keychain",
+        originalPrice: giftPrices["Anime Keychain"],
+      },
+      {
+        name: "Stickers",
+        quantity: 15,
+        category: "sticker",
+        originalPrice: giftPrices["Stickers"],
+      },
     ],
   };
 
@@ -494,7 +547,9 @@ cartSchema.methods.getNextTierInfo = function () {
   // Calculate the difference in gifts
   const additionalGifts = [];
   nextGifts.gifts.forEach((nextGift) => {
-    const currentGift = currentGifts.gifts.find((g) => g.name === nextGift.name);
+    const currentGift = currentGifts.gifts.find(
+      (g) => g.name === nextGift.name
+    );
     const currentQuantity = currentGift ? currentGift.quantity : 0;
     const additionalQuantity = nextGift.quantity - currentQuantity;
 
@@ -507,7 +562,8 @@ cartSchema.methods.getNextTierInfo = function () {
     return {
       itemsNeeded: 0,
       nextTier: nextGifts.highestTier,
-      message: "You're getting amazing free gifts! Keep adding more to get even more! 🎉",
+      message:
+        "You're getting amazing free gifts! Keep adding more to get even more! 🎉",
     };
   }
 
@@ -610,25 +666,44 @@ cartSchema.statics.getOrCreateCart = async function (identifier) {
   const { userId, deviceId } = identifier;
 
   let query = {};
+  let cart;
 
   if (userId) {
-    // Logged-in user
+    // Logged-in user - ONLY use userId, deviceId must be null
     query.user = userId;
+    query.deviceId = null; // Explicitly ensure no deviceId
+
+    cart = await this.findOne(query).populate("items.product");
+
+    if (!cart) {
+      // Create new user cart
+      cart = await this.create({
+        user: userId,
+        deviceId: null,
+      });
+    } else {
+      // Safety check: if cart somehow has deviceId, clear it
+      if (cart.deviceId !== null) {
+        cart.deviceId = null;
+        await cart.save();
+      }
+    }
   } else if (deviceId) {
-    // Guest user
+    // Guest user - ONLY use deviceId, user must be null
     query.deviceId = deviceId;
     query.user = null;
+
+    cart = await this.findOne(query).populate("items.product");
+
+    if (!cart) {
+      // Create new guest cart
+      cart = await this.create({
+        user: null,
+        deviceId: deviceId,
+      });
+    }
   } else {
     throw new Error("Either userId or deviceId must be provided");
-  }
-
-  let cart = await this.findOne(query).populate("items.product");
-
-  if (!cart) {
-    cart = await this.create({
-      user: userId || null,
-      deviceId: deviceId || null,
-    });
   }
 
   return cart;
@@ -641,32 +716,35 @@ cartSchema.statics.getFreeGiftsTiers = function () {
       tier: 1,
       itemsRequired: 1,
       gifts: [
-        { name: "Anime Keychain", quantity: 1 },
-        { name: "Stickers", quantity: 5 },
+        { name: "Anime Keychain", quantity: 1, originalPrice: 150 },
+        { name: "Stickers", quantity: 5, originalPrice: 0 },
       ],
-      description: "Buy 1 item, get 1 Anime Keychain + 5 Stickers FREE!",
+      description: "Buy 1 item, get 1 Anime Keychain (₹150) + 5 Stickers FREE!",
+      totalValue: 150,
     },
     {
       tier: 2,
       itemsRequired: 2,
       gifts: [
-        { name: "Anime Figure", quantity: 1 },
-        { name: "Anime Keychain", quantity: 2 },
-        { name: "Stickers", quantity: 10 },
+        { name: "Anime Figure", quantity: 1, originalPrice: 300 },
+        { name: "Anime Keychain", quantity: 2, originalPrice: 150 },
+        { name: "Stickers", quantity: 10, originalPrice: 0 },
       ],
       description:
-        "Buy 2 items, get 1 Anime Figure + 2 Anime Keychains + 10 Stickers FREE!",
+        "Buy 2 items, get 1 Anime Figure (₹300) + 2 Anime Keychains (₹300) + 10 Stickers FREE!",
+      totalValue: 600,
     },
     {
       tier: 3,
       itemsRequired: 3,
       gifts: [
-        { name: "Anime Katana", quantity: 1 },
-        { name: "Anime Keychain", quantity: 3 },
-        { name: "Stickers", quantity: 15 },
+        { name: "Anime Katana", quantity: 1, originalPrice: 600 },
+        { name: "Anime Keychain", quantity: 3, originalPrice: 150 },
+        { name: "Stickers", quantity: 15, originalPrice: 0 },
       ],
       description:
-        "Buy 3+ items, get 1 Anime Katana + 3 Anime Keychains + 15 Stickers FREE!",
+        "Buy 3+ items, get 1 Anime Katana (₹600) + 3 Anime Keychains (₹450) + 15 Stickers FREE!",
+      totalValue: 1050,
     },
   ];
 };
