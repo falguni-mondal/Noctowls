@@ -16,8 +16,11 @@ import AdminCarts from '../pages/admin/panel/AdminCarts';
 import AdminWishlists from '../pages/admin/panel/AdminWishlists';
 import AddProduct from '../pages/admin/services/product/AddProduct';
 import UpdateProduct from '../pages/admin/services/product/UpdateProduct';
+import AdminCoupons from '../pages/admin/services/product/coupon/AdminCoupons';
+import AddCoupon from '../pages/admin/services/product/coupon/AddCoupon';
 import Bagpage from '../pages/Bagpage';
 import NoAdmin from '../guards/NoAdmin';
+import UpdateCoupon from '../pages/admin/services/product/coupon/UpdateCoupon';
 
 
 const PageRouter = () => {
@@ -48,12 +51,16 @@ const PageRouter = () => {
         <Route path='/admin/users' element={<AdminUsers />} />
         <Route path='/admin/orders' element={<AdminOrders />} />
         <Route path='/admin/products' element={<AdminProducts />} />
+        <Route path='/admin/coupons' element={<AdminCoupons />} />
         <Route path='/admin/carts' element={<AdminCarts />} />
         <Route path='/admin/wishlists' element={<AdminWishlists />} />
 
         {/* PRODUCT SERVICES */}
         <Route path='/admin/products/add' element={<AddProduct />} />
         <Route path='/admin/products/update/:productId' element={<UpdateProduct />} />
+
+        <Route path='/admin/coupons/add' element={<AddCoupon />} />
+        <Route path='/admin/coupons/update/:id' element={<UpdateCoupon />} />
       </Route>
     </Routes>
   )

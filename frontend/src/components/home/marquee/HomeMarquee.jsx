@@ -4,8 +4,8 @@ const HomeMarquee = () => {
     const titles = [
         "🔥live now",
         "✨*first 150 orders get a keychain*",
-        "🎊*buy 2 and get a free anime figure (worth ₹299)*",
-        "🎉*buy 3 and get a free anime-style katana (worth ₹500)*",
+        "🎊*buy 2 and get a free anime figure (worth ₹300)*",
+        "🎉*buy 3 and get a free anime-style katana (worth ₹600)*",
     ]
     return (
         <div className='w-full overflow-x-hidden uppercase font-semibold text-[0.9rem] lg:text-[1.4rem] bg-red-600 text-zinc-100 relative' id='home-marquee'>

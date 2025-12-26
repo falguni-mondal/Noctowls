@@ -10,6 +10,7 @@ import cartRouter from "./routes/user/cart/cart-routes.js";
 import authRouter from "./routes/user/auth/auth-routes.js";
 import adminAuthRouter from "./routes/admin/auth/admin-auth-routes.js"
 import adminProductsRouter from "./routes/admin/products/admin-product-routes.js"
+import adminCouponRouter from "./routes/admin/products/admin-coupon-routes.js"
 
 
 const app = express();
@@ -35,6 +36,7 @@ app.use("/api/cart", cartRouter)
 app.use("/api/auth", authRouter);
 app.use("/api/admin/auth", adminAuthRouter);
 app.use("/api/admin/products", adminProductsRouter);
+app.use("/api/admin/coupons", adminCouponRouter);
 
 
 export default app;

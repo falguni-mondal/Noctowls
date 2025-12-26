@@ -49,9 +49,9 @@ const cartItemSchema = new mongoose.Schema(
     price: { type: Number, required: true, min: 0 }, // After product discount
     discount: { type: Number, default: 0, min: 0, max: 100 },
 
-    // Coupon discount (₹50 per quantity if coupon applied)
-    couponDiscountPerItem: { type: Number, default: 0, min: 0 }, // ₹50 per item
-    totalCouponDiscount: { type: Number, default: 0, min: 0 }, // ₹50 × quantity
+    // Coupon discount (calculated based on coupon type)
+    couponDiscountPerItem: { type: Number, default: 0, min: 0 },
+    totalCouponDiscount: { type: Number, default: 0, min: 0 },
 
     // Final item total
     itemTotal: { type: Number, required: true, min: 0 },
@@ -86,12 +86,22 @@ const cartSchema = new mongoose.Schema(
       default: [],
     },
 
-    // Applied coupon
+    // Applied coupon - NEW STRUCTURE
     coupon: {
       code: { type: String, default: null },
       isApplied: { type: Boolean, default: false },
-      discountPerItem: { type: Number, default: 50 }, // ₹50 per item
-      totalDiscount: { type: Number, default: 0 }, // ₹50 × total quantity (excluding gifts)
+      discountType: { 
+        type: String, 
+        enum: ['fixed', 'percentage'], 
+        default: 'fixed' 
+      },
+      discountValue: { type: Number, default: 0 },
+      applyType: { 
+        type: String, 
+        enum: ['each-product', 'each-order'], 
+        default: 'each-product' 
+      },
+      totalDiscount: { type: Number, default: 0 },
     },
 
     // Free gifts based on total quantity (excluding gifts themselves)
@@ -294,6 +304,58 @@ function calculateFreeGifts(totalQuantity) {
   };
 }
 
+// ---------- Helper Function: Calculate Coupon Discount ----------
+function calculateCouponDiscount(cart) {
+  if (!cart.coupon.isApplied) {
+    return 0;
+  }
+
+  const nonGiftItems = cart.items.filter((item) => !item.isFreeGift);
+  let totalDiscount = 0;
+
+  if (cart.coupon.applyType === "each-product") {
+    // Apply discount to each product
+    if (cart.coupon.discountType === "fixed") {
+      // Fixed amount per item (e.g., ₹50 per item)
+      const totalQuantity = nonGiftItems.reduce(
+        (sum, item) => sum + item.quantity,
+        0
+      );
+      totalDiscount = cart.coupon.discountValue * totalQuantity;
+    } else {
+      // Percentage discount on each item
+      nonGiftItems.forEach((item) => {
+        const itemTotal = item.price * item.quantity;
+        const itemDiscount = (itemTotal * cart.coupon.discountValue) / 100;
+        totalDiscount += itemDiscount;
+      });
+    }
+  } else {
+    // Apply discount to entire order once
+    const subtotal = nonGiftItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+
+    if (cart.coupon.discountType === "fixed") {
+      // Fixed amount for entire order (e.g., ₹100 off)
+      totalDiscount = cart.coupon.discountValue;
+    } else {
+      // Percentage discount on entire order
+      totalDiscount = (subtotal * cart.coupon.discountValue) / 100;
+    }
+  }
+
+  // Don't let discount exceed subtotal
+  const subtotal = nonGiftItems.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
+  totalDiscount = Math.min(totalDiscount, subtotal);
+
+  return Math.round(totalDiscount * 100) / 100; // Round to 2 decimal places
+}
+
 // ---------- Pre-save: Calculate Totals and Free Gifts ----------
 cartSchema.pre("save", function () {
   this.lastActivity = new Date();
@@ -308,7 +370,6 @@ cartSchema.pre("save", function () {
   let totalQuantity = 0;
   let itemsCount = 0;
   let subtotal = 0;
-  let totalCouponDiscount = 0;
 
   // Calculate item totals (ONLY for non-gift items)
   this.items.forEach((item) => {
@@ -323,31 +384,69 @@ cartSchema.pre("save", function () {
     // Base item total (price × quantity)
     let itemSubtotal = item.price * item.quantity;
 
-    // Apply coupon discount if coupon is applied
-    if (this.coupon.isApplied) {
-      item.couponDiscountPerItem = this.coupon.discountPerItem; // ₹50 per item
-      item.totalCouponDiscount = this.coupon.discountPerItem * item.quantity; // ₹50 × quantity
-      totalCouponDiscount += item.totalCouponDiscount;
-    } else {
-      item.couponDiscountPerItem = 0;
-      item.totalCouponDiscount = 0;
-    }
-
-    // Calculate final item total (subtract coupon discount)
-    item.itemTotal = Math.max(0, itemSubtotal - item.totalCouponDiscount);
-
     // Count only non-gift items
     totalQuantity += item.quantity;
     itemsCount += 1;
     subtotal += itemSubtotal;
   });
 
-  // Update coupon total discount
-  if (this.coupon.isApplied) {
-    this.coupon.totalDiscount = totalCouponDiscount;
+  // Calculate coupon discount using new flexible system
+  const totalCouponDiscount = calculateCouponDiscount(this);
+
+  // Distribute coupon discount to items (for display purposes)
+  if (this.coupon.isApplied && totalCouponDiscount > 0) {
+    const nonGiftItems = this.items.filter((item) => !item.isFreeGift);
+
+    if (this.coupon.applyType === "each-product") {
+      if (this.coupon.discountType === "fixed") {
+        // Fixed per item
+        nonGiftItems.forEach((item) => {
+          item.couponDiscountPerItem = this.coupon.discountValue;
+          item.totalCouponDiscount = this.coupon.discountValue * item.quantity;
+          item.itemTotal = Math.max(
+            0,
+            item.price * item.quantity - item.totalCouponDiscount
+          );
+        });
+      } else {
+        // Percentage per item
+        nonGiftItems.forEach((item) => {
+          const itemTotal = item.price * item.quantity;
+          const itemDiscount = (itemTotal * this.coupon.discountValue) / 100;
+          item.couponDiscountPerItem = itemDiscount / item.quantity;
+          item.totalCouponDiscount = itemDiscount;
+          item.itemTotal = Math.max(0, itemTotal - itemDiscount);
+        });
+      }
+    } else {
+      // For 'each-order', distribute discount proportionally
+      const totalItemsValue = nonGiftItems.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
+
+      nonGiftItems.forEach((item) => {
+        const itemTotal = item.price * item.quantity;
+        const itemProportion = itemTotal / totalItemsValue;
+        const itemDiscount = totalCouponDiscount * itemProportion;
+        item.couponDiscountPerItem = itemDiscount / item.quantity;
+        item.totalCouponDiscount = itemDiscount;
+        item.itemTotal = Math.max(0, itemTotal - itemDiscount);
+      });
+    }
   } else {
-    this.coupon.totalDiscount = 0;
+    // No coupon applied
+    this.items.forEach((item) => {
+      if (!item.isFreeGift) {
+        item.couponDiscountPerItem = 0;
+        item.totalCouponDiscount = 0;
+        item.itemTotal = item.price * item.quantity;
+      }
+    });
   }
+
+  // Update coupon total discount
+  this.coupon.totalDiscount = totalCouponDiscount;
 
   // Calculate free gifts based on total quantity (excluding gifts)
   const freeGiftsData = calculateFreeGifts(totalQuantity);
@@ -402,16 +501,9 @@ cartSchema.methods.addItem = async function (itemData) {
       price,
       discount,
       isFreeGift,
-      couponDiscountPerItem:
-        this.coupon.isApplied && !isFreeGift ? this.coupon.discountPerItem : 0,
-      totalCouponDiscount:
-        this.coupon.isApplied && !isFreeGift
-          ? this.coupon.discountPerItem * quantity
-          : 0,
-      itemTotal: isFreeGift
-        ? 0
-        : price * quantity -
-          (this.coupon.isApplied ? this.coupon.discountPerItem * quantity : 0),
+      couponDiscountPerItem: 0,
+      totalCouponDiscount: 0,
+      itemTotal: isFreeGift ? 0 : price * quantity,
     });
   }
 
@@ -457,7 +549,9 @@ cartSchema.methods.clearCart = async function () {
   this.coupon = {
     code: null,
     isApplied: false,
-    discountPerItem: 50,
+    discountType: 'fixed',
+    discountValue: 0,
+    applyType: 'each-product',
     totalDiscount: 0,
   };
   this.freeGifts = {
@@ -469,46 +563,50 @@ cartSchema.methods.clearCart = async function () {
   return this.save();
 };
 
-// Apply coupon
-cartSchema.methods.applyCoupon = async function (couponCode) {
+// Apply coupon - pass userId or deviceId
+cartSchema.methods.applyCoupon = async function (couponCode, userId = null, deviceId = null) {
   const Coupon = mongoose.model("coupon");
 
-  // Validate coupon
-  const coupon = await Coupon.findOne({ code: couponCode.toUpperCase() });
+  // Validate that we have exactly one identifier
+  if (!userId && !deviceId) {
+    throw new Error("User authentication or device identification required");
+  }
+
+  if (userId && deviceId) {
+    throw new Error("Cannot use both userId and deviceId");
+  }
+
+  // Find and validate coupon
+  const coupon = await Coupon.findValidCoupon(couponCode);
 
   if (!coupon) {
-    throw new Error("Invalid coupon code");
+    throw new Error("Invalid or expired coupon code");
   }
 
-  if (!coupon.isActive) {
-    throw new Error("This coupon is no longer active");
-  }
+  // Validate coupon for this cart and identifier
+  coupon.validateForCart(this, userId, deviceId);
 
-  if (coupon.expiresAt && new Date() > coupon.expiresAt) {
-    throw new Error("This coupon has expired");
-  }
-
-  if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
-    throw new Error("This coupon has reached its usage limit");
-  }
-
-  // Apply coupon
+  // Apply coupon details to cart
   this.coupon = {
     code: coupon.code,
     isApplied: true,
-    discountPerItem: coupon.discountPerItem,
+    discountType: coupon.discountType,
+    discountValue: coupon.discountValue,
+    applyType: coupon.applyType,
     totalDiscount: 0, // Will be calculated in pre-save
   };
 
   return this.save();
 };
 
-// Remove coupon
+// Remove coupon - UPDATED
 cartSchema.methods.removeCoupon = async function () {
   this.coupon = {
     code: null,
     isApplied: false,
-    discountPerItem: 50,
+    discountType: 'fixed',
+    discountValue: 0,
+    applyType: 'each-product',
     totalDiscount: 0,
   };
   return this.save();
@@ -587,6 +685,7 @@ cartSchema.methods.convertToUserCart = async function (userId) {
   return this.save();
 };
 
+// Validate cart
 cartSchema.methods.validateCart = async function () {
   const Product = mongoose.model("product");
   const validationResults = [];

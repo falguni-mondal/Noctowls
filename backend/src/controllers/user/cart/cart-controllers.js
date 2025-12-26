@@ -353,7 +353,7 @@ export const removeCartItem = async (req, res) => {
   }
 };
 
-// ==================== APPLY COUPON ====================
+// ==================== APPLY COUPON - ✅ UPDATED ====================
 export const applyCoupon = async (req, res) => {
   try {
     const { userId, deviceId } = getCartIdentifier(req, res);
@@ -403,8 +403,8 @@ export const applyCoupon = async (req, res) => {
     }
 
     try {
-      // Validate coupon for this cart
-      coupon.validateForCart(cart);
+      // ✅ UPDATED: Validate coupon with userId OR deviceId (not both)
+      coupon.validateForCart(cart, userId, deviceId);
     } catch (validationError) {
       return res.status(400).json({
         success: false,
@@ -412,8 +412,8 @@ export const applyCoupon = async (req, res) => {
       });
     }
 
-    // Apply coupon to cart
-    await cart.applyCoupon(code);
+    // UPDATED: Apply coupon with userId OR deviceId
+    await cart.applyCoupon(code, userId, deviceId);
 
     return res.status(200).json({
       success: true,
@@ -475,7 +475,7 @@ export const removeCoupon = async (req, res) => {
   }
 };
 
-// ==================== VALIDATE COUPON (Before Applying) ====================
+// ==================== VALIDATE COUPON - UPDATED ====================
 export const validateCoupon = async (req, res) => {
   try {
     const { userId, deviceId } = getCartIdentifier(req, res);
@@ -517,16 +517,66 @@ export const validateCoupon = async (req, res) => {
     }
 
     try {
-      // Validate coupon
-      coupon.validateForCart(cart);
+      // UPDATED: Validate with userId OR deviceId
+      coupon.validateForCart(cart, userId, deviceId);
 
       // Calculate potential discount
-      const nonGiftItems = cart.items.filter((item) => !item.isFreeGift);
-      const totalQuantity = nonGiftItems.reduce(
-        (sum, item) => sum + item.quantity,
-        0
-      );
-      const potentialDiscount = coupon.discountPerItem * totalQuantity;
+      const tempCart = { ...cart.toObject() };
+      tempCart.coupon = {
+        code: coupon.code,
+        isApplied: true,
+        discountType: coupon.discountType,
+        discountValue: coupon.discountValue,
+        applyType: coupon.applyType,
+      };
+
+      // Helper to calculate discount
+      const calculateCouponDiscount = (cart) => {
+        if (!cart.coupon.isApplied) return 0;
+
+        const nonGiftItems = cart.items.filter((item) => !item.isFreeGift);
+        let totalDiscount = 0;
+
+        if (cart.coupon.applyType === "each-product") {
+          if (cart.coupon.discountType === "fixed") {
+            const totalQuantity = nonGiftItems.reduce(
+              (sum, item) => sum + item.quantity,
+              0
+            );
+            totalDiscount = cart.coupon.discountValue * totalQuantity;
+          } else {
+            nonGiftItems.forEach((item) => {
+              const itemTotal = item.price * item.quantity;
+              const itemDiscount = (itemTotal * cart.coupon.discountValue) / 100;
+              totalDiscount += itemDiscount;
+            });
+          }
+        } else {
+          const subtotal = nonGiftItems.reduce(
+            (sum, item) => sum + item.price * item.quantity,
+            0
+          );
+
+          if (cart.coupon.discountType === "fixed") {
+            totalDiscount = cart.coupon.discountValue;
+          } else {
+            totalDiscount = (subtotal * cart.coupon.discountValue) / 100;
+          }
+        }
+
+        const subtotal = nonGiftItems.reduce(
+          (sum, item) => sum + item.price * item.quantity,
+          0
+        );
+        totalDiscount = Math.min(totalDiscount, subtotal);
+
+        return Math.round(totalDiscount * 100) / 100;
+      };
+
+      const potentialDiscount = calculateCouponDiscount(tempCart);
+
+      // UPDATED: Get remaining uses with userId OR deviceId
+      const remainingUses = coupon.getUserRemainingUses(userId, deviceId);
 
       return res.status(200).json({
         success: true,
@@ -534,11 +584,18 @@ export const validateCoupon = async (req, res) => {
         coupon: {
           code: coupon.code,
           description: coupon.description,
-          discountPerItem: coupon.discountPerItem,
-          potentialDiscount,
+          discountType: coupon.discountType,
+          discountValue: coupon.discountValue,
+          applyType: coupon.applyType,
+          usageLimitType: coupon.usageLimitType,
+          remainingUses,
+          minPurchaseAmount: coupon.minPurchaseAmount,
+          minItemsRequired: coupon.minItemsRequired,
           expiresAt: coupon.expiresAt,
-          remainingUses: coupon.remainingUses,
         },
+        potentialDiscount,
+        currentTotal: cart.summary.subtotal,
+        newTotal: cart.summary.subtotal - potentialDiscount,
       });
     } catch (validationError) {
       return res.status(400).json({
