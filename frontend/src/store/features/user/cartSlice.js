@@ -257,6 +257,12 @@ const cartSlice = createSlice({
       state.error = null;
       state.successMessage = null;
     },
+
+    // Set Cart Data
+    setCart: (state, action) => {
+      state.cart = action.payload;
+      state.isGuest = action.payload?.isGuest || false;
+    },
   },
   extraReducers: (builder) => {
     // ===== GET CART =====
@@ -475,6 +481,7 @@ export const {
   clearCouponValidation,
   clearCartValidation,
   resetCart,
+  setCart,
 } = cartSlice.actions;
 
 // Selectors (optional but recommended)

@@ -89,7 +89,7 @@ const Bagpage = () => {
           {/* Purchased Items */}
           <section className='px-3' id="bag-items-collection-container">
             <h2 className="text-lg font-medium mb-4">Your Items</h2>
-            <ul className="bag-items-collection space-y-5">
+            <ul className="bag-items-collection space-y-8">
               {purchasedItems.map((item) => (
                 <BagItem key={item._id} item={item} />
               ))}

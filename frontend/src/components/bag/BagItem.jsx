@@ -112,7 +112,7 @@ const BagItem = ({ item }) => {
                 </Link>
             </div>
 
-            <div className="cart-product-actions w-full flex items-center gap-5 mt-3">
+            <div className="cart-product-actions w-full flex items-center gap-5 mt-1">
                 <div className="cart-product-quantity w-[33%] rounded-full flex items-center justify-between border border-zinc-800">
                     <button 
                         onClick={() => handleQuantityChange('decrement')}

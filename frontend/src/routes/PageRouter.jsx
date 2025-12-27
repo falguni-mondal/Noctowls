@@ -21,6 +21,7 @@ import AddCoupon from '../pages/admin/services/product/coupon/AddCoupon';
 import Bagpage from '../pages/Bagpage';
 import NoAdmin from '../guards/NoAdmin';
 import UpdateCoupon from '../pages/admin/services/product/coupon/UpdateCoupon';
+import Wishlistpage from '../pages/Wishlistpage';
 
 
 const PageRouter = () => {
@@ -36,6 +37,7 @@ const PageRouter = () => {
 
       <Route element={<NoAdmin />}>
         <Route path='/bag' element={<Bagpage />} />
+        <Route path='/wishlist' element={<Wishlistpage />} />
       </Route>
 
       {/* ADMIN AUTH */}

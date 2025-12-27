@@ -5,9 +5,10 @@ import cors from "cors";
 import connectToDB from "./database/db.js";
 
 // ROUTES Imports................................
+import authRouter from "./routes/user/auth/auth-routes.js";
 import productsRouter from "./routes/user/product/product-routes.js";
 import cartRouter from "./routes/user/cart/cart-routes.js";
-import authRouter from "./routes/user/auth/auth-routes.js";
+import wishlistRouter from "./routes/user/wishlist/wishlist-routes.js";
 import adminAuthRouter from "./routes/admin/auth/admin-auth-routes.js"
 import adminProductsRouter from "./routes/admin/products/admin-product-routes.js"
 import adminCouponRouter from "./routes/admin/products/admin-coupon-routes.js"
@@ -31,9 +32,10 @@ app.use(cors({
 
 
 // ROUTE INITIALIZATIONS.............................................
+app.use("/api/auth", authRouter);
 app.use("/api/products", productsRouter)
 app.use("/api/cart", cartRouter)
-app.use("/api/auth", authRouter);
+app.use("/api/wishlist", wishlistRouter)
 app.use("/api/admin/auth", adminAuthRouter);
 app.use("/api/admin/products", adminProductsRouter);
 app.use("/api/admin/coupons", adminCouponRouter);
