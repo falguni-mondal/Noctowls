@@ -171,12 +171,12 @@ const Productpage = () => {
         }
     };
 
-    // ✅ ADD TO WISHLIST HANDLER
+    // ADD TO WISHLIST HANDLER
     const handleWishlistToggle = async () => {
         // Only allow logged-in users (not guests, not admins)
         if (!isLoggedInUser) {
-            toast.info("Please login to add items to your wishlist", toastControls);
-            navigate('/login', { state: { from: `/products/${productId}` } });
+            toast.info(`${isAdmin ? "Please logout from admin account!" : "Please login to add items to your wishlist!"}`, toastControls);
+            navigate('/account/signin', { state: { from: `/products/${productId}` } });
             return;
         }
 
@@ -191,7 +191,7 @@ const Productpage = () => {
     };
 
     // Effect to prevent adding to cart/buying if stock is not available
-    const canPurchase = stockValidation?.data?.isAvailable !== false && !stockValidation.loading;
+    const canPurchase = stockValidation?.data?.isAvailable !== false && !stockValidation.loading && !isAdmin;
 
     if (productLoading) {
         return <Loader />
@@ -239,7 +239,7 @@ const Productpage = () => {
                     <Icon icon="ic:baseline-share" />
                 </div>
 
-                {/* ✅ Wishlist Button - Top Left */}
+                {/* Wishlist Button - Top Left */}
                 <div
                     onClick={handleWishlistToggle}
                     className={`product-wishlist-btn absolute top-7 left-3 z-99 w-10 aspect-square rounded-full flex justify-center items-center text-[1.5rem] cursor-pointer transition ${
@@ -344,7 +344,7 @@ const Productpage = () => {
                     {/* Login Prompt for Guests/Admins */}
                     {!isLoggedInUser && (
                         <p className="text-xs text-center text-zinc-500">
-                            <Link to="/login" className="text-indigo-400 hover:text-indigo-300 underline">
+                            <Link to="/account/signin" className="text-indigo-400 hover:text-indigo-300 underline">
                                 Login
                             </Link> to save items to your wishlist
                         </p>

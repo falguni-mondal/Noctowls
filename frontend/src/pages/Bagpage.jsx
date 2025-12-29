@@ -195,7 +195,7 @@ const Bagpage = () => {
               )}
             </div>
 
-            <button className="w-full bg-red-600 text-white py-4 rounded font-semibold mt-5 hover:bg-red-700 transition-all">
+            <button className="w-full bg-red-600 text-white py-3 rounded-[3px] font-semibold mt-5 hover:bg-red-700 transition-all">
               Proceed to Checkout
             </button>
           </section>

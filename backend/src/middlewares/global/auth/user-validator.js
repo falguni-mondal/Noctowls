@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import tokenizer from "../../../utils/tokenizer.js";
 import sessionModel from "../../../models/session-model.js";
 import cookieOptions from "../../../utils/cookie-options.js";
+import { randomUUID } from "crypto";
 
 const accessSecret = process.env.ACCESS_TOKEN_SECRET;
 const refreshSecret = process.env.REFRESH_TOKEN_SECRET;
@@ -201,10 +202,18 @@ const isValidUser = async (req, res, next) => {
 export const optionalAuth = async (req, res, next) => {
   const accessToken = req.cookies.accessToken;
   const refreshToken = req.cookies.refreshToken;
+  const reqDeviceId = req.cookies.device_id;
+  const deviceId = randomUUID();
 
   // If no tokens at all, continue as guest
   if (!accessToken && !refreshToken) {
     req.user = null;
+    if(!reqDeviceId){
+      res.cookie("device_id", deviceId, {
+        ...cookieOptions,
+        maxAge: 365 * 24 * 60 * 60 * 1000,
+      });
+    }
     return next();
   }
 
