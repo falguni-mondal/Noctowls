@@ -21,7 +21,7 @@ export const createOrder = async (req, res) => {
     // Get user ID or device ID
     const userId = req.user;
     const deviceId = req.cookies.device_id;
-
+ 
     const { shippingAddress, paymentMethod, couponCode, guestInfo } = req.body;
 
     // Validate identifier
@@ -898,9 +898,7 @@ export const getOrderSummary = async (req, res) => {
     }
 
     // Get cart
-    const cart = await Cart.getOrCreateCart({ userId, deviceId }).populate(
-      "items.product"
-    );
+    const cart = await Cart.getOrCreateCart({ userId, deviceId });
 
     if (!cart || cart.items.length === 0) {
       return res.status(400).json({
@@ -909,7 +907,7 @@ export const getOrderSummary = async (req, res) => {
       });
     }
 
-    // Validate cart
+    // Validate cart (this will populate if needed internally)
     const validation = await cart.validateCart();
 
     return res.status(200).json({

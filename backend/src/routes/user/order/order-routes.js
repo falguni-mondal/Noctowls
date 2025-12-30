@@ -20,7 +20,7 @@ import {
   validateGetOrders,
   validateGuestOrderTracking,
   validateGuestOrderCancellation,
-} from "../../../middleware/orderValidation.js";
+} from "../../../middlewares/user/order/order-validator.js";
 
 import { optionalAuth } from "../../../middlewares/global/auth/user-validator.js";
 

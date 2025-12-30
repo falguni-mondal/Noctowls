@@ -4,14 +4,18 @@ import "dotenv/config";
 import cors from "cors";
 import connectToDB from "./database/db.js";
 
+import noCache from "./middlewares/global/no-cache.js";
+
 // ROUTES Imports................................
 import authRouter from "./routes/user/auth/auth-routes.js";
 import productsRouter from "./routes/user/product/product-routes.js";
 import cartRouter from "./routes/user/cart/cart-routes.js";
 import wishlistRouter from "./routes/user/wishlist/wishlist-routes.js";
-import adminAuthRouter from "./routes/admin/auth/admin-auth-routes.js"
-import adminProductsRouter from "./routes/admin/products/admin-product-routes.js"
-import adminCouponRouter from "./routes/admin/products/admin-coupon-routes.js"
+import addressRouter from "./routes/user/order/address-routes.js";
+import orderRouter from "./routes/user/order/order-routes.js";
+import adminAuthRouter from "./routes/admin/auth/admin-auth-routes.js";
+import adminProductsRouter from "./routes/admin/products/admin-product-routes.js";
+import adminCouponRouter from "./routes/admin/products/admin-coupon-routes.js";
 
 
 const app = express();
@@ -31,11 +35,16 @@ app.use(cors({
 }))
 
 
+app.use(noCache);
+
+
 // ROUTE INITIALIZATIONS.............................................
 app.use("/api/auth", authRouter);
 app.use("/api/products", productsRouter)
 app.use("/api/cart", cartRouter)
 app.use("/api/wishlist", wishlistRouter)
+app.use("/api/address", addressRouter)
+app.use("/api/order", orderRouter)
 app.use("/api/admin/auth", adminAuthRouter);
 app.use("/api/admin/products", adminProductsRouter);
 app.use("/api/admin/coupons", adminCouponRouter);

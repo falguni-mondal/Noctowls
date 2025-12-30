@@ -4,11 +4,12 @@ import { getCart, selectCart, selectCartLoading, selectCartError } from '../stor
 import BagItem from '../components/bag/BagItem';
 import BagGiftItem from '../components/bag/BagGiftItem';
 import Loader from '../utils/loader/Loader';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react/dist/iconify.js';
 
 const Bagpage = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const cart = useSelector(selectCart);
   const loading = useSelector(selectCartLoading);
   const error = useSelector(selectCartError);
@@ -195,7 +196,7 @@ const Bagpage = () => {
               )}
             </div>
 
-            <button className="w-full bg-red-600 text-white py-3 rounded-[3px] font-semibold mt-5 hover:bg-red-700 transition-all">
+            <button onClick={() => navigate("/checkout")} className="w-full bg-red-600 text-white py-3 rounded-[3px] font-semibold mt-5 hover:bg-red-700 transition-all">
               Proceed to Checkout
             </button>
           </section>
