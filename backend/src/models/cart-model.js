@@ -24,39 +24,26 @@ const cartItemSchema = new mongoose.Schema(
       ref: "product",
       required: true,
     },
-
-    // Product snapshot for consistency
     name: { type: String, required: true },
     image: { type: String, required: true },
     category: { type: String, required: true },
-
-    // Size details
     size: {
       value: { type: String, required: true },
       label: { type: String, default: "" },
       skuCode: { type: String, required: true },
     },
-
     quantity: {
       type: Number,
       required: true,
       min: 1,
       default: 1,
     },
-
-    // Price at time of adding to cart
     originalPrice: { type: Number, required: true, min: 0 },
-    price: { type: Number, required: true, min: 0 }, // After product discount
+    price: { type: Number, required: true, min: 0 },
     discount: { type: Number, default: 0, min: 0, max: 100 },
-
-    // Coupon discount (calculated based on coupon type)
     couponDiscountPerItem: { type: Number, default: 0, min: 0 },
     totalCouponDiscount: { type: Number, default: 0, min: 0 },
-
-    // Final item total
     itemTotal: { type: Number, required: true, min: 0 },
-
-    // Mark if this is a free gift (won't be counted for conditions)
     isFreeGift: { type: Boolean, default: false },
   },
   {
@@ -68,68 +55,55 @@ const cartItemSchema = new mongoose.Schema(
 // ---------- Main Cart Schema ----------
 const cartSchema = new mongoose.Schema(
   {
-    // Either user OR device_id must be present
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
       default: null,
     },
-
-    // For guest users (from cookie)
     deviceId: {
       type: String,
       default: null,
     },
-
     items: {
       type: [cartItemSchema],
       default: [],
     },
-
-    // Applied coupon - NEW STRUCTURE
     coupon: {
       code: { type: String, default: null },
       isApplied: { type: Boolean, default: false },
-      discountType: { 
-        type: String, 
-        enum: ['fixed', 'percentage'], 
-        default: 'fixed' 
+      discountType: {
+        type: String,
+        enum: ["fixed", "percentage"],
+        default: "fixed",
       },
       discountValue: { type: Number, default: 0 },
-      applyType: { 
-        type: String, 
-        enum: ['each-product', 'each-order'], 
-        default: 'each-product' 
+      applyType: {
+        type: String,
+        enum: ["each-product", "each-order"],
+        default: "each-product",
       },
       totalDiscount: { type: Number, default: 0 },
     },
-
-    // Free gifts based on total quantity (excluding gifts themselves)
     freeGifts: {
       eligible: { type: Boolean, default: false },
-      highestTier: { type: Number, default: 0 }, // Highest tier achieved (1, 2, or 3)
-      totalTiers: { type: Number, default: 0 }, // How many complete tier sets
+      highestTier: { type: Number, default: 0 },
+      totalTiers: { type: Number, default: 0 },
       gifts: {
         type: [freeGiftSchema],
         default: [],
       },
     },
-
-    // Cart summary
     summary: {
-      totalQuantity: { type: Number, default: 0 }, // Sum of all quantities (excluding gifts)
-      itemsCount: { type: Number, default: 0 }, // Number of unique items (excluding gifts)
+      totalQuantity: { type: Number, default: 0 },
+      itemsCount: { type: Number, default: 0 },
       subtotal: { type: Number, default: 0 },
       couponDiscount: { type: Number, default: 0 },
       total: { type: Number, default: 0 },
     },
-
     lastActivity: {
       type: Date,
       default: Date.now,
     },
-
-    // For guest carts - expire after 7 days of inactivity
     expiresAt: {
       type: Date,
       default: null,
@@ -146,20 +120,17 @@ const cartSchema = new mongoose.Schema(
 cartSchema.index({ user: 1 }, { sparse: true });
 cartSchema.index({ deviceId: 1 }, { sparse: true });
 cartSchema.index({ lastActivity: -1 });
-cartSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // Auto-delete expired carts
-
-// Compound index to ensure either user or deviceId exists
+cartSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 cartSchema.index({ user: 1, deviceId: 1 });
 
 // ---------- Validation ----------
 cartSchema.pre("validate", function () {
-  // Either user or deviceId must be present
   if (!this.user && !this.deviceId) {
     throw new Error("Either user or deviceId must be provided");
   }
 });
 
-// ---------- Helper Function: Calculate Free Gifts Based on Total Quantity ----------
+// ---------- Helper Function: Calculate Free Gifts ----------
 function calculateFreeGifts(totalQuantity) {
   if (totalQuantity === 0) {
     return {
@@ -175,7 +146,6 @@ function calculateFreeGifts(totalQuantity) {
   let highestTier = 0;
   let totalTiers = 0;
 
-  // Gift prices mapping
   const giftPrices = {
     "Anime Keychain": 150,
     "Anime Figure": 300,
@@ -183,7 +153,6 @@ function calculateFreeGifts(totalQuantity) {
     Stickers: 0,
   };
 
-  // Base tiers definition
   const tierGifts = {
     1: [
       {
@@ -241,7 +210,6 @@ function calculateFreeGifts(totalQuantity) {
     ],
   };
 
-  // Determine highest tier
   if (totalQuantity >= 3) {
     highestTier = 3;
   } else if (totalQuantity === 2) {
@@ -250,15 +218,12 @@ function calculateFreeGifts(totalQuantity) {
     highestTier = 1;
   }
 
-  // Calculate how many complete tier 3 sets
   const tier3Sets = Math.floor(totalQuantity / 3);
   const remainder = totalQuantity % 3;
 
-  // Add tier 3 gifts for each complete set
   if (tier3Sets > 0) {
     const aggregatedGifts = {};
 
-    // Add all tier 3 sets
     for (let i = 0; i < tier3Sets; i++) {
       tierGifts[3].forEach((gift) => {
         const key = gift.name;
@@ -270,7 +235,6 @@ function calculateFreeGifts(totalQuantity) {
       });
     }
 
-    // Add remainder tier gifts
     if (remainder > 0 && tierGifts[remainder]) {
       tierGifts[remainder].forEach((gift) => {
         const key = gift.name;
@@ -282,14 +246,12 @@ function calculateFreeGifts(totalQuantity) {
       });
     }
 
-    // Convert aggregated gifts object to array
     Object.values(aggregatedGifts).forEach((gift) => {
       gifts.push(gift);
     });
 
     totalTiers = tier3Sets + (remainder > 0 ? 1 : 0);
   } else {
-    // Less than 3 items, just add the appropriate tier
     if (tierGifts[totalQuantity]) {
       gifts.push(...tierGifts[totalQuantity]);
       totalTiers = 1;
@@ -314,16 +276,13 @@ function calculateCouponDiscount(cart) {
   let totalDiscount = 0;
 
   if (cart.coupon.applyType === "each-product") {
-    // Apply discount to each product
     if (cart.coupon.discountType === "fixed") {
-      // Fixed amount per item (e.g., ₹50 per item)
       const totalQuantity = nonGiftItems.reduce(
         (sum, item) => sum + item.quantity,
         0
       );
       totalDiscount = cart.coupon.discountValue * totalQuantity;
     } else {
-      // Percentage discount on each item
       nonGiftItems.forEach((item) => {
         const itemTotal = item.price * item.quantity;
         const itemDiscount = (itemTotal * cart.coupon.discountValue) / 100;
@@ -331,40 +290,35 @@ function calculateCouponDiscount(cart) {
       });
     }
   } else {
-    // Apply discount to entire order once
     const subtotal = nonGiftItems.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
     );
 
     if (cart.coupon.discountType === "fixed") {
-      // Fixed amount for entire order (e.g., ₹100 off)
       totalDiscount = cart.coupon.discountValue;
     } else {
-      // Percentage discount on entire order
       totalDiscount = (subtotal * cart.coupon.discountValue) / 100;
     }
   }
 
-  // Don't let discount exceed subtotal
   const subtotal = nonGiftItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
   );
   totalDiscount = Math.min(totalDiscount, subtotal);
 
-  return Math.round(totalDiscount * 100) / 100; // Round to 2 decimal places
+  return Math.round(totalDiscount * 100) / 100;
 }
 
 // ---------- Pre-save: Calculate Totals and Free Gifts ----------
 cartSchema.pre("save", function () {
   this.lastActivity = new Date();
 
-  // Set expiry for guest carts (7 days from last activity)
   if (this.deviceId && !this.user) {
     this.expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   } else {
-    this.expiresAt = null; // User carts don't expire
+    this.expiresAt = null;
   }
 
   let totalQuantity = 0;
@@ -373,7 +327,6 @@ cartSchema.pre("save", function () {
 
   // Calculate item totals (ONLY for non-gift items)
   this.items.forEach((item) => {
-    // Skip free gifts in calculations
     if (item.isFreeGift) {
       item.itemTotal = 0;
       item.couponDiscountPerItem = 0;
@@ -381,25 +334,62 @@ cartSchema.pre("save", function () {
       return;
     }
 
-    // Base item total (price × quantity)
     let itemSubtotal = item.price * item.quantity;
-
-    // Count only non-gift items
     totalQuantity += item.quantity;
     itemsCount += 1;
     subtotal += itemSubtotal;
   });
 
-  // Calculate coupon discount using new flexible system
+  // ✅ FIX: Auto-remove coupon if cart no longer qualifies
+  if (this.coupon.isApplied) {
+    const Coupon = mongoose.model("coupon");
+
+    // Check minimum purchase amount
+    if (
+      this.coupon.minPurchaseAmount &&
+      subtotal < this.coupon.minPurchaseAmount
+    ) {
+      console.log(
+        `Auto-removing coupon: subtotal ${subtotal} < min ${this.coupon.minPurchaseAmount}`
+      );
+      this.coupon = {
+        code: null,
+        isApplied: false,
+        discountType: "fixed",
+        discountValue: 0,
+        applyType: "each-product",
+        totalDiscount: 0,
+      };
+    }
+
+    // Check minimum items required
+    if (
+      this.coupon.minItemsRequired &&
+      totalQuantity < this.coupon.minItemsRequired
+    ) {
+      console.log(
+        `Auto-removing coupon: quantity ${totalQuantity} < min ${this.coupon.minItemsRequired}`
+      );
+      this.coupon = {
+        code: null,
+        isApplied: false,
+        discountType: "fixed",
+        discountValue: 0,
+        applyType: "each-product",
+        totalDiscount: 0,
+      };
+    }
+  }
+
+  // Calculate coupon discount
   const totalCouponDiscount = calculateCouponDiscount(this);
 
-  // Distribute coupon discount to items (for display purposes)
+  // Distribute coupon discount to items
   if (this.coupon.isApplied && totalCouponDiscount > 0) {
     const nonGiftItems = this.items.filter((item) => !item.isFreeGift);
 
     if (this.coupon.applyType === "each-product") {
       if (this.coupon.discountType === "fixed") {
-        // Fixed per item
         nonGiftItems.forEach((item) => {
           item.couponDiscountPerItem = this.coupon.discountValue;
           item.totalCouponDiscount = this.coupon.discountValue * item.quantity;
@@ -409,7 +399,6 @@ cartSchema.pre("save", function () {
           );
         });
       } else {
-        // Percentage per item
         nonGiftItems.forEach((item) => {
           const itemTotal = item.price * item.quantity;
           const itemDiscount = (itemTotal * this.coupon.discountValue) / 100;
@@ -419,7 +408,6 @@ cartSchema.pre("save", function () {
         });
       }
     } else {
-      // For 'each-order', distribute discount proportionally
       const totalItemsValue = nonGiftItems.reduce(
         (sum, item) => sum + item.price * item.quantity,
         0
@@ -435,7 +423,6 @@ cartSchema.pre("save", function () {
       });
     }
   } else {
-    // No coupon applied
     this.items.forEach((item) => {
       if (!item.isFreeGift) {
         item.couponDiscountPerItem = 0;
@@ -445,12 +432,41 @@ cartSchema.pre("save", function () {
     });
   }
 
-  // Update coupon total discount
   this.coupon.totalDiscount = totalCouponDiscount;
 
-  // Calculate free gifts based on total quantity (excluding gifts)
+  // Calculate free gifts
   const freeGiftsData = calculateFreeGifts(totalQuantity);
   this.freeGifts = freeGiftsData;
+
+  // ✅ FIX: Auto-update free gift items in cart
+  // Remove all old free gift items
+  this.items = this.items.filter((item) => !item.isFreeGift);
+
+  // Add new free gift items
+  if (freeGiftsData.eligible && freeGiftsData.gifts.length > 0) {
+    freeGiftsData.gifts.forEach((gift) => {
+      this.items.push({
+        product: new mongoose.Types.ObjectId(), // Dummy ID for free gifts
+        name: gift.name,
+        image:
+          "https://ik.imagekit.io/noctowls/Gifts/gift.png?updatedAt=1766128110166",
+        category: gift.category,
+        size: {
+          value: "free",
+          label: "FREE GIFT",
+          skuCode: `GIFT-${gift.name.replace(/\s+/g, "-").toUpperCase()}`,
+        },
+        quantity: gift.quantity,
+        originalPrice: gift.originalPrice,
+        price: 0,
+        discount: 100,
+        isFreeGift: true,
+        couponDiscountPerItem: 0,
+        totalCouponDiscount: 0,
+        itemTotal: 0,
+      });
+    });
+  }
 
   // Update summary
   this.summary.totalQuantity = totalQuantity;
@@ -477,9 +493,10 @@ cartSchema.methods.addItem = async function (itemData) {
     isFreeGift = false,
   } = itemData;
 
-  // Check if item already exists (same product + size)
+  // ✅ FIX: Safe comparison with null checks
   const existingItemIndex = this.items.findIndex(
     (item) =>
+      item.product != null && // ← Add null check
       item.product.toString() === product.toString() &&
       item.size.value === size.value &&
       item.isFreeGift === isFreeGift
@@ -510,6 +527,42 @@ cartSchema.methods.addItem = async function (itemData) {
   return this.save();
 };
 
+// ✅ NEW: Clean invalid items from cart
+cartSchema.methods.cleanInvalidItems = async function () {
+  const initialLength = this.items.length;
+
+  // Remove items with null/undefined products or missing required fields
+  this.items = this.items.filter((item) => {
+    if (item.isFreeGift) return true; // Keep free gifts (they have dummy product IDs)
+
+    const isValid =
+      item.product != null &&
+      item.name &&
+      item.size?.value &&
+      item.price != null &&
+      item.quantity > 0;
+
+    if (!isValid) {
+      console.log("🗑️ Removing invalid cart item:", {
+        name: item.name || "Unknown",
+        product: item.product,
+        hasProduct: item.product != null,
+      });
+    }
+
+    return isValid;
+  });
+
+  const removedCount = initialLength - this.items.length;
+
+  if (removedCount > 0) {
+    console.log(`✅ Cleaned ${removedCount} invalid items from cart`);
+    await this.save();
+  }
+
+  return this;
+};
+
 // Update item quantity
 cartSchema.methods.updateItemQuantity = async function (itemId, newQuantity) {
   if (newQuantity <= 0) {
@@ -521,7 +574,6 @@ cartSchema.methods.updateItemQuantity = async function (itemId, newQuantity) {
     throw new Error("Item not found in cart");
   }
 
-  // Don't allow updating free gift quantities
   if (item.isFreeGift) {
     throw new Error("Cannot modify free gift quantities");
   }
@@ -534,7 +586,6 @@ cartSchema.methods.updateItemQuantity = async function (itemId, newQuantity) {
 cartSchema.methods.removeItem = async function (itemId) {
   const item = this.items.id(itemId);
 
-  // Don't allow removing free gifts directly
   if (item && item.isFreeGift) {
     throw new Error("Cannot remove free gifts");
   }
@@ -549,9 +600,9 @@ cartSchema.methods.clearCart = async function () {
   this.coupon = {
     code: null,
     isApplied: false,
-    discountType: 'fixed',
+    discountType: "fixed",
     discountValue: 0,
-    applyType: 'each-product',
+    applyType: "each-product",
     totalDiscount: 0,
   };
   this.freeGifts = {
@@ -563,11 +614,14 @@ cartSchema.methods.clearCart = async function () {
   return this.save();
 };
 
-// Apply coupon - pass userId or deviceId
-cartSchema.methods.applyCoupon = async function (couponCode, userId = null, deviceId = null) {
+// Apply coupon
+cartSchema.methods.applyCoupon = async function (
+  couponCode,
+  userId = null,
+  deviceId = null
+) {
   const Coupon = mongoose.model("coupon");
 
-  // Validate that we have exactly one identifier
   if (!userId && !deviceId) {
     throw new Error("User authentication or device identification required");
   }
@@ -576,17 +630,14 @@ cartSchema.methods.applyCoupon = async function (couponCode, userId = null, devi
     throw new Error("Cannot use both userId and deviceId");
   }
 
-  // Find and validate coupon
   const coupon = await Coupon.findValidCoupon(couponCode);
 
   if (!coupon) {
     throw new Error("Invalid or expired coupon code");
   }
 
-  // Validate coupon for this cart and identifier
   coupon.validateForCart(this, userId, deviceId);
 
-  // Apply coupon details to cart
   this.coupon = {
     code: coupon.code,
     isApplied: true,
@@ -594,19 +645,21 @@ cartSchema.methods.applyCoupon = async function (couponCode, userId = null, devi
     discountValue: coupon.discountValue,
     applyType: coupon.applyType,
     totalDiscount: 0, // Will be calculated in pre-save
+    minPurchaseAmount: coupon.minPurchaseAmount || 0,
+    minItemsRequired: coupon.minItemsRequired || 0,
   };
 
   return this.save();
 };
 
-// Remove coupon - UPDATED
+// Remove coupon
 cartSchema.methods.removeCoupon = async function () {
   this.coupon = {
     code: null,
     isApplied: false,
-    discountType: 'fixed',
+    discountType: "fixed",
     discountValue: 0,
-    applyType: 'each-product',
+    applyType: "each-product",
     totalDiscount: 0,
   };
   return this.save();
@@ -614,7 +667,7 @@ cartSchema.methods.removeCoupon = async function () {
 
 // Get free gifts description
 cartSchema.methods.getFreeGiftsDescription = function () {
-  if (!this.freeGifts.eligible) {
+  if (!this.freeGifts.eligible || this.freeGifts.gifts.length === 0) {
     return "Add more items to unlock free gifts!";
   }
 
@@ -637,12 +690,10 @@ cartSchema.methods.getNextTierInfo = function () {
     };
   }
 
-  // Calculate what they'll get on next item
   const nextQty = currentQty + 1;
   const nextGifts = calculateFreeGifts(nextQty);
   const currentGifts = calculateFreeGifts(currentQty);
 
-  // Calculate the difference in gifts
   const additionalGifts = [];
   nextGifts.gifts.forEach((nextGift) => {
     const currentGift = currentGifts.gifts.find(
@@ -680,23 +731,26 @@ cartSchema.methods.convertToUserCart = async function (userId) {
 
   this.user = userId;
   this.deviceId = null;
-  this.expiresAt = null; // User carts don't expire
+  this.expiresAt = null;
 
   return this.save();
 };
 
-// Validate cart
+// ✅ FIXED: Validate cart with proper population
 cartSchema.methods.validateCart = async function () {
   const Product = mongoose.model("product");
   const validationResults = [];
 
   for (const item of this.items) {
-    // Skip free gifts
     if (item.isFreeGift) {
       continue;
     }
 
-    const product = await Product.findById(item.product);
+    // ✅ FIX: Populate product if not already populated
+    let product = item.product;
+    if (!product.name) {
+      product = await Product.findById(item.product);
+    }
 
     if (!product) {
       validationResults.push({
@@ -760,7 +814,7 @@ cartSchema.methods.validateCart = async function () {
 
 // ---------- Static Methods ----------
 
-// Get or create cart (for both guest and logged-in users)
+// ✅ FIXED: Better cart retrieval
 cartSchema.statics.getOrCreateCart = async function (identifier) {
   const { userId, deviceId } = identifier;
 
@@ -768,34 +822,29 @@ cartSchema.statics.getOrCreateCart = async function (identifier) {
   let cart;
 
   if (userId) {
-    // Logged-in user - ONLY use userId, deviceId must be null
     query.user = userId;
-    query.deviceId = null; // Explicitly ensure no deviceId
+    query.deviceId = null;
 
     cart = await this.findOne(query).populate("items.product");
 
     if (!cart) {
-      // Create new user cart
       cart = await this.create({
         user: userId,
         deviceId: null,
       });
     } else {
-      // Safety check: if cart somehow has deviceId, clear it
       if (cart.deviceId !== null) {
         cart.deviceId = null;
         await cart.save();
       }
     }
   } else if (deviceId) {
-    // Guest user - ONLY use deviceId, user must be null
     query.deviceId = deviceId;
     query.user = null;
 
     cart = await this.findOne(query).populate("items.product");
 
     if (!cart) {
-      // Create new guest cart
       cart = await this.create({
         user: null,
         deviceId: deviceId,
@@ -808,7 +857,7 @@ cartSchema.statics.getOrCreateCart = async function (identifier) {
   return cart;
 };
 
-// Get free gifts tiers info (for displaying on frontend)
+// Get free gifts tiers info
 cartSchema.statics.getFreeGiftsTiers = function () {
   return [
     {

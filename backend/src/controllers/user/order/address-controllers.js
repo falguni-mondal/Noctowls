@@ -4,27 +4,43 @@ import Address from "../../../models/address-model.js";
 export const getAddresses = async (req, res) => {
   try {
     const userId = req.user;
-    const { type, search } = req.query;
+    const { type, search, page = 1, limit = 20 } = req.query;
 
     let addresses;
+    let total = 0;
 
     // Search addresses
     if (search) {
       addresses = await Address.searchAddresses(userId, search);
+      total = addresses.length;
     }
     // Filter by type
     else if (type) {
       addresses = await Address.getAddressesByType(userId, type);
+      total = addresses.length;
     }
-    // Get all addresses
+    // Get all addresses with pagination
     else {
-      addresses = await Address.getUserAddresses(userId);
+      const skip = (parseInt(page) - 1) * parseInt(limit);
+      
+      addresses = await Address.getUserAddresses(userId, {
+        limit: parseInt(limit),
+        skip: skip,
+      });
+      
+      total = await Address.countUserAddresses(userId);
     }
 
     return res.status(200).json({
       success: true,
       addresses,
       count: addresses.length,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit)),
+        totalAddresses: total,
+        limit: parseInt(limit),
+      },
     });
   } catch (error) {
     console.error("Error fetching addresses:", error);
@@ -113,10 +129,39 @@ export const addAddress = async (req, res) => {
       isDefault,
     } = req.body;
 
-    // Check if user has any addresses
+    // ✅ NEW: Check for duplicate address
+    const duplicate = await Address.findDuplicate(userId, {
+      address,
+      city,
+      state,
+      pincode,
+    });
+
+    if (duplicate) {
+      return res.status(400).json({
+        success: false,
+        message: "This address already exists in your saved addresses",
+        existingAddress: {
+          _id: duplicate._id,
+          label: duplicate.label,
+          isDefault: duplicate.isDefault,
+        },
+      });
+    }
+
+    // Check current address count
     const existingAddressCount = await Address.countUserAddresses(userId);
 
-    // If this is the first address, make it default
+    // ✅ FIXED: Limit check
+    const MAX_ADDRESSES = 10;
+    if (existingAddressCount >= MAX_ADDRESSES) {
+      return res.status(400).json({
+        success: false,
+        message: `You can only save up to ${MAX_ADDRESSES} addresses. Please delete an unused address first.`,
+      });
+    }
+
+    // If this is the first address OR explicitly marked as default, make it default
     const shouldBeDefault = existingAddressCount === 0 || isDefault;
 
     const newAddress = await Address.create({
@@ -177,6 +222,37 @@ export const updateAddress = async (req, res) => {
         success: false,
         message: "Address not found",
       });
+    }
+
+    // ✅ NEW: If core address fields are being updated, check for duplicates
+    if (
+      updateData.address || 
+      updateData.city || 
+      updateData.state || 
+      updateData.pincode
+    ) {
+      const checkData = {
+        address: updateData.address || address.address,
+        city: updateData.city || address.city,
+        state: updateData.state || address.state,
+        pincode: updateData.pincode || address.pincode,
+      };
+
+      const duplicate = await Address.findOne({
+        user: userId,
+        _id: { $ne: addressId },
+        address: { $regex: new RegExp(`^${checkData.address.trim()}$`, 'i') },
+        city: { $regex: new RegExp(`^${checkData.city.trim()}$`, 'i') },
+        state: { $regex: new RegExp(`^${checkData.state.trim()}$`, 'i') },
+        pincode: checkData.pincode.trim(),
+      });
+
+      if (duplicate) {
+        return res.status(400).json({
+          success: false,
+          message: "This address already exists in your saved addresses",
+        });
+      }
     }
 
     // Update allowed fields
@@ -289,24 +365,11 @@ export const getAddressStatistics = async (req, res) => {
   try {
     const userId = req.user;
 
-    const totalAddresses = await Address.countUserAddresses(userId);
-    const defaultAddress = await Address.getDefaultAddress(userId);
-
-    const addressesByType = await Address.aggregate([
-      { $match: { user: userId } },
-      { $group: { _id: "$addressType", count: { $sum: 1 } } },
-    ]);
+    const stats = await Address.getAddressStats(userId);
 
     return res.status(200).json({
       success: true,
-      statistics: {
-        totalAddresses,
-        hasDefaultAddress: !!defaultAddress,
-        byType: addressesByType.reduce((acc, item) => {
-          acc[item._id] = item.count;
-          return acc;
-        }, {}),
-      },
+      statistics: stats,
     });
   } catch (error) {
     console.error("Error fetching address statistics:", error);

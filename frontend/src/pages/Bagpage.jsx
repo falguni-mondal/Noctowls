@@ -47,7 +47,7 @@ const Bagpage = () => {
   const isCartEmpty = !cart || purchasedItems.length === 0;
 
   return (
-    <div className='py-10 min-h-screen' id='bag-page'>
+    <div className='py-10 min-h-[80vh]' id='bag-page'>
       <div className="page-header px-3 mb-10">
         <h1 className="page-heading text-2xl font-medium">
           Your Bag

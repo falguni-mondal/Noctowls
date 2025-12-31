@@ -1,5 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import userApi from "../../../configs/userAxiosConfig";
+// ✅ NEW: Import logout actions to listen to them
+import { logoutUser, deleteAccount } from "./authSlice";
 
 // ==================== ASYNC THUNKS ====================
 
@@ -180,7 +182,7 @@ const initialState = {
   // Cart data
   cart: null,
   isGuest: true,
-  
+
   // Cart summary (lightweight)
   summary: null,
 
@@ -205,7 +207,7 @@ const initialState = {
   // Loading states
   loading: false,
   summaryLoading: false,
-  actionLoading: false, // For add, update, remove actions
+  actionLoading: false,
 
   // Error states
   error: null,
@@ -223,6 +225,8 @@ const cartSlice = createSlice({
     // Clear error
     clearError: (state) => {
       state.error = null;
+      state.couponValidation.error = null;
+      state.cartValidation.error = null;
     },
 
     // Clear success message
@@ -251,19 +255,37 @@ const cartSlice = createSlice({
 
     // Reset cart state (on logout)
     resetCart: (state) => {
-      state.cart = null;
-      state.isGuest = true;
-      state.summary = null;
-      state.error = null;
-      state.successMessage = null;
+      Object.assign(state, initialState);
     },
 
-    // Set Cart Data
+    // Set Cart Data (manual update)
     setCart: (state, action) => {
       state.cart = action.payload;
       state.isGuest = action.payload?.isGuest || false;
     },
+
+    // ✅ NEW: Update cart item locally (optimistic update)
+    updateCartItemLocally: (state, action) => {
+      const { itemId, quantity } = action.payload;
+      if (state.cart && state.cart.items) {
+        const item = state.cart.items.find((i) => i._id === itemId);
+        if (item && !item.isFreeGift) {
+          item.quantity = quantity;
+        }
+      }
+    },
+
+    // ✅ NEW: Remove cart item locally (optimistic update)
+    removeCartItemLocally: (state, action) => {
+      const itemId = action.payload;
+      if (state.cart && state.cart.items) {
+        state.cart.items = state.cart.items.filter(
+          (i) => i._id !== itemId || i.isFreeGift
+        );
+      }
+    },
   },
+
   extraReducers: (builder) => {
     // ===== GET CART =====
     builder
@@ -368,6 +390,12 @@ const cartSlice = createSlice({
         state.isGuest = action.payload.isGuest;
         state.successMessage = action.payload.message;
         state.error = null;
+        // ✅ Clear coupon validation when cart is cleared
+        state.couponValidation = {
+          loading: false,
+          error: null,
+          data: null,
+        };
       })
       .addCase(clearCart.rejected, (state, action) => {
         state.actionLoading = false;
@@ -383,12 +411,18 @@ const cartSlice = createSlice({
       })
       .addCase(validateCoupon.fulfilled, (state, action) => {
         state.couponValidation.loading = false;
-        state.couponValidation.data = action.payload.coupon;
+        state.couponValidation.data = {
+          ...action.payload.coupon,
+          potentialDiscount: action.payload.potentialDiscount,
+          currentTotal: action.payload.currentTotal,
+          newTotal: action.payload.newTotal,
+        };
         state.couponValidation.error = null;
       })
       .addCase(validateCoupon.rejected, (state, action) => {
         state.couponValidation.loading = false;
         state.couponValidation.error = action.payload;
+        state.couponValidation.data = null;
       });
 
     // ===== APPLY COUPON =====
@@ -397,6 +431,7 @@ const cartSlice = createSlice({
         state.actionLoading = true;
         state.error = null;
         state.successMessage = null;
+        state.couponValidation.loading = true; // ← Show loading in UI
       })
       .addCase(applyCoupon.fulfilled, (state, action) => {
         state.actionLoading = false;
@@ -404,7 +439,8 @@ const cartSlice = createSlice({
         state.isGuest = action.payload.isGuest;
         state.successMessage = action.payload.message;
         state.error = null;
-        // Clear coupon validation after successful apply
+
+        // ✅ NEW: Clear validation state after successful apply
         state.couponValidation = {
           loading: false,
           error: null,
@@ -414,6 +450,13 @@ const cartSlice = createSlice({
       .addCase(applyCoupon.rejected, (state, action) => {
         state.actionLoading = false;
         state.error = action.payload;
+
+        // ✅ NEW: Store error in coupon validation state
+        state.couponValidation = {
+          loading: false,
+          error: action.payload,
+          data: null,
+        };
       });
 
     // ===== REMOVE COUPON =====
@@ -428,6 +471,12 @@ const cartSlice = createSlice({
         state.isGuest = action.payload.isGuest;
         state.successMessage = action.payload.message;
         state.error = null;
+        // ✅ Clear coupon validation
+        state.couponValidation = {
+          loading: false,
+          error: null,
+          data: null,
+        };
       })
       .addCase(removeCoupon.rejected, (state, action) => {
         state.actionLoading = false;
@@ -452,6 +501,11 @@ const cartSlice = createSlice({
         state.cartValidation.loading = false;
         state.cartValidation.isValid = false;
         state.cartValidation.error = action.payload;
+
+        // ✅ NEW: Store validation results if available
+        if (action.payload?.validationResults) {
+          state.cartValidation.results = action.payload.validationResults;
+        }
       });
 
     // ===== GET FREE GIFTS TIERS =====
@@ -469,6 +523,17 @@ const cartSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       });
+
+    // ✅ NEW: Listen to logout actions from authSlice
+    builder
+      .addCase(logoutUser.fulfilled, (state) => {
+        // Reset cart to initial state on logout
+        Object.assign(state, initialState);
+      })
+      .addCase(deleteAccount.fulfilled, (state) => {
+        // Reset cart to initial state on account deletion
+        Object.assign(state, initialState);
+      });
   },
 });
 
@@ -482,21 +547,41 @@ export const {
   clearCartValidation,
   resetCart,
   setCart,
+  updateCartItemLocally,
+  removeCartItemLocally,
 } = cartSlice.actions;
 
-// Selectors (optional but recommended)
+// Basic Selectors
 export const selectCart = (state) => state.cart.cart;
 export const selectCartSummary = (state) => state.cart.summary;
 export const selectIsGuest = (state) => state.cart.isGuest;
 export const selectCartLoading = (state) => state.cart.loading;
 export const selectActionLoading = (state) => state.cart.actionLoading;
+export const selectSummaryLoading = (state) => state.cart.summaryLoading;
 export const selectCartError = (state) => state.cart.error;
 export const selectSuccessMessage = (state) => state.cart.successMessage;
 export const selectCouponValidation = (state) => state.cart.couponValidation;
 export const selectCartValidation = (state) => state.cart.cartValidation;
 export const selectFreeGiftsTiers = (state) => state.cart.freeGiftsTiers;
 
-// Computed selectors
+// ✅ NEW: Enhanced Computed Selectors
+
+// Cart items (non-gift only)
+export const selectCartItems = (state) => {
+  return state.cart.cart?.items?.filter((item) => !item.isFreeGift) || [];
+};
+
+// Free gift items only
+export const selectFreeGiftItems = (state) => {
+  return state.cart.cart?.items?.filter((item) => item.isFreeGift) || [];
+};
+
+// All items (including free gifts)
+export const selectAllCartItems = (state) => {
+  return state.cart.cart?.items || [];
+};
+
+// Cart counts
 export const selectCartItemsCount = (state) => {
   return state.cart.cart?.summary?.itemsCount || 0;
 };
@@ -505,16 +590,113 @@ export const selectCartTotalQuantity = (state) => {
   return state.cart.cart?.summary?.totalQuantity || 0;
 };
 
+// Cart totals
+export const selectCartSubtotal = (state) => {
+  return state.cart.cart?.summary?.subtotal || 0;
+};
+
+export const selectCartCouponDiscount = (state) => {
+  return state.cart.cart?.summary?.couponDiscount || 0;
+};
+
 export const selectCartTotal = (state) => {
   return state.cart.cart?.summary?.total || 0;
 };
 
+// Coupon state
 export const selectHasCouponApplied = (state) => {
   return state.cart.cart?.coupon?.isApplied || false;
 };
 
+export const selectAppliedCoupon = (state) => {
+  if (!state.cart.cart?.coupon?.isApplied) return null;
+  return state.cart.cart.coupon;
+};
+
+export const selectAppliedCouponCode = (state) => {
+  return state.cart.cart?.coupon?.code || null;
+};
+
+// Free gifts state
 export const selectFreeGiftsEligible = (state) => {
   return state.cart.cart?.freeGifts?.eligible || false;
+};
+
+export const selectFreeGiftsData = (state) => {
+  return state.cart.cart?.freeGifts || null;
+};
+
+export const selectFreeGiftsDescription = (state) => {
+  if (!state.cart.cart?.freeGifts?.eligible) {
+    return "Add more items to unlock free gifts!";
+  }
+
+  const gifts = state.cart.cart.freeGifts.gifts || [];
+  if (gifts.length === 0) return "Add more items to unlock free gifts!";
+
+  const giftsText = gifts.map((g) => `${g.quantity} ${g.name}`).join(", ");
+  return `🎁 You're getting: ${giftsText} FREE!`;
+};
+
+// Cart validation state
+export const selectIsCartValid = (state) => {
+  return state.cart.cartValidation.isValid === true;
+};
+
+export const selectCartValidationResults = (state) => {
+  return state.cart.cartValidation.results || [];
+};
+
+export const selectHasInvalidItems = (state) => {
+  const results = state.cart.cartValidation.results || [];
+  return results.some((r) => !r.isValid);
+};
+
+// ✅ NEW: Check if cart is empty
+export const selectIsCartEmpty = (state) => {
+  const items =
+    state.cart.cart?.items?.filter((item) => !item.isFreeGift) || [];
+  return items.length === 0;
+};
+
+// ✅ NEW: Get item by ID
+export const selectCartItemById = (itemId) => (state) => {
+  return state.cart.cart?.items?.find((item) => item._id === itemId) || null;
+};
+
+// ✅ NEW: Check if specific product+size exists in cart
+export const selectHasProductInCart = (productId, sizeValue) => (state) => {
+  if (!state.cart.cart?.items) return false;
+  return state.cart.cart.items.some(
+    (item) =>
+      !item.isFreeGift &&
+      item.product?._id === productId &&
+      item.size?.value === sizeValue
+  );
+};
+
+// ✅ NEW: Get quantity of specific product+size in cart
+export const selectProductQuantityInCart =
+  (productId, sizeValue) => (state) => {
+    if (!state.cart.cart?.items) return 0;
+    const item = state.cart.cart.items.find(
+      (item) =>
+        !item.isFreeGift &&
+        item.product?._id === productId &&
+        item.size?.value === sizeValue
+    );
+    return item?.quantity || 0;
+  };
+
+// ✅ NEW: Check if any cart operation is in progress
+export const selectIsAnyCartActionLoading = (state) => {
+  return (
+    state.cart.loading ||
+    state.cart.actionLoading ||
+    state.cart.summaryLoading ||
+    state.cart.couponValidation.loading ||
+    state.cart.cartValidation.loading
+  );
 };
 
 // Reducer

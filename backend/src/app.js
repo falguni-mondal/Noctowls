@@ -24,6 +24,7 @@ app.use(express.json());
 app.use(express.urlencoded({extended: true}));
 app.use(parser());
 
+
 // Connecting DB....................................................
 connectToDB();
 
@@ -35,16 +36,17 @@ app.use(cors({
 }))
 
 
+// NO CACHE MIDDLEWARE (For not storing anything in the cache)
 app.use(noCache);
 
 
 // ROUTE INITIALIZATIONS.............................................
 app.use("/api/auth", authRouter);
-app.use("/api/products", productsRouter)
-app.use("/api/cart", cartRouter)
-app.use("/api/wishlist", wishlistRouter)
-app.use("/api/address", addressRouter)
-app.use("/api/order", orderRouter)
+app.use("/api/products", productsRouter);
+app.use("/api/cart", cartRouter);
+app.use("/api/wishlist", wishlistRouter);
+app.use("/api/address", addressRouter);
+app.use("/api/order", orderRouter);
 app.use("/api/admin/auth", adminAuthRouter);
 app.use("/api/admin/products", adminProductsRouter);
 app.use("/api/admin/coupons", adminCouponRouter);

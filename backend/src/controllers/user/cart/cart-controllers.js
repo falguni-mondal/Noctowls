@@ -4,25 +4,21 @@ import Coupon from "../../../models/coupon-model.js";
 import cookieOptions from "../../../utils/cookie-options.js";
 import { randomUUID } from "crypto";
 
-// Helper to get cart identifier
+// ✅ FIXED: Better device ID handling
 const getCartIdentifier = (req, res) => {
   const userId = req.user || null;
   let deviceId = null;
 
   // ONLY use deviceId if user is NOT logged in
   if (!userId) {
-    const reqDeviceId = req.cookies.device_id;
-    deviceId = reqDeviceId || randomUUID();
+    deviceId = req.cookies.device_id || randomUUID();
 
-    // Set cookie only for guest users
-    if (!reqDeviceId) {
-      res.cookie("device_id", deviceId, {
-        ...cookieOptions,
-        maxAge: 365 * 24 * 60 * 60 * 1000,
-      });
-    }
+    // ✅ FIX: Always set/refresh cookie for guests
+    res.cookie("device_id", deviceId, {
+      ...cookieOptions,
+      maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
+    });
   }
-  // If userId exists, deviceId remains null
 
   return { userId, deviceId };
 };
@@ -40,6 +36,9 @@ export const getCart = async (req, res) => {
     }
 
     const cart = await Cart.getOrCreateCart({ userId, deviceId });
+
+    // ✅ NEW: Clean invalid items on every cart fetch
+    await cart.cleanInvalidItems();
 
     return res.status(200).json({
       success: true,
@@ -71,7 +70,6 @@ export const addToCart = async (req, res) => {
       });
     }
 
-    // Validate input
     if (!productId || !sizeValue || !quantity) {
       return res.status(400).json({
         success: false,
@@ -86,7 +84,6 @@ export const addToCart = async (req, res) => {
       });
     }
 
-    // Find product
     const product = await Product.findById(productId);
     if (!product) {
       return res.status(404).json({
@@ -95,7 +92,6 @@ export const addToCart = async (req, res) => {
       });
     }
 
-    // Check if product is published
     if (product.status !== "published") {
       return res.status(400).json({
         success: false,
@@ -103,7 +99,6 @@ export const addToCart = async (req, res) => {
       });
     }
 
-    // Find size
     const sizeData = product.sizes.find(
       (s) => s.value === sizeValue.toLowerCase().trim()
     );
@@ -114,7 +109,6 @@ export const addToCart = async (req, res) => {
       });
     }
 
-    // Check stock availability
     if (sizeData.stock < 1) {
       return res.status(400).json({
         success: false,
@@ -131,18 +125,20 @@ export const addToCart = async (req, res) => {
       });
     }
 
-    // Get or create cart
     const cart = await Cart.getOrCreateCart({ userId, deviceId });
 
-    // Check if item already exists in cart
+    // ✅ NEW: Clean invalid items before processing
+    await cart.cleanInvalidItems();
+
+    // ✅ SAFE: Check existing item with null safety
     const existingItem = cart.items.find(
       (item) =>
+        item.product != null && // ← Null check added
         !item.isFreeGift &&
         item.product.toString() === productId &&
         item.size.value === sizeValue.toLowerCase().trim()
     );
 
-    // Validate total quantity (existing + new)
     if (existingItem) {
       const totalQuantity = existingItem.quantity + quantity;
       if (sizeData.stock < totalQuantity) {
@@ -157,11 +153,10 @@ export const addToCart = async (req, res) => {
       }
     }
 
-    // Add item to cart
     await cart.addItem({
       product: product._id,
       name: product.name,
-      image: product.images[0]?.url || "",
+      image: product.images[0]?.url || "", // ✅ Already correct
       category: product.category,
       size: {
         value: sizeData.value,
@@ -170,7 +165,7 @@ export const addToCart = async (req, res) => {
       },
       quantity,
       originalPrice: sizeData.originalPrice,
-      price: sizeData.numPrice,
+      price: sizeData.numPrice, // ✅ Using numPrice (numeric)
       discount: sizeData.discount,
       isFreeGift: false,
     });
@@ -207,7 +202,6 @@ export const updateCartItemQuantity = async (req, res) => {
       });
     }
 
-    // Validate quantity
     if (quantity === undefined || !Number.isInteger(quantity) || quantity < 0) {
       return res.status(400).json({
         success: false,
@@ -215,10 +209,8 @@ export const updateCartItemQuantity = async (req, res) => {
       });
     }
 
-    // Get cart
     const cart = await Cart.getOrCreateCart({ userId, deviceId });
 
-    // Find item
     const item = cart.items.id(itemId);
     if (!item) {
       return res.status(404).json({
@@ -227,7 +219,6 @@ export const updateCartItemQuantity = async (req, res) => {
       });
     }
 
-    // Check if it's a free gift
     if (item.isFreeGift) {
       return res.status(400).json({
         success: false,
@@ -235,7 +226,6 @@ export const updateCartItemQuantity = async (req, res) => {
       });
     }
 
-    // If quantity is 0, remove item
     if (quantity === 0) {
       await cart.removeItem(itemId);
       return res.status(200).json({
@@ -248,7 +238,6 @@ export const updateCartItemQuantity = async (req, res) => {
       });
     }
 
-    // Validate stock for new quantity
     const product = await Product.findById(item.product);
     if (!product) {
       return res.status(404).json({
@@ -280,7 +269,6 @@ export const updateCartItemQuantity = async (req, res) => {
       });
     }
 
-    // Update quantity
     await cart.updateItemQuantity(itemId, quantity);
 
     return res.status(200).json({
@@ -316,7 +304,6 @@ export const removeCartItem = async (req, res) => {
 
     const cart = await Cart.getOrCreateCart({ userId, deviceId });
 
-    // Find item
     const item = cart.items.id(itemId);
     if (!item) {
       return res.status(404).json({
@@ -325,7 +312,6 @@ export const removeCartItem = async (req, res) => {
       });
     }
 
-    // Check if it's a free gift
     if (item.isFreeGift) {
       return res.status(400).json({
         success: false,
@@ -353,7 +339,8 @@ export const removeCartItem = async (req, res) => {
   }
 };
 
-// ==================== APPLY COUPON - ✅ UPDATED ====================
+
+// ==================== APPLY COUPON (WITH BUILT-IN VALIDATION) ====================
 export const applyCoupon = async (req, res) => {
   try {
     const { userId, deviceId } = getCartIdentifier(req, res);
@@ -377,7 +364,8 @@ export const applyCoupon = async (req, res) => {
     const cart = await Cart.getOrCreateCart({ userId, deviceId });
 
     // Check if cart is empty
-    if (cart.items.filter((item) => !item.isFreeGift).length === 0) {
+    const nonGiftItems = cart.items.filter((item) => !item.isFreeGift);
+    if (nonGiftItems.length === 0) {
       return res.status(400).json({
         success: false,
         message: "Cannot apply coupon to empty cart",
@@ -388,11 +376,12 @@ export const applyCoupon = async (req, res) => {
     if (cart.coupon.isApplied) {
       return res.status(400).json({
         success: false,
-        message: `Remove existing coupon "${cart.coupon.code}" first`,
+        message: `Coupon "${cart.coupon.code}" is already applied. Remove it first to apply a different coupon.`,
+        appliedCoupon: cart.coupon.code,
       });
     }
 
-    // Find and validate coupon
+    // ✅ FIND AND VALIDATE COUPON (ALL IN ONE STEP)
     const coupon = await Coupon.findOne({ code: code.toUpperCase().trim() });
 
     if (!coupon) {
@@ -402,8 +391,8 @@ export const applyCoupon = async (req, res) => {
       });
     }
 
+    // Validate coupon (this throws errors if invalid)
     try {
-      // ✅ UPDATED: Validate coupon with userId OR deviceId (not both)
       coupon.validateForCart(cart, userId, deviceId);
     } catch (validationError) {
       return res.status(400).json({
@@ -412,15 +401,29 @@ export const applyCoupon = async (req, res) => {
       });
     }
 
-    // UPDATED: Apply coupon with userId OR deviceId
+    // ✅ APPLY COUPON TO CART
     await cart.applyCoupon(code, userId, deviceId);
+
+    // ✅ CALCULATE DISCOUNT (from updated cart)
+    const totalDiscount = cart.coupon.totalDiscount;
 
     return res.status(200).json({
       success: true,
-      message: `Coupon "${coupon.code}" applied successfully! You saved ₹${cart.coupon.totalDiscount}`,
+      message: `Coupon "${coupon.code}" applied successfully! You saved ₹${totalDiscount}`,
       cart,
       isGuest: !userId,
-      couponDiscount: cart.coupon.totalDiscount,
+      discount: {
+        code: coupon.code,
+        amount: totalDiscount,
+        type: coupon.discountType,
+        value: coupon.discountValue,
+        applyType: coupon.applyType,
+      },
+      pricing: {
+        subtotal: cart.summary.subtotal,
+        couponDiscount: totalDiscount,
+        total: cart.summary.total,
+      },
       freeGiftsDescription: cart.getFreeGiftsDescription(),
       nextTierInfo: cart.getNextTierInfo(),
     });
@@ -475,7 +478,7 @@ export const removeCoupon = async (req, res) => {
   }
 };
 
-// ==================== VALIDATE COUPON - UPDATED ====================
+// ==================== VALIDATE COUPON ====================
 export const validateCoupon = async (req, res) => {
   try {
     const { userId, deviceId } = getCartIdentifier(req, res);
@@ -495,10 +498,8 @@ export const validateCoupon = async (req, res) => {
       });
     }
 
-    // Get cart
     const cart = await Cart.getOrCreateCart({ userId, deviceId });
 
-    // Check if cart is empty
     if (cart.items.filter((item) => !item.isFreeGift).length === 0) {
       return res.status(400).json({
         success: false,
@@ -506,7 +507,6 @@ export const validateCoupon = async (req, res) => {
       });
     }
 
-    // Find coupon
     const coupon = await Coupon.findOne({ code: code.toUpperCase().trim() });
 
     if (!coupon) {
@@ -517,7 +517,6 @@ export const validateCoupon = async (req, res) => {
     }
 
     try {
-      // UPDATED: Validate with userId OR deviceId
       coupon.validateForCart(cart, userId, deviceId);
 
       // Calculate potential discount
@@ -530,52 +529,39 @@ export const validateCoupon = async (req, res) => {
         applyType: coupon.applyType,
       };
 
-      // Helper to calculate discount
-      const calculateCouponDiscount = (cart) => {
-        if (!cart.coupon.isApplied) return 0;
+      const nonGiftItems = cart.items.filter((item) => !item.isFreeGift);
+      const productsSubtotal = nonGiftItems.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
 
-        const nonGiftItems = cart.items.filter((item) => !item.isFreeGift);
-        let totalDiscount = 0;
+      let potentialDiscount = 0;
 
-        if (cart.coupon.applyType === "each-product") {
-          if (cart.coupon.discountType === "fixed") {
-            const totalQuantity = nonGiftItems.reduce(
-              (sum, item) => sum + item.quantity,
-              0
-            );
-            totalDiscount = cart.coupon.discountValue * totalQuantity;
-          } else {
-            nonGiftItems.forEach((item) => {
-              const itemTotal = item.price * item.quantity;
-              const itemDiscount = (itemTotal * cart.coupon.discountValue) / 100;
-              totalDiscount += itemDiscount;
-            });
-          }
-        } else {
-          const subtotal = nonGiftItems.reduce(
-            (sum, item) => sum + item.price * item.quantity,
+      if (coupon.applyType === "each-product") {
+        if (coupon.discountType === "fixed") {
+          const totalQuantity = nonGiftItems.reduce(
+            (sum, item) => sum + item.quantity,
             0
           );
-
-          if (cart.coupon.discountType === "fixed") {
-            totalDiscount = cart.coupon.discountValue;
-          } else {
-            totalDiscount = (subtotal * cart.coupon.discountValue) / 100;
-          }
+          potentialDiscount = coupon.discountValue * totalQuantity;
+        } else {
+          nonGiftItems.forEach((item) => {
+            const itemTotal = item.price * item.quantity;
+            const itemDiscount = (itemTotal * coupon.discountValue) / 100;
+            potentialDiscount += itemDiscount;
+          });
         }
+      } else {
+        if (coupon.discountType === "fixed") {
+          potentialDiscount = coupon.discountValue;
+        } else {
+          potentialDiscount = (productsSubtotal * coupon.discountValue) / 100;
+        }
+      }
 
-        const subtotal = nonGiftItems.reduce(
-          (sum, item) => sum + item.price * item.quantity,
-          0
-        );
-        totalDiscount = Math.min(totalDiscount, subtotal);
+      potentialDiscount = Math.min(potentialDiscount, productsSubtotal);
+      potentialDiscount = Math.round(potentialDiscount * 100) / 100;
 
-        return Math.round(totalDiscount * 100) / 100;
-      };
-
-      const potentialDiscount = calculateCouponDiscount(tempCart);
-
-      // UPDATED: Get remaining uses with userId OR deviceId
       const remainingUses = coupon.getUserRemainingUses(userId, deviceId);
 
       return res.status(200).json({
@@ -594,8 +580,8 @@ export const validateCoupon = async (req, res) => {
           expiresAt: coupon.expiresAt,
         },
         potentialDiscount,
-        currentTotal: cart.summary.subtotal,
-        newTotal: cart.summary.subtotal - potentialDiscount,
+        currentTotal: productsSubtotal,
+        newTotal: productsSubtotal - potentialDiscount,
       });
     } catch (validationError) {
       return res.status(400).json({
@@ -652,7 +638,7 @@ export const clearCart = async (req, res) => {
   }
 };
 
-// ==================== VALIDATE CART (Check Stock Before Checkout) ====================
+// ==================== VALIDATE CART ====================
 export const validateCart = async (req, res) => {
   try {
     const { userId, deviceId } = getCartIdentifier(req, res);
@@ -666,7 +652,6 @@ export const validateCart = async (req, res) => {
 
     const cart = await Cart.getOrCreateCart({ userId, deviceId });
 
-    // Check if cart is empty
     if (cart.items.filter((item) => !item.isFreeGift).length === 0) {
       return res.status(400).json({
         success: false,
@@ -674,7 +659,9 @@ export const validateCart = async (req, res) => {
       });
     }
 
-    // Validate cart items against current stock
+    // ✅ FIX: Populate before validation
+    await cart.populate('items.product');
+
     const validationResult = await cart.validateCart();
 
     if (!validationResult.isValid) {
@@ -739,6 +726,7 @@ export const getCartSummary = async (req, res) => {
 
     const nonGiftItems = cart.items.filter((item) => !item.isFreeGift);
 
+    // ✅ FIXED: Added missing fields for frontend
     return res.status(200).json({
       success: true,
       summary: {
@@ -751,12 +739,16 @@ export const getCartSummary = async (req, res) => {
         appliedCoupon: cart.coupon.isApplied
           ? {
               code: cart.coupon.code,
+              discountType: cart.coupon.discountType,
+              discountValue: cart.coupon.discountValue,
+              applyType: cart.coupon.applyType,
               discount: cart.coupon.totalDiscount,
             }
           : null,
         freeGifts: cart.freeGifts.eligible
           ? {
-              tier: cart.freeGifts.tier,
+              highestTier: cart.freeGifts.highestTier,
+              totalTiers: cart.freeGifts.totalTiers,
               gifts: cart.freeGifts.gifts,
               description: cart.getFreeGiftsDescription(),
             }
@@ -773,4 +765,45 @@ export const getCartSummary = async (req, res) => {
       error: error.message,
     });
   }
+};
+
+// ✅ NEW: Cleanup expired guest carts (utility endpoint - can be called by cron)
+export const cleanupExpiredCarts = async (req, res) => {
+  try {
+    const now = new Date();
+    
+    const result = await Cart.deleteMany({
+      deviceId: { $ne: null },
+      user: null,
+      expiresAt: { $lte: now },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Cleaned up ${result.deletedCount} expired guest carts`,
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    console.error("Error cleaning up carts:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to cleanup carts",
+      error: error.message,
+    });
+  }
+};
+
+export default {
+  getCart,
+  addToCart,
+  updateCartItemQuantity,
+  removeCartItem,
+  applyCoupon,
+  removeCoupon,
+  validateCoupon,
+  clearCart,
+  validateCart,
+  getFreeGiftsTiers,
+  getCartSummary,
+  cleanupExpiredCarts,
 };

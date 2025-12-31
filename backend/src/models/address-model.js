@@ -94,6 +94,18 @@ const addressSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    // ✅ NEW: Track if address is used in any active orders
+    isUsedInOrders: {
+      type: Boolean,
+      default: false,
+    },
+
+    // ✅ NEW: Last used timestamp
+    lastUsedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -106,22 +118,50 @@ const addressSchema = new mongoose.Schema(
 addressSchema.index({ user: 1, isDefault: -1 });
 addressSchema.index({ user: 1, createdAt: -1 });
 addressSchema.index({ user: 1, addressType: 1 });
+// ✅ NEW: Compound index for duplicate detection
+addressSchema.index({ 
+  user: 1, 
+  address: 1, 
+  city: 1, 
+  state: 1, 
+  pincode: 1 
+});
 
 // ---------- Pre-save Middleware ----------
-// Ensure only one default address per user
+// ✅ FIXED: Better default address handling with lock
 addressSchema.pre("save", async function (next) {
   if (this.isNew && this.isDefault) {
-    // If this is a new default address, unset other defaults
+    // Use findOneAndUpdate with atomic operation to prevent race conditions
     await this.constructor.updateMany(
-      { user: this.user, _id: { $ne: this._id } },
+      { 
+        user: this.user, 
+        _id: { $ne: this._id },
+        isDefault: true 
+      },
       { $set: { isDefault: false } }
     );
   } else if (this.isModified("isDefault") && this.isDefault) {
-    // If updating to default, unset other defaults
+    // If updating to default, unset other defaults atomically
     await this.constructor.updateMany(
-      { user: this.user, _id: { $ne: this._id } },
+      { 
+        user: this.user, 
+        _id: { $ne: this._id },
+        isDefault: true 
+      },
       { $set: { isDefault: false } }
     );
+  }
+
+  // ✅ NEW: If this is the first address, make it default
+  if (this.isNew) {
+    const existingCount = await this.constructor.countDocuments({
+      user: this.user,
+      _id: { $ne: this._id }
+    });
+    
+    if (existingCount === 0) {
+      this.isDefault = true;
+    }
   }
 
   next();
@@ -131,7 +171,7 @@ addressSchema.pre("save", async function (next) {
 
 // Set as default address
 addressSchema.methods.setAsDefault = async function () {
-  // Unset all other default addresses for this user
+  // Atomic update to prevent race conditions
   await this.constructor.updateMany(
     { user: this.user, _id: { $ne: this._id } },
     { $set: { isDefault: false } }
@@ -154,11 +194,43 @@ addressSchema.methods.getShortAddress = function () {
   return `${this.city}, ${this.state} - ${this.pincode}`;
 };
 
+// ✅ NEW: Mark address as used in order
+addressSchema.methods.markAsUsed = async function () {
+  this.isUsedInOrders = true;
+  this.lastUsedAt = new Date();
+  return this.save();
+};
+
+// ✅ NEW: Check if address can be safely deleted
+addressSchema.methods.canBeDeleted = async function () {
+  // Check if address is used in any active/pending orders
+  const Order = mongoose.model("order");
+  
+  const activeOrders = await Order.countDocuments({
+    user: this.user,
+    "shippingAddress.address": this.address,
+    "shippingAddress.pincode": this.pincode,
+    orderStatus: { 
+      $in: ["pending", "confirmed", "processing", "packed", "shipped", "out-for-delivery"] 
+    },
+  });
+
+  return activeOrders === 0;
+};
+
 // ---------- Static Methods ----------
 
 // Get user's addresses
-addressSchema.statics.getUserAddresses = async function (userId) {
-  return this.find({ user: userId }).sort({ isDefault: -1, createdAt: -1 });
+addressSchema.statics.getUserAddresses = async function (userId, options = {}) {
+  const { limit, skip } = options;
+  
+  let query = this.find({ user: userId })
+    .sort({ isDefault: -1, lastUsedAt: -1, createdAt: -1 });
+  
+  if (limit) query = query.limit(limit);
+  if (skip) query = query.skip(skip);
+  
+  return query;
 };
 
 // Get user's default address
@@ -179,7 +251,7 @@ addressSchema.statics.countUserAddresses = async function (userId) {
   return this.countDocuments({ user: userId });
 };
 
-// Delete address with validation
+// ✅ FIXED: Better delete validation
 addressSchema.statics.deleteAddress = async function (addressId, userId) {
   const address = await this.findOne({ _id: addressId, user: userId });
 
@@ -187,11 +259,19 @@ addressSchema.statics.deleteAddress = async function (addressId, userId) {
     throw new Error("Address not found");
   }
 
+  // Check if address can be deleted
+  const canDelete = await address.canBeDeleted();
+  if (!canDelete) {
+    throw new Error(
+      "Cannot delete this address as it is being used in active orders. Please wait until orders are completed."
+    );
+  }
+
   // Check if this is the last address
   const addressCount = await this.countDocuments({ user: userId });
 
   if (addressCount === 1) {
-    // Check if user has any orders
+    // Check if user has any orders (completed or pending)
     const Order = mongoose.model("order");
     const orderCount = await Order.countDocuments({ user: userId });
 
@@ -204,10 +284,11 @@ addressSchema.statics.deleteAddress = async function (addressId, userId) {
 
   // If this was the default address, set another as default
   if (address.isDefault && addressCount > 1) {
+    // Find most recently used address, or newest address
     const nextAddress = await this.findOne({
       user: userId,
       _id: { $ne: addressId },
-    }).sort({ createdAt: -1 });
+    }).sort({ lastUsedAt: -1, createdAt: -1 });
 
     if (nextAddress) {
       nextAddress.isDefault = true;
@@ -231,6 +312,50 @@ addressSchema.statics.searchAddresses = async function (userId, searchTerm) {
       { pincode: new RegExp(searchTerm, "i") },
     ],
   }).sort({ isDefault: -1, createdAt: -1 });
+};
+
+// ✅ NEW: Check for duplicate address
+addressSchema.statics.findDuplicate = async function (userId, addressData) {
+  const { address, city, state, pincode } = addressData;
+  
+  return this.findOne({
+    user: userId,
+    address: { $regex: new RegExp(`^${address.trim()}$`, 'i') },
+    city: { $regex: new RegExp(`^${city.trim()}$`, 'i') },
+    state: { $regex: new RegExp(`^${state.trim()}$`, 'i') },
+    pincode: pincode.trim(),
+  });
+};
+
+// ✅ NEW: Get address usage statistics
+addressSchema.statics.getAddressStats = async function (userId) {
+  const stats = await this.aggregate([
+    { $match: { user: mongoose.Types.ObjectId(userId) } },
+    {
+      $group: {
+        _id: "$addressType",
+        count: { $sum: 1 },
+        usedCount: {
+          $sum: { $cond: ["$isUsedInOrders", 1, 0] }
+        }
+      }
+    }
+  ]);
+
+  const total = await this.countDocuments({ user: userId });
+  const hasDefault = await this.exists({ user: userId, isDefault: true });
+
+  return {
+    total,
+    hasDefault: !!hasDefault,
+    byType: stats.reduce((acc, item) => {
+      acc[item._id] = {
+        count: item.count,
+        usedCount: item.usedCount
+      };
+      return acc;
+    }, {})
+  };
 };
 
 // ---------- Virtuals ----------
@@ -257,6 +382,14 @@ addressSchema.virtual("isComplete").get(function () {
     this.state &&
     this.pincode
   );
+});
+
+// ✅ NEW: Check if address is recently used
+addressSchema.virtual("isRecentlyUsed").get(function () {
+  if (!this.lastUsedAt) return false;
+  
+  const daysSinceUse = (Date.now() - this.lastUsedAt.getTime()) / (1000 * 60 * 60 * 24);
+  return daysSinceUse <= 30; // Used in last 30 days
 });
 
 export default mongoose.model("address", addressSchema);

@@ -12,16 +12,40 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
+// HELPER FUNCTION for Order Number
+async function generateUniqueOrderNumber(session) {
+  const date = new Date();
+  const dateStr = date.toISOString().slice(0, 10).replace(/-/g, "");
+
+  const lastOrder = await Order.findOne({
+    orderNumber: new RegExp(`^ORD-${dateStr}`),
+  })
+    .sort({ orderNumber: -1 })
+    .session(session);
+
+  let sequence = 1;
+  if (lastOrder && lastOrder.orderNumber) {
+    const parts = lastOrder.orderNumber.split("-");
+    if (parts.length === 3) {
+      const lastSequence = parseInt(parts[2], 10);
+      if (!isNaN(lastSequence)) {
+        sequence = lastSequence + 1;
+      }
+    }
+  }
+
+  const orderNumber = `ORD-${dateStr}-${sequence.toString().padStart(5, "0")}`;
+  return orderNumber;
+}
+
 // ==================== CREATE ORDER ====================
 export const createOrder = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    // Get user ID or device ID
     const userId = req.user;
     const deviceId = req.cookies.device_id;
- 
     const { shippingAddress, paymentMethod, couponCode, guestInfo } = req.body;
 
     // Validate identifier
@@ -71,21 +95,32 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    // 2. Validate cart items (stock, availability)
+    // 2. ✅ FIXED: Validate cart items and CHECK results
     const validation = await cart.validateCart();
     if (!validation.isValid) {
       await session.abortTransaction();
+
+      // Return detailed validation errors
+      const invalidItems = validation.results.filter((r) => !r.isValid);
+
       return res.status(400).json({
         success: false,
-        message: "Some items in cart are invalid",
-        validation: validation.results,
+        message: "Some items in cart are invalid or out of stock",
+        invalidItems: invalidItems.map((item) => ({
+          name: item.productName,
+          reason: item.reason,
+          action: item.action,
+          availableStock: item.availableStock,
+        })),
       });
     }
 
-    // 3. Calculate products subtotal
-    const productsSubtotal = cart.summary.subtotal;
+    // 3. Calculate products subtotal (exclude free gifts)
+    const productsSubtotal = cart.items
+      .filter((item) => !item.isFreeGift)
+      .reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-    // 4. Apply coupon discount (if provided)
+    // 4. ✅ FIXED: Use cart's coupon discount directly (no recalculation)
     let couponDiscount = 0;
     let validatedCoupon = null;
     let couponDetails = {
@@ -99,9 +134,27 @@ export const createOrder = async (req, res) => {
       applicableCategories: [],
     };
 
-    if (couponCode) {
+    // If coupon is already applied in cart, use that
+    if (cart.coupon.isApplied && cart.coupon.code) {
+      couponDiscount = cart.coupon.totalDiscount;
+
+      couponDetails = {
+        code: cart.coupon.code,
+        discountType: cart.coupon.discountType,
+        discountValue: cart.coupon.discountValue,
+        applyType: cart.coupon.applyType,
+        discountAmount: couponDiscount,
+        minPurchaseAmount: 0, // Already validated in cart
+        minItemsRequired: 0,
+        applicableCategories: [],
+      };
+
+      // Find coupon for metadata (don't re-validate)
+      validatedCoupon = await Coupon.findOne({ code: cart.coupon.code });
+    }
+    // If new coupon code provided (not applied in cart yet)
+    else if (couponCode) {
       try {
-        // Find and validate coupon
         validatedCoupon = await Coupon.findValidCoupon(couponCode);
 
         if (!validatedCoupon) {
@@ -112,44 +165,14 @@ export const createOrder = async (req, res) => {
           });
         }
 
-        // Validate coupon for this cart (use userId OR deviceId, not both)
-        validatedCoupon.validateForCart(
-          cart,
-          userId,
-          userId ? null : deviceId
-        );
+        // Validate coupon for this cart
+        validatedCoupon.validateForCart(cart, userId, userId ? null : deviceId);
 
-        // Calculate discount based on applyType
-        if (validatedCoupon.applyType === "each-product") {
-          // Apply to each product
-          if (validatedCoupon.discountType === "percentage") {
-            couponDiscount =
-              (productsSubtotal * validatedCoupon.discountValue) / 100;
-          } else {
-            // Fixed per product
-            const eligibleItems = cart.items.filter(
-              (item) => !item.isFreeGift
-            );
-            const totalQuantity = eligibleItems.reduce(
-              (sum, item) => sum + item.quantity,
-              0
-            );
-            couponDiscount = validatedCoupon.discountValue * totalQuantity;
-          }
-        } else {
-          // Apply to entire order (each-order)
-          if (validatedCoupon.discountType === "percentage") {
-            couponDiscount =
-              (productsSubtotal * validatedCoupon.discountValue) / 100;
-          } else {
-            // Fixed for entire order
-            couponDiscount = validatedCoupon.discountValue;
-          }
-        }
+        // Apply coupon to cart first (this will calculate discount)
+        await cart.applyCoupon(couponCode, userId, userId ? null : deviceId);
 
-        // Don't let discount exceed subtotal
-        couponDiscount = Math.min(couponDiscount, productsSubtotal);
-        couponDiscount = Math.round(couponDiscount * 100) / 100;
+        // Get calculated discount from cart
+        couponDiscount = cart.coupon.totalDiscount;
 
         couponDetails = {
           code: validatedCoupon.code,
@@ -173,28 +196,39 @@ export const createOrder = async (req, res) => {
     // 5. Calculate subtotal after coupon
     const subtotalAfterCoupon = productsSubtotal - couponDiscount;
 
-    // 6. Add COD fee if applicable (NOT affected by coupon)
+    // 6. Add COD fee if applicable
     const codFee = paymentMethod === "COD" ? 50 : 0;
 
     // 7. Calculate final total
     const finalTotal = subtotalAfterCoupon + codFee;
 
-    // 8. Create Razorpay order
+    // 8. ✅ FIXED: Create Razorpay order with error handling
     const razorpayAmount = paymentMethod === "ONLINE" ? finalTotal : codFee;
 
-    const razorpayOrder = await razorpay.orders.create({
-      amount: Math.round(razorpayAmount * 100), // Convert to paise
-      currency: "INR",
-      receipt: `receipt_${Date.now()}`,
-      notes: {
-        userId: userId ? userId.toString() : null,
-        deviceId: userId ? null : deviceId,
-        paymentMethod: paymentMethod,
-        customerType: userId ? "registered" : "guest",
-      },
-    });
+    let razorpayOrder;
+    try {
+      razorpayOrder = await razorpay.orders.create({
+        amount: Math.round(razorpayAmount * 100), // Convert to paise
+        currency: "INR",
+        receipt: `receipt_${Date.now()}`,
+        notes: {
+          userId: userId ? userId.toString() : null,
+          deviceId: userId ? null : deviceId,
+          paymentMethod: paymentMethod,
+          customerType: userId ? "registered" : "guest",
+        },
+      });
+    } catch (razorpayError) {
+      await session.abortTransaction();
+      console.error("Razorpay order creation failed:", razorpayError);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to initialize payment. Please try again.",
+        error: razorpayError.message,
+      });
+    }
 
-    // 9. Prepare order items from cart
+    // 9. Prepare order items from cart (exclude free gifts)
     const orderItems = cart.items
       .filter((item) => !item.isFreeGift)
       .map((item) => ({
@@ -214,19 +248,26 @@ export const createOrder = async (req, res) => {
         itemTotal: item.price * item.quantity,
       }));
 
-    // 10. Create order in database
+    // 10. ✅ FIXED: Sync guest info phone with shipping address
+    const finalGuestInfo = userId
+      ? {}
+      : {
+          email: guestInfo.email.toLowerCase(),
+          name: guestInfo.name,
+          phone: shippingAddress.phone, // Use shipping phone
+        };
+
+    // ✅ 11. GENERATE ORDER NUMBER FIRST
+    const orderNumber = await generateUniqueOrderNumber(session);
+
+    // ✅ 12. CREATE ORDER WITH EXPLICIT ORDER NUMBER
     const order = await Order.create(
       [
         {
           user: userId || null,
           deviceId: userId ? null : deviceId,
-          guestInfo: userId
-            ? {}
-            : {
-                email: guestInfo.email.toLowerCase(),
-                name: guestInfo.name,
-                phone: shippingAddress.phone,
-              },
+          orderNumber: orderNumber, // ← THIS LINE
+          guestInfo: finalGuestInfo,
           items: orderItems,
           freeGifts: {
             eligible: cart.freeGifts.eligible,
@@ -269,21 +310,14 @@ export const createOrder = async (req, res) => {
       { session }
     );
 
-    // 11. If coupon used, increment usage
-    if (validatedCoupon) {
-      await validatedCoupon.incrementUsageForUser(
-        userId,
-        userId ? null : deviceId
-      );
-    }
+    // 12. ✅ REMOVED: Don't increment coupon usage yet (do it after payment)
+    // Coupon usage will be incremented in verifyPayment
 
-    // 12. Reserve stock (decrease product stock)
+    // 13. Reserve stock (decrease product stock)
     for (const item of cart.items) {
       if (item.isFreeGift) continue;
 
-      const product = await Product.findById(item.product._id).session(
-        session
-      );
+      const product = await Product.findById(item.product._id).session(session);
 
       if (!product) {
         throw new Error(`Product ${item.name} not found`);
@@ -304,7 +338,7 @@ export const createOrder = async (req, res) => {
 
     await session.commitTransaction();
 
-    // 13. Return response with Razorpay details
+    // 14. Return response with Razorpay details
     return res.status(201).json({
       success: true,
       message: "Order created successfully",
@@ -357,7 +391,6 @@ export const verifyPayment = async (req, res) => {
     const { razorpayOrderId, razorpayPaymentId, razorpaySignature, orderId } =
       req.body;
 
-    // Get user ID or device ID
     const userId = req.user;
     const deviceId = req.cookies.device_id;
 
@@ -373,7 +406,7 @@ export const verifyPayment = async (req, res) => {
       });
     }
 
-    // 1. Find order (support both user and guest)
+    // 1. Find order
     const query = { _id: orderId };
     if (userId) {
       query.user = userId;
@@ -419,13 +452,21 @@ export const verifyPayment = async (req, res) => {
       razorpaySignature,
     });
 
-    // 4. Clear cart
+    // 4. ✅ FIXED: Increment coupon usage AFTER successful payment
+    if (order.coupon && order.coupon.code) {
+      const coupon = await Coupon.findOne({ code: order.coupon.code });
+      if (coupon) {
+        await coupon.incrementUsageForUser(userId, userId ? null : deviceId);
+      }
+    }
+
+    // 5. Clear cart
     const cart = await Cart.getOrCreateCart({ userId, deviceId });
     if (cart) {
       await cart.clearCart();
     }
 
-    // 5. Generate invoice
+    // 6. Generate invoice
     await order.generateInvoiceNumber();
 
     return res.status(200).json({
@@ -553,8 +594,7 @@ export const cancelOrder = async (req, res) => {
     if (!reason || reason.trim().length < 10) {
       return res.status(400).json({
         success: false,
-        message:
-          "Please provide a cancellation reason (minimum 10 characters)",
+        message: "Please provide a cancellation reason (minimum 10 characters)",
       });
     }
 
@@ -646,11 +686,10 @@ export const trackGuestOrder = async (req, res) => {
       });
     }
 
-    // Find guest order by order number and email
     const order = await Order.findOne({
       orderNumber: orderNumber.toUpperCase().trim(),
       "guestInfo.email": email.toLowerCase().trim(),
-      user: null, // Must be a guest order
+      user: null,
     }).lean();
 
     if (!order) {
@@ -660,7 +699,6 @@ export const trackGuestOrder = async (req, res) => {
       });
     }
 
-    // Return order details (excluding sensitive info)
     return res.status(200).json({
       success: true,
       order: {
@@ -707,12 +745,10 @@ export const cancelGuestOrder = async (req, res) => {
     if (reason.trim().length < 10) {
       return res.status(400).json({
         success: false,
-        message:
-          "Please provide a cancellation reason (minimum 10 characters)",
+        message: "Please provide a cancellation reason (minimum 10 characters)",
       });
     }
 
-    // Find and verify guest order
     const order = await Order.findOne({
       orderNumber: orderNumber.toUpperCase().trim(),
       "guestInfo.email": email.toLowerCase().trim(),
@@ -734,7 +770,6 @@ export const cancelGuestOrder = async (req, res) => {
       });
     }
 
-    // Cancel order
     await order.cancelOrder("guest", reason);
 
     // Restore product stock
@@ -800,7 +835,6 @@ export const validateCouponForCheckout = async (req, res) => {
       });
     }
 
-    // Get cart
     const cart = await Cart.getOrCreateCart({ userId, deviceId });
 
     if (!cart || cart.items.length === 0) {
@@ -810,7 +844,6 @@ export const validateCouponForCheckout = async (req, res) => {
       });
     }
 
-    // Find and validate coupon
     const coupon = await Coupon.findValidCoupon(couponCode);
 
     if (!coupon) {
@@ -820,7 +853,6 @@ export const validateCouponForCheckout = async (req, res) => {
       });
     }
 
-    // Validate coupon for this cart
     try {
       coupon.validateForCart(cart, userId, userId ? null : deviceId);
     } catch (error) {
@@ -830,16 +862,28 @@ export const validateCouponForCheckout = async (req, res) => {
       });
     }
 
-    // Calculate discount
+    // ✅ FIXED: Use cart's coupon calculation logic
     const productsSubtotal = cart.summary.subtotal;
+
+    // Apply coupon to temporary cart instance to get discount
+    const tempCart = { ...cart.toObject() };
+    tempCart.coupon = {
+      code: coupon.code,
+      isApplied: true,
+      discountType: coupon.discountType,
+      discountValue: coupon.discountValue,
+      applyType: coupon.applyType,
+    };
+
+    // Calculate discount using cart's helper function
     let discount = 0;
+    const nonGiftItems = cart.items.filter((item) => !item.isFreeGift);
 
     if (coupon.applyType === "each-product") {
       if (coupon.discountType === "percentage") {
         discount = (productsSubtotal * coupon.discountValue) / 100;
       } else {
-        const eligibleItems = cart.items.filter((item) => !item.isFreeGift);
-        const totalQuantity = eligibleItems.reduce(
+        const totalQuantity = nonGiftItems.reduce(
           (sum, item) => sum + item.quantity,
           0
         );
@@ -897,7 +941,6 @@ export const getOrderSummary = async (req, res) => {
       });
     }
 
-    // Get cart
     const cart = await Cart.getOrCreateCart({ userId, deviceId });
 
     if (!cart || cart.items.length === 0) {
@@ -907,7 +950,8 @@ export const getOrderSummary = async (req, res) => {
       });
     }
 
-    // Validate cart (this will populate if needed internally)
+    await cart.populate("items.product");
+
     const validation = await cart.validateCart();
 
     return res.status(200).json({
@@ -916,7 +960,7 @@ export const getOrderSummary = async (req, res) => {
         items: cart.items.map((item) => ({
           _id: item._id,
           product: {
-            _id: item.product._id,
+            _id: item.product?._id,
             name: item.name,
             image: item.image,
           },
@@ -930,6 +974,8 @@ export const getOrderSummary = async (req, res) => {
         productsSubtotal: cart.summary.subtotal,
         totalItems: cart.summary.itemsCount,
         totalQuantity: cart.summary.totalQuantity,
+        couponDiscount: cart.summary.couponDiscount, // ✅ CRITICAL
+        appliedCoupon: cart.coupon.isApplied ? cart.coupon : null, // ✅ CRITICAL
       },
       validation: {
         isValid: validation.isValid,
@@ -975,7 +1021,6 @@ export const downloadInvoice = async (req, res) => {
       });
     }
 
-    // Only delivered orders can download invoice
     if (order.orderStatus !== "delivered") {
       return res.status(400).json({
         success: false,
@@ -983,13 +1028,10 @@ export const downloadInvoice = async (req, res) => {
       });
     }
 
-    // Generate invoice if not already generated
     if (!order.invoice.invoiceNumber) {
       await order.generateInvoiceNumber();
     }
 
-    // Here you would implement PDF generation
-    // For now, returning invoice data
     return res.status(200).json({
       success: true,
       message: "Invoice data",
