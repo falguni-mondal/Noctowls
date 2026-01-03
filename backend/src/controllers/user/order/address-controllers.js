@@ -22,12 +22,12 @@ export const getAddresses = async (req, res) => {
     // Get all addresses with pagination
     else {
       const skip = (parseInt(page) - 1) * parseInt(limit);
-      
+
       addresses = await Address.getUserAddresses(userId, {
         limit: parseInt(limit),
         skip: skip,
       });
-      
+
       total = await Address.countUserAddresses(userId);
     }
 
@@ -131,6 +131,7 @@ export const addAddress = async (req, res) => {
 
     // ✅ NEW: Check for duplicate address
     const duplicate = await Address.findDuplicate(userId, {
+      fullName,
       address,
       city,
       state,
@@ -224,14 +225,16 @@ export const updateAddress = async (req, res) => {
       });
     }
 
-    // ✅ NEW: If core address fields are being updated, check for duplicates
+    // ✅ NEW: If core address fields are being updated, check for duplicates INCLUDING fullName
     if (
-      updateData.address || 
-      updateData.city || 
-      updateData.state || 
+      updateData.fullName ||
+      updateData.address ||
+      updateData.city ||
+      updateData.state ||
       updateData.pincode
     ) {
       const checkData = {
+        fullName: updateData.fullName || address.fullName,
         address: updateData.address || address.address,
         city: updateData.city || address.city,
         state: updateData.state || address.state,
@@ -241,9 +244,10 @@ export const updateAddress = async (req, res) => {
       const duplicate = await Address.findOne({
         user: userId,
         _id: { $ne: addressId },
-        address: { $regex: new RegExp(`^${checkData.address.trim()}$`, 'i') },
-        city: { $regex: new RegExp(`^${checkData.city.trim()}$`, 'i') },
-        state: { $regex: new RegExp(`^${checkData.state.trim()}$`, 'i') },
+        fullName: { $regex: new RegExp(`^${checkData.fullName.trim()}$`, "i") },
+        address: { $regex: new RegExp(`^${checkData.address.trim()}$`, "i") },
+        city: { $regex: new RegExp(`^${checkData.city.trim()}$`, "i") },
+        state: { $regex: new RegExp(`^${checkData.state.trim()}$`, "i") },
         pincode: checkData.pincode.trim(),
       });
 

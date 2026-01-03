@@ -129,7 +129,7 @@ addressSchema.index({
 
 // ---------- Pre-save Middleware ----------
 // ✅ FIXED: Better default address handling with lock
-addressSchema.pre("save", async function (next) {
+addressSchema.pre("save", async function () {
   if (this.isNew && this.isDefault) {
     // Use findOneAndUpdate with atomic operation to prevent race conditions
     await this.constructor.updateMany(
@@ -163,8 +163,6 @@ addressSchema.pre("save", async function (next) {
       this.isDefault = true;
     }
   }
-
-  next();
 });
 
 // ---------- Instance Methods ----------
@@ -316,10 +314,11 @@ addressSchema.statics.searchAddresses = async function (userId, searchTerm) {
 
 // ✅ NEW: Check for duplicate address
 addressSchema.statics.findDuplicate = async function (userId, addressData) {
-  const { address, city, state, pincode } = addressData;
+  const { fullName, address, city, state, pincode } = addressData;
   
   return this.findOne({
     user: userId,
+    fullName: { $regex: new RegExp(`^${fullName.trim()}$`, 'i') },
     address: { $regex: new RegExp(`^${address.trim()}$`, 'i') },
     city: { $regex: new RegExp(`^${city.trim()}$`, 'i') },
     state: { $regex: new RegExp(`^${state.trim()}$`, 'i') },

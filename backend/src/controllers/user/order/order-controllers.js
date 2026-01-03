@@ -5,6 +5,7 @@ import Cart from "../../../models/cart-model.js";
 import Order from "../../../models/order-model.js";
 import Product from "../../../models/product-model.js";
 import Coupon from "../../../models/coupon-model.js";
+import Address from "../../../models/address-model.js";
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
@@ -260,7 +261,54 @@ export const createOrder = async (req, res) => {
     // ✅ 11. GENERATE ORDER NUMBER FIRST
     const orderNumber = await generateUniqueOrderNumber(session);
 
-    // ✅ 12. CREATE ORDER WITH EXPLICIT ORDER NUMBER
+    // ✅ 12. Adding new address if the user enters new address
+    if (userId && shippingAddress) {
+      try {
+        // Check if this exact address already exists for this user
+        const existingAddress = await Address.findOne({
+          user: userId,
+          fullName: {
+            $regex: new RegExp(`^${shippingAddress.fullName.trim()}$`, "i"),
+          },
+          address: {
+            $regex: new RegExp(`^${shippingAddress.address.trim()}$`, "i"),
+          },
+          city: { $regex: new RegExp(`^${shippingAddress.city.trim()}$`, "i") },
+          state: {
+            $regex: new RegExp(`^${shippingAddress.state.trim()}$`, "i"),
+          },
+          pincode: shippingAddress.pincode.trim(),
+        });
+
+        // If address doesn't exist, save it for future use
+        if (!existingAddress) {
+          const addressCount = await Address.countDocuments({ user: userId });
+
+          // Only save if user has less than 10 addresses
+          if (addressCount < 10) {
+            await Address.create({
+              user: userId,
+              fullName: shippingAddress.fullName,
+              phone: shippingAddress.phone,
+              address: shippingAddress.address,
+              landmark: shippingAddress.landmark || "",
+              city: shippingAddress.city,
+              state: shippingAddress.state,
+              pincode: shippingAddress.pincode,
+              addressType: "home",
+              isDefault: addressCount === 0,
+            });
+
+            console.log("✅ New address saved to user account");
+          }
+        }
+      } catch (addressError) {
+        // Don't fail the order if address save fails
+        console.warn("⚠️ Failed to save address:", addressError.message);
+      }
+    }
+
+    // ✅ 13. CREATE ORDER WITH EXPLICIT ORDER NUMBER
     const order = await Order.create(
       [
         {
@@ -310,10 +358,10 @@ export const createOrder = async (req, res) => {
       { session }
     );
 
-    // 12. ✅ REMOVED: Don't increment coupon usage yet (do it after payment)
+    // 14. ✅ REMOVED: Don't increment coupon usage yet (do it after payment)
     // Coupon usage will be incremented in verifyPayment
 
-    // 13. Reserve stock (decrease product stock)
+    // 15. Reserve stock (decrease product stock)
     for (const item of cart.items) {
       if (item.isFreeGift) continue;
 
@@ -338,7 +386,7 @@ export const createOrder = async (req, res) => {
 
     await session.commitTransaction();
 
-    // 14. Return response with Razorpay details
+    // 16. Return response with Razorpay details
     return res.status(201).json({
       success: true,
       message: "Order created successfully",
@@ -628,10 +676,13 @@ export const cancelOrder = async (req, res) => {
     }
 
     // Cancel order
-    await order.cancelOrder(userId ? "user" : "guest", reason);
+    const { order: cancelledOrder, couponToRevert } = await order.cancelOrder(
+      userId ? "user" : "guest",
+      reason
+    );
 
     // Restore product stock
-    for (const item of order.items) {
+    for (const item of cancelledOrder.items) {
       const product = await Product.findById(item.product);
       if (product) {
         const sizeIndex = product.sizes.findIndex(
@@ -645,11 +696,13 @@ export const cancelOrder = async (req, res) => {
     }
 
     // Decrement coupon usage
-    if (order.coupon && order.coupon.code) {
-      const coupon = await Coupon.findOne({ code: order.coupon.code });
-
+    if (couponToRevert) {
+      const coupon = await Coupon.findOne({ code: couponToRevert.code });
       if (coupon) {
-        await coupon.decrementUsageForUser(userId, userId ? null : deviceId);
+        await coupon.decrementUsageForUser(
+          couponToRevert.userId,
+          couponToRevert.deviceId
+        );
       }
     }
 
@@ -657,11 +710,11 @@ export const cancelOrder = async (req, res) => {
       success: true,
       message: "Order cancelled successfully",
       order: {
-        orderId: order._id,
-        orderNumber: order.orderNumber,
-        status: order.orderStatus,
-        refundStatus: order.cancellation.refundStatus,
-        refundAmount: order.cancellation.refundAmount,
+        orderId: cancelledOrder._id,
+        orderNumber: cancelledOrder.orderNumber,
+        status: cancelledOrder.orderStatus,
+        refundStatus: cancelledOrder.cancellation.refundStatus,
+        refundAmount: cancelledOrder.cancellation.refundAmount,
       },
     });
   } catch (error) {
@@ -770,10 +823,15 @@ export const cancelGuestOrder = async (req, res) => {
       });
     }
 
-    await order.cancelOrder("guest", reason);
+    // await order.cancelOrder("guest", reason);
+    // NEW
+    const { order: cancelledOrder, couponToRevert } = await order.cancelOrder(
+      "guest",
+      reason
+    );
 
     // Restore product stock
-    for (const item of order.items) {
+    for (const item of cancelledOrder.items) {
       const product = await Product.findById(item.product);
       if (product) {
         const sizeIndex = product.sizes.findIndex(
@@ -787,10 +845,21 @@ export const cancelGuestOrder = async (req, res) => {
     }
 
     // Decrement coupon usage
-    if (order.coupon && order.coupon.code) {
-      const coupon = await Coupon.findOne({ code: order.coupon.code });
-      if (coupon && deviceId) {
-        await coupon.decrementUsageForUser(null, deviceId);
+    // if (order.coupon && order.coupon.code) {
+    //   const coupon = await Coupon.findOne({ code: order.coupon.code });
+    //   if (coupon && deviceId) {
+    //     await coupon.decrementUsageForUser(null, deviceId);
+    //   }
+    // }
+
+    // ✅ NEW CODE: Use couponToRevert data
+    if (couponToRevert) {
+      const coupon = await Coupon.findOne({ code: couponToRevert.code });
+      if (coupon) {
+        await coupon.decrementUsageForUser(
+          couponToRevert.userId,
+          couponToRevert.deviceId
+        );
       }
     }
 
@@ -798,10 +867,10 @@ export const cancelGuestOrder = async (req, res) => {
       success: true,
       message: "Order cancelled successfully",
       order: {
-        orderNumber: order.orderNumber,
-        status: order.orderStatus,
-        refundStatus: order.cancellation.refundStatus,
-        refundAmount: order.cancellation.refundAmount,
+        orderNumber: cancelledOrder.orderNumber,
+        status: cancelledOrder.orderStatus,
+        refundStatus: cancelledOrder.cancellation.refundStatus,
+        refundAmount: cancelledOrder.cancellation.refundAmount,
       },
     });
   } catch (error) {

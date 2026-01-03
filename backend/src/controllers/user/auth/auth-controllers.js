@@ -38,14 +38,21 @@ const loginUser = async (req, res) => {
       user = await userModel.create({ email });
     }
 
+    // CHANGE 1: Reset verification status on every login attempt
+    // This ensures users must verify OTP each time they login
+    user.isVerified = false;
+
     let nextResendAt;
 
     const previousTime = user.verificationCodeTime;
 
     // CASE: OTP ALREADY SENT BEFORE
     if (previousTime) {
-      const secondsPassed = (Date.now() - new Date(previousTime).getTime()) / 1000;
+      const secondsPassed =
+        (Date.now() - new Date(previousTime).getTime()) / 1000;
       if (secondsPassed < 60) {
+        // CHANGE 2: Still save the user to persist isVerified = false
+        await user.save();
         nextResendAt = new Date(previousTime).getTime() + 60 * 1000;
       } else {
         const otp = generateOTP();
@@ -214,7 +221,7 @@ const logoutUser = async (req, res) => {
     // Clear cookies
     res
       .clearCookie("accessToken", cookieOptions)
-      .clearCookie("refreshToken", cookieOptions)
+      .clearCookie("refreshToken", cookieOptions);
 
     return res.status(200).json({ message: "Logged out successfully." });
   } catch (error) {

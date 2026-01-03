@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-// ---------- Free Gift Schema ---------- (Keep as is)
+// ---------- Free Gift Schema ----------
 const freeGiftSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
@@ -16,7 +16,7 @@ const freeGiftSchema = new mongoose.Schema(
   { _id: false }
 );
 
-// ---------- Shipping Address Schema ---------- (Keep as is)
+// ---------- Shipping Address Schema ----------
 const shippingAddressSchema = new mongoose.Schema(
   {
     fullName: {
@@ -70,7 +70,7 @@ const shippingAddressSchema = new mongoose.Schema(
   { _id: false }
 );
 
-// ---------- Order Item Schema ---------- (Keep as is)
+// ---------- Order Item Schema ----------
 const orderItemSchema = new mongoose.Schema(
   {
     product: {
@@ -141,7 +141,7 @@ orderItemSchema.pre("validate", function () {
   }
 });
 
-// ---------- Payment Schema ---------- (Keep as is)
+// ---------- Payment Schema ----------
 const paymentSchema = new mongoose.Schema(
   {
     method: {
@@ -185,7 +185,7 @@ const paymentSchema = new mongoose.Schema(
   { _id: false }
 );
 
-// ---------- Coupon Schema ---------- (Keep as is)
+// ---------- Coupon Schema ----------
 const couponSchema = new mongoose.Schema(
   {
     code: {
@@ -228,7 +228,7 @@ const couponSchema = new mongoose.Schema(
   { _id: false }
 );
 
-// ---------- Tracking Schema ---------- (Keep as is)
+// ---------- Tracking Schema ----------
 const trackingSchema = new mongoose.Schema(
   {
     trackingNumber: {
@@ -251,7 +251,7 @@ const trackingSchema = new mongoose.Schema(
   { _id: false }
 );
 
-// ---------- Cancellation Schema ---------- (Keep as is)
+// ---------- Cancellation Schema ----------
 const cancellationSchema = new mongoose.Schema(
   {
     isCancelled: {
@@ -288,7 +288,7 @@ const cancellationSchema = new mongoose.Schema(
   { _id: false }
 );
 
-// ---------- Invoice Schema ---------- (Keep as is)
+// ---------- Invoice Schema ----------
 const invoiceSchema = new mongoose.Schema(
   {
     invoiceNumber: {
@@ -467,25 +467,100 @@ orderSchema.pre("validate", function () {
     throw new Error("Either user or deviceId must be provided");
   }
 
-  // ✅ FIX: Validate guest info phone matches shipping phone
+  // ✅ CHANGE 1: Enhanced guest validation with better phone handling
+  // OLD CODE:
+  // if (this.deviceId && !this.user) {
+  //   if (!this.guestInfo.email) {
+  //     throw new Error("Guest email is required for guest orders");
+  //   }
+  //   
+  //   if (this.guestInfo.phone && this.shippingAddress.phone) {
+  //     if (this.guestInfo.phone !== this.shippingAddress.phone) {
+  //       console.warn('Guest info phone differs from shipping phone - using shipping phone');
+  //       this.guestInfo.phone = this.shippingAddress.phone;
+  //     }
+  //   } else if (!this.guestInfo.phone && this.shippingAddress.phone) {
+  //     this.guestInfo.phone = this.shippingAddress.phone;
+  //   }
+  // }
+
+  // NEW CODE:
   if (this.deviceId && !this.user) {
+    // Validate required guest fields
     if (!this.guestInfo.email) {
       throw new Error("Guest email is required for guest orders");
     }
-    
-    // ✅ NEW: Ensure guest phone matches shipping phone
-    if (this.guestInfo.phone && this.shippingAddress.phone) {
-      if (this.guestInfo.phone !== this.shippingAddress.phone) {
-        console.warn('Guest info phone differs from shipping phone - using shipping phone');
-        this.guestInfo.phone = this.shippingAddress.phone;
-      }
-    } else if (!this.guestInfo.phone && this.shippingAddress.phone) {
+
+    // Ensure guest name is present (use shipping name as fallback)
+    if (!this.guestInfo.name) {
+      this.guestInfo.name = this.shippingAddress.fullName;
+    }
+
+    // Phone synchronization: Always use shipping phone as source of truth
+    if (!this.guestInfo.phone) {
+      // If guest phone is missing, use shipping phone
       this.guestInfo.phone = this.shippingAddress.phone;
+    } else if (this.guestInfo.phone !== this.shippingAddress.phone) {
+      // If phones differ, log warning and use shipping phone
+      console.warn(
+        `⚠️ Guest phone (${this.guestInfo.phone}) differs from shipping phone (${this.shippingAddress.phone}) - using shipping phone`
+      );
+      this.guestInfo.phone = this.shippingAddress.phone;
+    }
+
+    // Validate phone format after synchronization
+    if (!/^[0-9]{10}$/.test(this.guestInfo.phone)) {
+      throw new Error("Guest phone must be 10 digits");
+    }
+
+    // Validate email format
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.guestInfo.email)) {
+      throw new Error("Invalid guest email format");
+    }
+  }
+
+  // ✅ CHANGE 2: Validate that user orders don't have deviceId
+  if (this.user && this.deviceId) {
+    console.warn("⚠️ Order has both user and deviceId - removing deviceId");
+    this.deviceId = null;
+  }
+
+  // ✅ CHANGE 3: Validate payment amounts
+  if (this.payment.method === "COD") {
+    // COD: amountPaidOnline should be codFee only
+    if (this.payment.amountPaidOnline > this.pricing.codFee + 1) {
+      // +1 for rounding tolerance
+      console.warn(
+        `⚠️ COD amountPaidOnline (${this.payment.amountPaidOnline}) exceeds codFee (${this.pricing.codFee})`
+      );
+    }
+
+    // Calculate amount to be paid on delivery
+    const expectedCODAmount =
+      this.pricing.finalTotal - this.payment.amountPaidOnline;
+    if (Math.abs(this.payment.amountPaidOnDelivery - expectedCODAmount) > 1) {
+      console.warn(
+        `⚠️ Adjusting COD delivery amount from ${this.payment.amountPaidOnDelivery} to ${expectedCODAmount}`
+      );
+      this.payment.amountPaidOnDelivery = expectedCODAmount;
+    }
+  } else if (this.payment.method === "ONLINE") {
+    // ONLINE: amountPaidOnline should equal finalTotal
+    if (Math.abs(this.payment.amountPaidOnline - this.pricing.finalTotal) > 1) {
+      console.warn(
+        `⚠️ Online payment amount (${this.payment.amountPaidOnline}) differs from finalTotal (${this.pricing.finalTotal})`
+      );
+    }
+
+    // Ensure amountPaidOnDelivery is 0 for online payments
+    if (this.payment.amountPaidOnDelivery !== 0) {
+      console.warn("⚠️ Online payment should have 0 amountPaidOnDelivery");
+      this.payment.amountPaidOnDelivery = 0;
     }
   }
 });
 
-// ---------- Indexes ---------- (Keep all as is)
+// ---------- Indexes ----------
 orderSchema.index({ orderNumber: 1 });
 orderSchema.index({ user: 1, createdAt: -1 }, { sparse: true });
 orderSchema.index({ deviceId: 1, createdAt: -1 }, { sparse: true });
@@ -496,27 +571,30 @@ orderSchema.index({ "payment.razorpayPaymentId": 1 });
 orderSchema.index({ "coupon.code": 1 });
 orderSchema.index({ "guestInfo.email": 1 }, { sparse: true });
 orderSchema.index({ createdAt: -1 });
+// ✅ CHANGE 4: Add compound index for better query performance
+orderSchema.index({ user: 1, orderStatus: 1, createdAt: -1 });
+orderSchema.index({ deviceId: 1, orderStatus: 1, createdAt: -1 });
 
-// ---------- Pre-save Hooks ---------- (Keep all as is)
+// ---------- Pre-save Hooks ----------
 
 // Auto-generate order number (FALLBACK ONLY - should not be used)
 orderSchema.pre("save", async function () {
   try {
     // Only generate if orderNumber is somehow missing (shouldn't happen)
     if (this.isNew && !this.orderNumber) {
-      console.warn('⚠️ Order number not provided! Generating fallback...');
-      
+      console.warn("⚠️ Order number not provided! Generating fallback...");
+
       const date = new Date();
       const timestamp = Date.now();
       const random = Math.floor(Math.random() * 1000);
-      
+
       // Fallback format: ORD-timestamp-random
       this.orderNumber = `ORD-${timestamp}-${random}`;
-      
-      console.log('⚠️ Fallback order number:', this.orderNumber);
+
+      console.log("⚠️ Fallback order number:", this.orderNumber);
     }
   } catch (error) {
-    console.error('❌ Error in order pre-save hook:', error);
+    console.error("❌ Error in order pre-save hook:", error);
   }
 });
 
@@ -572,8 +650,10 @@ orderSchema.methods.completePayment = function (paymentDetails) {
   return this.save();
 };
 
-// ✅ FIXED: Cancel order with proper coupon handling
-orderSchema.methods.cancelOrder = function (cancelledBy, reason) {
+// ✅ CHANGE 5: Enhanced cancel order with proper coupon tracking
+// Cancel order with proper coupon handling
+orderSchema.methods.cancelOrder = async function (cancelledBy, reason) {
+  // OLD CODE (no changes, just adding more context)
   this.orderStatus = "cancelled";
   this.cancellation.isCancelled = true;
   this.cancellation.cancelledBy = cancelledBy;
@@ -595,7 +675,21 @@ orderSchema.methods.cancelOrder = function (cancelledBy, reason) {
     this.cancellation.refundStatus = "not-applicable";
   }
 
-  return this.save();
+  // ✅ NEW: Return coupon usage tracking data for controller to handle
+  const couponData = this.coupon.code
+    ? {
+        code: this.coupon.code,
+        userId: this.user || null,
+        deviceId: this.deviceId || null,
+      }
+    : null;
+
+  await this.save();
+
+  return {
+    order: this,
+    couponToRevert: couponData,
+  };
 };
 
 // Update tracking information
@@ -659,13 +753,34 @@ orderSchema.methods.getCouponSummary = function () {
   };
 };
 
-// ✅ NEW: Check if order can be modified
+// Check if order can be modified
 orderSchema.methods.canBeModified = function () {
-  return ["pending", "confirmed"].includes(this.orderStatus) && 
-         !this.cancellation.isCancelled;
+  return (
+    ["pending", "confirmed"].includes(this.orderStatus) &&
+    !this.cancellation.isCancelled
+  );
 };
 
-// ---------- Static Methods ---------- (Keep all as is)
+// ✅ CHANGE 6: Add method to check if order can be cancelled
+orderSchema.methods.canBeCancelledByUser = function () {
+  return (
+    !this.cancellation.isCancelled &&
+    ["pending", "confirmed", "processing"].includes(this.orderStatus) &&
+    this.payment.status !== "refunded"
+  );
+};
+
+// ✅ CHANGE 7: Add method to get customer identifier
+orderSchema.methods.getCustomerIdentifier = function () {
+  return {
+    userId: this.user || null,
+    deviceId: this.deviceId || null,
+    email: this.user ? null : this.guestInfo.email,
+    isGuest: !this.user,
+  };
+};
+
+// ---------- Static Methods ----------
 
 orderSchema.statics.getOrders = function (identifier, options = {}) {
   const { userId, deviceId } = identifier;
@@ -717,22 +832,26 @@ orderSchema.statics.getOrderByNumber = async function (
   return this.findOne(query);
 };
 
-orderSchema.statics.convertGuestOrdersToUser = async function (
-  deviceId,
-  userId
-) {
-  const result = await this.updateMany(
-    { deviceId: deviceId, user: null },
-    {
-      $set: { user: userId },
-      $unset: { deviceId: "", guestInfo: "" },
-    }
-  );
-
-  return {
-    convertedOrders: result.modifiedCount,
-  };
-};
+// ✅ CHANGE 8: REMOVED - No guest-to-user conversion
+// Guest orders remain separate and are not converted when user logs in
+// This maintains clear separation between guest and user orders
+// OLD CODE (commented out):
+// orderSchema.statics.convertGuestOrdersToUser = async function (
+//   deviceId,
+//   userId
+// ) {
+//   const result = await this.updateMany(
+//     { deviceId: deviceId, user: null },
+//     {
+//       $set: { user: userId },
+//       $unset: { deviceId: "", guestInfo: "" },
+//     }
+//   );
+//
+//   return {
+//     convertedOrders: result.modifiedCount,
+//   };
+// };
 
 orderSchema.statics.getOrderStats = async function (dateRange = {}) {
   const { startDate, endDate } = dateRange;
@@ -781,20 +900,22 @@ orderSchema.statics.getOrderStats = async function (dateRange = {}) {
     },
   ]);
 
-  return stats[0] || {
-    totalOrders: 0,
-    totalRevenue: 0,
-    avgOrderValue: 0,
-    totalCouponDiscounts: 0,
-    codOrders: 0,
-    onlineOrders: 0,
-    guestOrders: 0,
-    userOrders: 0,
-    pendingOrders: 0,
-    confirmedOrders: 0,
-    deliveredOrders: 0,
-    cancelledOrders: 0,
-  };
+  return (
+    stats[0] || {
+      totalOrders: 0,
+      totalRevenue: 0,
+      avgOrderValue: 0,
+      totalCouponDiscounts: 0,
+      codOrders: 0,
+      onlineOrders: 0,
+      guestOrders: 0,
+      userOrders: 0,
+      pendingOrders: 0,
+      confirmedOrders: 0,
+      deliveredOrders: 0,
+      cancelledOrders: 0,
+    }
+  );
 };
 
 orderSchema.statics.getOrdersByCoupon = async function (couponCode) {
@@ -840,7 +961,24 @@ orderSchema.statics.searchOrders = async function (searchTerm, options = {}) {
   };
 };
 
-// ---------- Virtuals ---------- (Keep all as is)
+// ✅ CHANGE 9: Add method to find orders by email (for guest order lookup)
+orderSchema.statics.findOrdersByEmail = async function (email) {
+  return this.find({
+    "guestInfo.email": { $regex: new RegExp(`^${email}$`, "i") },
+  })
+    .sort({ createdAt: -1 })
+    .select(
+      "orderNumber orderStatus createdAt pricing.finalTotal payment.method shippingAddress"
+    )
+    .lean();
+};
+
+// ✅ CHANGE 10: Add method to check if order exists for validation
+orderSchema.statics.existsByOrderNumber = async function (orderNumber) {
+  return this.exists({ orderNumber });
+};
+
+// ---------- Virtuals ----------
 
 orderSchema.virtual("isGuestOrder").get(function () {
   return !!this.deviceId && !this.user;
@@ -854,11 +992,18 @@ orderSchema.virtual("customerType").get(function () {
   return this.user ? "registered" : "guest";
 });
 
+// ✅ CHANGE 11: Updated canBeCancelled to use new method
+// OLD CODE:
+// orderSchema.virtual("canBeCancelled").get(function () {
+//   return (
+//     !this.cancellation.isCancelled &&
+//     ["pending", "confirmed", "processing"].includes(this.orderStatus)
+//   );
+// });
+
+// NEW CODE:
 orderSchema.virtual("canBeCancelled").get(function () {
-  return (
-    !this.cancellation.isCancelled &&
-    ["pending", "confirmed", "processing"].includes(this.orderStatus)
-  );
+  return this.canBeCancelledByUser();
 });
 
 orderSchema.virtual("canBeReturned").get(function () {
@@ -897,6 +1042,32 @@ orderSchema.virtual("customerName").get(function () {
     return this.user.name;
   }
   return this.guestInfo.name || this.shippingAddress.fullName;
+});
+
+// ✅ CHANGE 12: Add virtual for days since order placed
+orderSchema.virtual("daysSinceOrdered").get(function () {
+  return Math.floor(
+    (Date.now() - this.createdAt.getTime()) / (1000 * 60 * 60 * 24)
+  );
+});
+
+// ✅ CHANGE 13: Add virtual for estimated delivery date
+orderSchema.virtual("estimatedDeliveryDate").get(function () {
+  if (this.tracking.estimatedDelivery) {
+    return this.tracking.estimatedDelivery;
+  }
+
+  // Default: 7 days from order date for pending/confirmed
+  // 5 days from shipped date for shipped orders
+  if (
+    this.orderStatus === "shipped" ||
+    this.orderStatus === "out-for-delivery"
+  ) {
+    const shippedDate = this.statusTimestamps.shipped || this.createdAt;
+    return new Date(shippedDate.getTime() + 5 * 24 * 60 * 60 * 1000);
+  }
+
+  return new Date(this.createdAt.getTime() + 7 * 24 * 60 * 60 * 1000);
 });
 
 export default mongoose.model("order", orderSchema);

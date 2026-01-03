@@ -65,10 +65,10 @@ const CheckoutPage = () => {
   // ===================== LOCAL STATE =====================
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
   const [isGuest, setIsGuest] = useState(!isAuthenticated);
-  
+
   // Address state
   const [selectedAddressId, setSelectedAddressId] = useState(null);
-  const [useCustomAddress, setUseCustomAddress] = useState(false);
+  const [useCustomAddress, setUseCustomAddress] = useState(true);
   const [customAddress, setCustomAddress] = useState({
     fullName: '',
     phone: '',
@@ -81,10 +81,10 @@ const CheckoutPage = () => {
 
   // Payment state
   const [paymentMethod, setPaymentMethod] = useState('ONLINE');
-  
+
   // Coupon state
   const [couponCode, setCouponCode] = useState('');
-  
+
   // Terms state
   const [agreeToTerms, setAgreeToTerms] = useState(false);
 
@@ -107,12 +107,12 @@ const CheckoutPage = () => {
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     script.async = true;
-    
+
     script.onload = () => {
       setRazorpayLoaded(true);
       console.log('✅ Razorpay script loaded');
     };
-    
+
     script.onerror = () => {
       console.error('❌ Failed to load Razorpay script');
       toast.error(
@@ -136,11 +136,11 @@ const CheckoutPage = () => {
       try {
         // Get order summary
         const summaryResult = await dispatch(getOrderSummary()).unwrap();
-        
+
         // Check cart validation
         if (summaryResult.validation && !summaryResult.validation.isValid) {
           toast.error('Some items in your cart are no longer available', toastControls);
-          
+
           summaryResult.validation.results
             .filter(r => !r.isValid)
             .forEach((result) => {
@@ -149,7 +149,7 @@ const CheckoutPage = () => {
                 toastControls
               );
             });
-          
+
           setTimeout(() => navigate('/cart'), 3000);
           return;
         }
@@ -179,10 +179,24 @@ const CheckoutPage = () => {
 
   // Set default address
   useEffect(() => {
-    if (defaultAddress && !useCustomAddress && !isGuest) {
-      setSelectedAddressId(defaultAddress._id);
+    if (!isGuest && addresses.length > 0) {
+      // User has saved addresses - show them by default
+      setUseCustomAddress(false);
+
+      if (defaultAddress) {
+        setSelectedAddressId(defaultAddress._id);
+      } else {
+        // No default, select first address
+        setSelectedAddressId(addresses[0]._id);
+      }
+    } else if (!isGuest && addresses.length === 0) {
+      // User has no addresses - show form
+      setUseCustomAddress(true);
+    } else if (isGuest) {
+      // Guest - always show form
+      setUseCustomAddress(true);
     }
-  }, [defaultAddress, useCustomAddress, isGuest]);
+  }, [defaultAddress, addresses, isGuest]);
 
   // Sync coupon code with applied coupon
   useEffect(() => {
@@ -197,21 +211,25 @@ const CheckoutPage = () => {
 
   // Get shipping address
   const getShippingAddress = () => {
-    if (useCustomAddress || isGuest) {
+    // For guests or when custom address is chosen
+    if (isGuest || useCustomAddress || addresses.length === 0) {
       return customAddress;
     }
 
-    const selectedAddress = addresses.find((addr) => addr._id === selectedAddressId);
-    if (selectedAddress) {
-      return {
-        fullName: selectedAddress.fullName,
-        phone: selectedAddress.phone,
-        address: selectedAddress.address,
-        landmark: selectedAddress.landmark,
-        city: selectedAddress.city,
-        state: selectedAddress.state,
-        pincode: selectedAddress.pincode,
-      };
+    // For logged-in users with saved addresses
+    if (!useCustomAddress && selectedAddressId) {
+      const selectedAddress = addresses.find((addr) => addr._id === selectedAddressId);
+      if (selectedAddress) {
+        return {
+          fullName: selectedAddress.fullName,
+          phone: selectedAddress.phone,
+          address: selectedAddress.address,
+          landmark: selectedAddress.landmark || "",
+          city: selectedAddress.city,
+          state: selectedAddress.state,
+          pincode: selectedAddress.pincode,
+        };
+      }
     }
 
     return null;
@@ -314,7 +332,7 @@ const CheckoutPage = () => {
 
       handler: async (response) => {
         console.log('✅ Payment successful, verifying...');
-        
+
         try {
           const verifyResult = await dispatch(
             verifyPayment({
@@ -330,7 +348,7 @@ const CheckoutPage = () => {
         } catch (error) {
           console.error('❌ Payment verification failed:', error);
           toast.error(error || 'Payment verification failed', toastControls);
-          
+
           setTimeout(() => {
             navigate(`/orders/${orderData.orderId}?payment=failed`);
           }, 2000);
@@ -367,7 +385,7 @@ const CheckoutPage = () => {
 
     try {
       const razorpay = new window.Razorpay(options);
-      
+
       razorpay.on('payment.failed', function (response) {
         console.error('❌ Payment failed:', response.error);
         toast.error(
@@ -530,7 +548,7 @@ const CheckoutPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
           {/* ========== LEFT: FORMS ========== */}
           <div className="lg:col-span-2 space-y-4 md:space-y-6">
-            
+
             {/* Guest Info Section */}
             {isGuest && (
               <div className="bg-zinc-900 rounded-lg shadow-sm p-4 border border-zinc-800">
@@ -579,10 +597,10 @@ const CheckoutPage = () => {
                 Shipping Address
               </h2>
 
-              {/* Saved vs Custom Address Toggle */}
+              {/* ✅ UPDATED: Show toggle only if user has saved addresses */}
               {!isGuest && addresses.length > 0 && (
-                <>
-                  <div className="flex gap-4 mb-4">
+                <div className="mb-4">
+                  <div className="flex flex-wrap gap-3 mb-4">
                     <label className="flex items-center cursor-pointer">
                       <input
                         type="radio"
@@ -591,7 +609,7 @@ const CheckoutPage = () => {
                         className="w-4 h-4 text-blue-600 focus:ring-blue-500"
                       />
                       <span className="ml-2 text-sm font-medium text-zinc-300">
-                        Use saved address
+                        Choose from saved addresses ({addresses.length})
                       </span>
                     </label>
                     <label className="flex items-center cursor-pointer">
@@ -602,7 +620,7 @@ const CheckoutPage = () => {
                         className="w-4 h-4 text-blue-600 focus:ring-blue-500"
                       />
                       <span className="ml-2 text-sm font-medium text-zinc-300">
-                        Use different address
+                        Enter new address
                       </span>
                     </label>
                   </div>
@@ -614,11 +632,10 @@ const CheckoutPage = () => {
                         <div
                           key={address._id}
                           onClick={() => setSelectedAddressId(address._id)}
-                          className={`border-2 rounded p-4 cursor-pointer transition-all ${
-                            selectedAddressId === address._id
-                              ? 'border-blue-500 bg-zinc-800'
-                              : 'border-zinc-700 hover:border-zinc-600'
-                          }`}
+                          className={`border-2 rounded p-4 cursor-pointer transition-all ${selectedAddressId === address._id
+                            ? 'border-blue-500 bg-zinc-800'
+                            : 'border-zinc-700 hover:border-zinc-600'
+                            }`}
                         >
                           <div className="flex items-start">
                             <input
@@ -652,11 +669,20 @@ const CheckoutPage = () => {
                       ))}
                     </div>
                   )}
-                </>
+                </div>
               )}
 
-              {/* Custom Address Form */}
-              {(useCustomAddress || isGuest) && (
+              {/* ✅ UPDATED: Show message if no saved addresses */}
+              {!isGuest && addresses.length === 0 && (
+                <div className="mb-4 p-3 bg-blue-950 border border-blue-700 rounded">
+                  <p className="text-sm text-blue-200">
+                    📍 No saved addresses yet. Your address will be saved for future orders.
+                  </p>
+                </div>
+              )}
+
+              {/* ✅ UPDATED: Show form for: guests, users with no addresses, or when "Enter new address" is selected */}
+              {(isGuest || addresses.length === 0 || useCustomAddress) && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -786,6 +812,18 @@ const CheckoutPage = () => {
                       />
                     </div>
                   </div>
+
+                  {/* ✅ NEW: Show save option for logged-in users */}
+                  {!isGuest && (
+                    <div className="flex items-center gap-2 p-3 bg-blue-950 border border-blue-700 rounded">
+                      <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="text-xs text-blue-200">
+                        This address will be automatically saved to your account for future orders.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -797,11 +835,10 @@ const CheckoutPage = () => {
               </h2>
               <div className="space-y-3">
                 <label
-                  className={`border rounded p-4 cursor-pointer transition-all flex items-start ${
-                    paymentMethod === 'ONLINE'
-                      ? 'border-blue-500 bg-zinc-800'
-                      : 'border-zinc-700 hover:border-zinc-600'
-                  }`}
+                  className={`border rounded p-4 cursor-pointer transition-all flex items-start ${paymentMethod === 'ONLINE'
+                    ? 'border-blue-500 bg-zinc-800'
+                    : 'border-zinc-700 hover:border-zinc-600'
+                    }`}
                 >
                   <input
                     type="radio"
@@ -819,11 +856,10 @@ const CheckoutPage = () => {
                 </label>
 
                 <label
-                  className={`border rounded p-4 cursor-pointer transition-all flex items-start ${
-                    paymentMethod === 'COD'
-                      ? 'border-blue-500 bg-zinc-800'
-                      : 'border-zinc-700 hover:border-zinc-600'
-                  }`}
+                  className={`border rounded p-4 cursor-pointer transition-all flex items-start ${paymentMethod === 'COD'
+                    ? 'border-blue-500 bg-zinc-800'
+                    : 'border-zinc-700 hover:border-zinc-600'
+                    }`}
                 >
                   <input
                     type="radio"
