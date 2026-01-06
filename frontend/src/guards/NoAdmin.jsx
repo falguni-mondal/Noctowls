@@ -3,9 +3,11 @@ import Loader from "../utils/loader/Loader";
 import { useSelector } from "react-redux";
 
 const NoAdmin = () => {
-  const {admin, status} = useSelector(state => state.adminAuth);
+  const { admin, status } = useSelector(state => state.adminAuth);
 
-  if (status === "loading" || status === "idle") {
+  // FIX: Only show loader if explicitly loading. 
+  // If 'idle', we assume check hasn't run or isn't needed, so we proceed.
+  if (status === "loading") {
     return <Loader />
   }
 

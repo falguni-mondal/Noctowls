@@ -10,8 +10,8 @@ import FooterNav from './components/mobile/footer-nav/FooterNav';
 import { useLocation } from 'react-router-dom';
 import TopNavMenu from './components/mobile/TopNavMenu';
 import { Bounce, ToastContainer } from 'react-toastify';
-import { useDispatch } from 'react-redux';
-import { checkAuth } from './store/features/user/authSlice';
+import { useDispatch, useSelector } from 'react-redux';
+import { checkAuth, selectUser } from './store/features/user/authSlice';
 import { checkAdmin } from './store/features/admin/adminAuthSlice';
 import { getCart } from './store/features/user/cartSlice';
 
@@ -19,12 +19,16 @@ const App = () => {
   const location = useLocation();
   const [showNav, setShowNav] = useState(false);
   const dispatch = useDispatch();
+  const user = useSelector(selectUser);
 
   useEffect(() => {
     dispatch(checkAuth());
     dispatch(checkAdmin());
-    dispatch(getCart());
   }, []);
+
+  useEffect(() => {
+    dispatch(getCart());
+  }, [user])
 
   useEffect(() => {
     window.scrollTo(0, 0);

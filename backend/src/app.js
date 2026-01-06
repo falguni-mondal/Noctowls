@@ -17,28 +17,32 @@ import adminAuthRouter from "./routes/admin/auth/admin-auth-routes.js";
 import adminProductsRouter from "./routes/admin/products/admin-product-routes.js";
 import adminCouponRouter from "./routes/admin/products/admin-coupon-routes.js";
 
-
 const app = express();
 app.set("trust proxy", true);
-app.use(express.json());
-app.use(express.urlencoded({extended: true}));
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      // We store the raw buffer to check the signature later
+      req.rawBody = buf;
+    },
+  })
+);
+app.use(express.urlencoded({ extended: true }));
 app.use(parser());
-
 
 // Connecting DB....................................................
 connectToDB();
 
-
 // CORS Initialization..............................................
-app.use(cors({
+app.use(
+  cors({
     origin: true,
-    credentials: true
-}))
-
+    credentials: true,
+  })
+);
 
 // NO CACHE MIDDLEWARE (For not storing anything in the cache)
 app.use(noCache);
-
 
 // ROUTE INITIALIZATIONS.............................................
 app.use("/api/auth", authRouter);
@@ -50,6 +54,5 @@ app.use("/api/order", orderRouter);
 app.use("/api/admin/auth", adminAuthRouter);
 app.use("/api/admin/products", adminProductsRouter);
 app.use("/api/admin/coupons", adminCouponRouter);
-
 
 export default app;

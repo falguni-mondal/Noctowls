@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import userApi from "../../../configs/userAxiosConfig";
-// ✅ NEW: Import logout actions to listen to them
 import { logoutUser, deleteAccount } from "./authSlice";
+import { verifyPayment } from "./orderSlice";
 
 // ==================== ASYNC THUNKS ====================
 
@@ -154,9 +154,11 @@ export const validateCart = createAsyncThunk(
       const response = await userApi.post("/cart/validate");
       return response.data;
     } catch (error) {
-      return rejectWithValue(
-        error.response?.data?.message || "Cart validation failed"
-      );
+      return rejectWithValue({
+        message: error.response?.data?.message || "Cart validation failed",
+        validationResults: error.response?.data?.validationResults || [],
+        cart: error.response?.data?.cart || null,
+      });
     }
   }
 );
@@ -264,7 +266,7 @@ const cartSlice = createSlice({
       state.isGuest = action.payload?.isGuest || false;
     },
 
-    // ✅ NEW: Update cart item locally (optimistic update)
+    // Update cart item locally (optimistic update)
     updateCartItemLocally: (state, action) => {
       const { itemId, quantity } = action.payload;
       if (state.cart && state.cart.items) {
@@ -275,7 +277,7 @@ const cartSlice = createSlice({
       }
     },
 
-    // ✅ NEW: Remove cart item locally (optimistic update)
+    // Remove cart item locally (optimistic update)
     removeCartItemLocally: (state, action) => {
       const itemId = action.payload;
       if (state.cart && state.cart.items) {
@@ -390,7 +392,7 @@ const cartSlice = createSlice({
         state.isGuest = action.payload.isGuest;
         state.successMessage = action.payload.message;
         state.error = null;
-        // ✅ Clear coupon validation when cart is cleared
+        // Clear coupon validation when cart is cleared
         state.couponValidation = {
           loading: false,
           error: null,
@@ -440,7 +442,7 @@ const cartSlice = createSlice({
         state.successMessage = action.payload.message;
         state.error = null;
 
-        // ✅ NEW: Clear validation state after successful apply
+        // Clear validation state after successful apply
         state.couponValidation = {
           loading: false,
           error: null,
@@ -451,7 +453,7 @@ const cartSlice = createSlice({
         state.actionLoading = false;
         state.error = action.payload;
 
-        // ✅ NEW: Store error in coupon validation state
+        // Store error in coupon validation state
         state.couponValidation = {
           loading: false,
           error: action.payload,
@@ -471,7 +473,7 @@ const cartSlice = createSlice({
         state.isGuest = action.payload.isGuest;
         state.successMessage = action.payload.message;
         state.error = null;
-        // ✅ Clear coupon validation
+        // Clear coupon validation
         state.couponValidation = {
           loading: false,
           error: null,
@@ -500,11 +502,12 @@ const cartSlice = createSlice({
       .addCase(validateCart.rejected, (state, action) => {
         state.cartValidation.loading = false;
         state.cartValidation.isValid = false;
-        state.cartValidation.error = action.payload;
+        state.cartValidation.error = action.payload.message;
 
-        // ✅ NEW: Store validation results if available
+        // Store validation results
         if (action.payload?.validationResults) {
           state.cartValidation.results = action.payload.validationResults;
+          state.cart = action.payload.cart; // Also update cart with invalid items
         }
       });
 
@@ -524,7 +527,24 @@ const cartSlice = createSlice({
         state.error = action.payload;
       });
 
-    // ✅ NEW: Listen to logout actions from authSlice
+    // ===== LISTEN FOR SUCCESSFUL PAYMENT =====
+    builder.addCase(verifyPayment.fulfilled, (state) => {
+      state.cart = null;
+      state.summary = null;
+      state.couponValidation = {
+        loading: false,
+        error: null,
+        data: null,
+      };
+      state.cartValidation = {
+        loading: false,
+        error: null,
+        isValid: null,
+        results: [],
+      };
+    });
+
+    // Listen to logout actions from authSlice
     builder
       .addCase(logoutUser.fulfilled, (state) => {
         // Reset cart to initial state on logout
@@ -564,7 +584,7 @@ export const selectCouponValidation = (state) => state.cart.couponValidation;
 export const selectCartValidation = (state) => state.cart.cartValidation;
 export const selectFreeGiftsTiers = (state) => state.cart.freeGiftsTiers;
 
-// ✅ NEW: Enhanced Computed Selectors
+// Enhanced Computed Selectors
 
 // Cart items (non-gift only)
 export const selectCartItems = (state) => {
@@ -652,19 +672,19 @@ export const selectHasInvalidItems = (state) => {
   return results.some((r) => !r.isValid);
 };
 
-// ✅ NEW: Check if cart is empty
+// Check if cart is empty
 export const selectIsCartEmpty = (state) => {
   const items =
     state.cart.cart?.items?.filter((item) => !item.isFreeGift) || [];
   return items.length === 0;
 };
 
-// ✅ NEW: Get item by ID
+// Get item by ID
 export const selectCartItemById = (itemId) => (state) => {
   return state.cart.cart?.items?.find((item) => item._id === itemId) || null;
 };
 
-// ✅ NEW: Check if specific product+size exists in cart
+// Check if specific product+size exists in cart
 export const selectHasProductInCart = (productId, sizeValue) => (state) => {
   if (!state.cart.cart?.items) return false;
   return state.cart.cart.items.some(
@@ -675,7 +695,7 @@ export const selectHasProductInCart = (productId, sizeValue) => (state) => {
   );
 };
 
-// ✅ NEW: Get quantity of specific product+size in cart
+// Get quantity of specific product+size in cart
 export const selectProductQuantityInCart =
   (productId, sizeValue) => (state) => {
     if (!state.cart.cart?.items) return 0;
@@ -688,7 +708,7 @@ export const selectProductQuantityInCart =
     return item?.quantity || 0;
   };
 
-// ✅ NEW: Check if any cart operation is in progress
+// Check if any cart operation is in progress
 export const selectIsAnyCartActionLoading = (state) => {
   return (
     state.cart.loading ||

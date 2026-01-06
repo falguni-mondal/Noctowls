@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import userApi from "../../../configs/userAxiosConfig";
+import { logoutUser, deleteAccount } from "./authSlice";
 
 // ==================== ASYNC THUNKS ====================
 
@@ -375,15 +376,24 @@ const orderSlice = createSlice({
         state.cancelOrderLoading = false;
         state.currentOrder = action.payload.order;
         state.successMessage = action.payload.message;
-        
+
         // Update order in orders list if exists
         const orderIndex = state.orders.findIndex(
           (order) => order._id === action.payload.order.orderId
         );
         if (orderIndex !== -1) {
-          state.orders[orderIndex].orderStatus = action.payload.order.status;
+          // Update the entire order, not just status
+          state.orders[orderIndex] = {
+            ...state.orders[orderIndex],
+            orderStatus: action.payload.order.status,
+            cancellation: {
+              isCancelled: true,
+              refundStatus: action.payload.order.refundStatus,
+              refundAmount: action.payload.order.refundAmount,
+            },
+          };
         }
-        
+
         state.error = null;
       })
       .addCase(cancelOrder.rejected, (state, action) => {
@@ -481,6 +491,17 @@ const orderSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       });
+
+    // ON USER LOGOUT....................................................................
+    builder
+      .addCase(logoutUser.fulfilled, (state) => {
+        // Reset orders to initial state on logout
+        Object.assign(state, initialState);
+      })
+      .addCase(deleteAccount.fulfilled, (state) => {
+        // Reset orders to initial state on account deletion
+        Object.assign(state, initialState);
+      });
   },
 });
 
@@ -512,11 +533,15 @@ export const selectInvoice = (state) => state.order.invoice;
 
 // Loading selectors
 export const selectOrderLoading = (state) => state.order.loading;
-export const selectCreateOrderLoading = (state) => state.order.createOrderLoading;
-export const selectVerifyPaymentLoading = (state) => state.order.verifyPaymentLoading;
-export const selectCancelOrderLoading = (state) => state.order.cancelOrderLoading;
+export const selectCreateOrderLoading = (state) =>
+  state.order.createOrderLoading;
+export const selectVerifyPaymentLoading = (state) =>
+  state.order.verifyPaymentLoading;
+export const selectCancelOrderLoading = (state) =>
+  state.order.cancelOrderLoading;
 export const selectSummaryLoading = (state) => state.order.summaryLoading;
-export const selectTrackGuestOrderLoading = (state) => state.order.trackGuestOrderLoading;
+export const selectTrackGuestOrderLoading = (state) =>
+  state.order.trackGuestOrderLoading;
 
 // Error & success selectors
 export const selectOrderError = (state) => state.order.error;
@@ -535,19 +560,25 @@ export const selectOrdersByStatus = (status) => (state) => {
 
 export const selectPendingOrders = (state) => {
   return state.order.orders.filter(
-    (order) => order.orderStatus === "pending" || order.orderStatus === "confirmed"
+    (order) =>
+      order.orderStatus === "pending" || order.orderStatus === "confirmed"
   );
 };
 
 export const selectCompletedOrders = (state) => {
-  return state.order.orders.filter((order) => order.orderStatus === "delivered");
+  return state.order.orders.filter(
+    (order) => order.orderStatus === "delivered"
+  );
 };
 
 export const selectCancelledOrders = (state) => {
-  return state.order.orders.filter((order) => order.orderStatus === "cancelled");
+  return state.order.orders.filter(
+    (order) => order.orderStatus === "cancelled"
+  );
 };
 
-export const selectIsCouponValid = (state) => state.order.couponValidation.isValid;
+export const selectIsCouponValid = (state) =>
+  state.order.couponValidation.isValid;
 
 export const selectCouponDiscount = (state) => {
   return state.order.couponValidation.discount?.amount || 0;

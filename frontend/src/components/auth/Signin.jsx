@@ -35,7 +35,15 @@ const Signin = () => {
         if (res?.meta?.requestStatus === "fulfilled") {
             navigate("/account/verify");
         } else {
-            toast.error(res?.payload?.message || "Failed to login.", toastControls);
+            const errorMessage = res?.payload?.message || "Failed to login.";
+
+            if (errorMessage.toLowerCase().includes("locked")) {
+                toast.error(`Account Locked! ${errorMessage}`, {
+                    autoClose: 10000,
+                });
+            } else {
+                toast.error(errorMessage, toastControls);
+            }
         }
     };
 

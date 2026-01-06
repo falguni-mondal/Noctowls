@@ -10,6 +10,7 @@ import {
   validateCouponForCheckout,
   getOrderSummary,
   downloadInvoice,
+  handleRazorpayWebhook,
 } from "../../../controllers/user/order/order-controllers.js";
 import {
   validateCreateOrder,
@@ -33,6 +34,8 @@ router.post("/track", validateGuestOrderTracking, trackGuestOrder);
 
 // Cancel guest order by order number + email
 router.post("/track/cancel", validateGuestOrderCancellation, cancelGuestOrder);
+
+router.post("/webhook/razorpay", handleRazorpayWebhook);
 
 // ==================== AUTHENTICATED/GUEST ROUTES (OPTIONAL AUTH) ====================
 

@@ -106,7 +106,7 @@ const authSlice = createSlice({
   },
 
   reducers: {
-    // ✅ NEW: Clear all errors
+    // Clear all errors
     clearAuthErrors: (state) => {
       state.error = null;
       state.login.error = null;
@@ -114,7 +114,7 @@ const authSlice = createSlice({
       state.otpVerifier.error = null;
     },
 
-    // ✅ NEW: Clear login state (for new login attempt)
+    // Clear login state (for new login attempt)
     resetLoginState: (state) => {
       state.login.status = "idle";
       state.login.error = null;
@@ -125,7 +125,7 @@ const authSlice = createSlice({
       state.nextResendAt = null;
     },
 
-    // ✅ NEW: Manual user update (for profile edits)
+    // Manual user update (for profile edits)
     updateUser: (state, action) => {
       if (state.user) {
         state.user = { ...state.user, ...action.payload };
@@ -191,7 +191,7 @@ const authSlice = createSlice({
         state.otpVerifier.error = null;
         state.user = action.payload;
         state.nextResendAt = null;
-        // ✅ Reset login state after successful verification
+        // Reset login state after successful verification
         state.login.status = "idle";
         state.otpSender.status = "idle";
       })
@@ -214,7 +214,7 @@ const authSlice = createSlice({
         state.otpVerifier.error = null;
       })
       .addCase(logoutUser.rejected, (state, action) => {
-        // ✅ Even if logout fails on server, clear local state
+        // Even if logout fails on server, clear local state
         state.user = null;
         state.status = "idle";
         state.login.status = "idle";
@@ -253,7 +253,7 @@ export const {
   updateUser 
 } = authSlice.actions;
 
-// ✅ NEW: Comprehensive Selectors
+// Comprehensive Selectors
 
 // User selectors
 export const selectUser = (state) => state.auth.user;
@@ -262,7 +262,7 @@ export const selectUserName = (state) => state.auth.user?.name || "";
 export const selectUserEmail = (state) => state.auth.user?.email || "";
 export const selectUserPhone = (state) => state.auth.user?.phone || "";
 
-// ✅ CRITICAL: Authentication status selector
+// Authentication status selector
 export const selectIsAuthenticated = (state) => !!state.auth.user;
 
 // Auth status selectors
@@ -291,7 +291,7 @@ export const selectCanResendOtp = (state) => {
   return new Date() > new Date(state.auth.nextResendAt);
 };
 
-// ✅ NEW: Computed selectors for better UX
+// Computed selectors for better UX
 export const selectIsInLoginFlow = (state) => {
   return (
     state.auth.login.status === "success" ||
@@ -309,7 +309,7 @@ export const selectHasAnyError = (state) => {
   );
 };
 
-// ✅ NEW: Get first available error
+// Get first available error
 export const selectFirstError = (state) => {
   return (
     state.auth.otpVerifier.error ||

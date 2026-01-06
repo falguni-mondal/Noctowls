@@ -194,31 +194,6 @@ const addressSlice = createSlice({
       state.error = null;
       state.successMessage = null;
     },
-
-    // Optimistic add address
-    optimisticAddAddress: (state, action) => {
-      state.addresses.unshift(action.payload);
-      state.addressesCount += 1;
-    },
-
-    // Optimistic delete address
-    optimisticDeleteAddress: (state, action) => {
-      const addressId = action.payload;
-      state.addresses = state.addresses.filter((addr) => addr._id !== addressId);
-      state.addressesCount = Math.max(0, state.addressesCount - 1);
-    },
-
-    // Optimistic update address
-    optimisticUpdateAddress: (state, action) => {
-      const { addressId, addressData } = action.payload;
-      const index = state.addresses.findIndex((addr) => addr._id === addressId);
-      if (index !== -1) {
-        state.addresses[index] = {
-          ...state.addresses[index],
-          ...addressData,
-        };
-      }
-    },
   },
   extraReducers: (builder) => {
     // ===== GET ADDRESSES =====
@@ -433,9 +408,6 @@ export const {
   clearSuccessMessage,
   clearCurrentAddress,
   resetAddresses,
-  optimisticAddAddress,
-  optimisticDeleteAddress,
-  optimisticUpdateAddress,
 } = addressSlice.actions;
 
 // Selectors

@@ -38,32 +38,41 @@ const loginUser = async (req, res) => {
       user = await userModel.create({ email });
     }
 
-    // CHANGE 1: Reset verification status on every login attempt
-    // This ensures users must verify OTP each time they login
+    // CHECK 1: Is the user currently locked out?
+    if (user.lockoutUntil && user.lockoutUntil > new Date()) {
+      const waitMinutes = Math.ceil(
+        (user.lockoutUntil - new Date()) / 1000 / 60
+      );
+      return res.status(429).json({
+        message: `Too many failed attempts. Please try again in ${waitMinutes} minutes.`,
+      });
+    }
+
+    // Reset verification status
     user.isVerified = false;
 
     let nextResendAt;
-
     const previousTime = user.verificationCodeTime;
 
-    // CASE: OTP ALREADY SENT BEFORE
+    // CASE: OTP ALREADY SENT
     if (previousTime) {
       const secondsPassed =
         (Date.now() - new Date(previousTime).getTime()) / 1000;
+
       if (secondsPassed < 60) {
-        // CHANGE 2: Still save the user to persist isVerified = false
         await user.save();
         nextResendAt = new Date(previousTime).getTime() + 60 * 1000;
       } else {
+        // Generate NEW OTP
         const otp = generateOTP();
 
         user.verificationCode = otp;
         user.verificationCodeTime = new Date();
+        // Don't reset failed attempts here; we only reset on successful verify
         await user.save();
 
         nextResendAt = Date.now() + 60 * 1000;
 
-        // Send OTP email
         const emailSent = await sendEmail({
           to: email,
           subject: "Your Verification Code",
@@ -81,11 +90,15 @@ const loginUser = async (req, res) => {
         }
       }
     } else {
-      // First time login: generate OTP
+      // First time login
       const otp = generateOTP();
 
       user.verificationCode = otp;
       user.verificationCodeTime = new Date();
+      // Ensure clean state
+      user.failedOtpAttempts = 0;
+      user.lockoutUntil = null;
+
       await user.save();
 
       nextResendAt = Date.now() + 60 * 1000;
@@ -107,7 +120,7 @@ const loginUser = async (req, res) => {
       }
     }
 
-    // Generate tokens (login is always allowed)
+    // Generate tokens
     const accessToken = tokenizer.createAccessToken(user._id, user.role);
     const refreshToken = await tokenizer.createRefreshToken(
       user._id,

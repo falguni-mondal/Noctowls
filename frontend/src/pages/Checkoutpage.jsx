@@ -100,7 +100,6 @@ const CheckoutPage = () => {
   useEffect(() => {
     if (typeof window.Razorpay !== 'undefined') {
       setRazorpayLoaded(true);
-      console.log('✅ Razorpay script already loaded');
       return;
     }
 
@@ -110,7 +109,6 @@ const CheckoutPage = () => {
 
     script.onload = () => {
       setRazorpayLoaded(true);
-      console.log('✅ Razorpay script loaded');
     };
 
     script.onerror = () => {
@@ -413,11 +411,10 @@ const CheckoutPage = () => {
     }
 
     try {
-      const result = await dispatch(applyCoupon(couponCode.toUpperCase())).unwrap();
-      toast.success(result.message, toastControls);
+      await dispatch(applyCoupon(couponCode.toUpperCase())).unwrap();
       await dispatch(getOrderSummary()).unwrap();
     } catch (error) {
-      toast.error(error, toastControls);
+      console.error(error)
     }
   };
 
@@ -426,7 +423,6 @@ const CheckoutPage = () => {
     try {
       await dispatch(removeCoupon()).unwrap();
       setCouponCode('');
-      toast.success('Coupon removed successfully', toastControls);
       await dispatch(getOrderSummary()).unwrap();
     } catch (error) {
       toast.error(error, toastControls);
@@ -487,7 +483,7 @@ const CheckoutPage = () => {
     const productsSubtotal = orderSummary.productsSubtotal || 0;
     const couponDiscount = orderSummary.couponDiscount || 0;
     const subtotalAfterCoupon = productsSubtotal - couponDiscount;
-    const codFee = paymentMethod === 'COD' ? 50 : 0;
+    const codFee = paymentMethod === 'COD' ? 49 : 0;
     const finalTotal = subtotalAfterCoupon + codFee;
 
     return {
@@ -871,7 +867,7 @@ const CheckoutPage = () => {
                   <div className="ml-3">
                     <h3 className="font-semibold text-zinc-100">Cash on Delivery</h3>
                     <p className="text-sm text-zinc-400 mt-1">
-                      Pay ₹50 online as COD fee. Rest on delivery.
+                      Pay ₹49 online as COD fee. Rest on delivery.
                     </p>
                   </div>
                 </label>

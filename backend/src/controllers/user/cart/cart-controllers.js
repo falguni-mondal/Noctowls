@@ -4,16 +4,22 @@ import Coupon from "../../../models/coupon-model.js";
 import cookieOptions from "../../../utils/cookie-options.js";
 import { randomUUID } from "crypto";
 
-// ✅ FIXED: Better device ID handling
+// robust cookie handling for guest persistence
 const getCartIdentifier = (req, res) => {
   const userId = req.user || null;
   let deviceId = null;
 
-  // ONLY use deviceId if user is NOT logged in
+  // ONLY need deviceId if user is NOT logged in
   if (!userId) {
-    deviceId = req.cookies.device_id || randomUUID();
+    // Try to get existing ID from cookie
+    deviceId = req.cookies.device_id;
 
-    // ✅ FIX: Always set/refresh cookie for guests
+    // If no cookie exists, generate a NEW one
+    if (!deviceId) {
+      deviceId = randomUUID();
+    }
+
+    // ALWAYS refresh the cookie to keep session alive
     res.cookie("device_id", deviceId, {
       ...cookieOptions,
       maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
@@ -339,7 +345,6 @@ export const removeCartItem = async (req, res) => {
   }
 };
 
-
 // ==================== APPLY COUPON (WITH BUILT-IN VALIDATION) ====================
 export const applyCoupon = async (req, res) => {
   try {
@@ -660,7 +665,7 @@ export const validateCart = async (req, res) => {
     }
 
     // ✅ FIX: Populate before validation
-    await cart.populate('items.product');
+    await cart.populate("items.product");
 
     const validationResult = await cart.validateCart();
 
@@ -771,7 +776,7 @@ export const getCartSummary = async (req, res) => {
 export const cleanupExpiredCarts = async (req, res) => {
   try {
     const now = new Date();
-    
+
     const result = await Cart.deleteMany({
       deviceId: { $ne: null },
       user: null,
