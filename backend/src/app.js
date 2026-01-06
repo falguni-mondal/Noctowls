@@ -16,6 +16,7 @@ import orderRouter from "./routes/user/order/order-routes.js";
 import adminAuthRouter from "./routes/admin/auth/admin-auth-routes.js";
 import adminProductsRouter from "./routes/admin/products/admin-product-routes.js";
 import adminCouponRouter from "./routes/admin/products/admin-coupon-routes.js";
+import adminOrderRouter from "./routes/admin/orders/admin-order-routes.js";
 
 const app = express();
 app.set("trust proxy", true);
@@ -54,5 +55,6 @@ app.use("/api/order", orderRouter);
 app.use("/api/admin/auth", adminAuthRouter);
 app.use("/api/admin/products", adminProductsRouter);
 app.use("/api/admin/coupons", adminCouponRouter);
+app.use("/api/admin/orders", adminOrderRouter);
 
 export default app;
