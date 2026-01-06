@@ -23,6 +23,7 @@ import NoAdmin from '../guards/NoAdmin';
 import UpdateCoupon from '../pages/admin/services/product/coupon/UpdateCoupon';
 import Wishlistpage from '../pages/Wishlistpage';
 import CheckoutPage from '../pages/Checkoutpage';
+import AdminOrderDetails from '../pages/admin/services/orders/AdminOrderDetails';
 
 
 const PageRouter = () => {
@@ -65,6 +66,9 @@ const PageRouter = () => {
 
         <Route path='/admin/coupons/add' element={<AddCoupon />} />
         <Route path='/admin/coupons/update/:id' element={<UpdateCoupon />} />
+
+        {/* ORDER SERVICES */}
+        <Route path='/admin/orders/:id' element={<AdminOrderDetails />} />
       </Route>
     </Routes>
   )

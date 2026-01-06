@@ -19,7 +19,7 @@ const TopNavMenu = ({showNav, setShowNav}) => {
         },
     ]
   return (
-    <div className={`fixed inset-0 top-0 left-0 bg-black pt-5 z-999 ${showNav? "" : "hidden"}`}>
+    <div className={`fixed inset-0 top-0 left-0 bg-black pt-5 z-999 ${showNav? "" : "hidden"} print:hidden`}>
         <div className="close-btn-container px-5 flex justify-end">
             <span onClick={() => setShowNav(false)} className='w-10 aspect-square rounded-full bg-zinc-100 text-black flex justify-center items-center text-xl'>
                 <Icon icon="material-symbols:close" />

@@ -17,7 +17,7 @@ const TextSwiper = () => {
   ];
 
   return (
-    <div className="relative container w-full overflow-hidden bg-red-600">
+    <div className="relative container w-full overflow-hidden bg-red-600 print:hidden">
       {/* Custom Buttons */}
       <button
         ref={prevRef}

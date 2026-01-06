@@ -6,7 +6,7 @@ import SocialLinks from './SocialLinks'
 
 const FooterDets = () => {
     return (
-        <div className='w-full px-10 flex flex-col gap-10 text-zinc-300 text-sm py-10 border-b-[0.5px] border-zinc-700'>
+        <div className='w-full px-10 flex flex-col gap-10 text-zinc-300 text-sm py-10 border-b-[0.5px] border-zinc-700 print:hidden'>
             <FooterAbout />
             <SearchLink />
             <FooterLinks />

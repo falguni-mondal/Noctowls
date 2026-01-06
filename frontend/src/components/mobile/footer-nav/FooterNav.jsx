@@ -94,7 +94,7 @@ const FooterNav = () => {
     }
 
     return (
-        <div className='w-full sticky bottom-0 left-0 border-t-[0.5px] border-zinc-700 z-999' id='footer-nav'>
+        <div className='w-full sticky bottom-0 left-0 border-t-[0.5px] border-zinc-700 z-999 print:hidden' id='footer-nav'>
             <nav className={`w-full flex justify-between items-center ${admin ? "px-3" : "px-5"} bg-black py-3`}>
                 {
                     !admin &&
