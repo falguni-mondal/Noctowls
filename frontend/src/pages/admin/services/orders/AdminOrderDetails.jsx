@@ -295,7 +295,7 @@ const AdminOrderDetails = () => {
                     <div>
                         <h3 className="font-bold text-gray-800 mb-2 uppercase text-xs tracking-wider">Sold By</h3>
                         <div className="text-gray-700 leading-snug">
-                            <p className="font-semibold">Noctowls Pvt Ltd.</p>
+                            <p className="font-semibold">Noctowls</p>
                             <p>2nd Floor, Arushi Complex</p>
                             <p>Muchipara ITI, Aambagan, Duragapur-713212</p>
                             <p>Paschim Bardhamaan, West Bengal</p>
@@ -350,7 +350,7 @@ const AdminOrderDetails = () => {
                                 </td>
                                 {/* Uses real quantity from JSON */}
                                 <td className="py-3 text-center font-medium">{gift.quantity}</td>
-                                <td className="py-3 text-right text-gray-500">₹0</td>
+                                <td className="py-3 text-right text-gray-500 line-through">₹{gift.originalPrice}</td>
                                 <td className="py-3 text-right font-medium text-black">₹0</td>
                             </tr>
                         ))}

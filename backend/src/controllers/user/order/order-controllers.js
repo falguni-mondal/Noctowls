@@ -13,9 +13,6 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-// Helper to round to 2 decimal places
-const roundPrice = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
-
 // HELPER FUNCTION for Order Number
 async function generateUniqueOrderNumber(session) {
   const date = new Date();
@@ -49,10 +46,12 @@ export const createOrder = async (req, res) => {
 
   try {
     const userId = req.user;
+    // Check cookie for device ID (Guest Persistence)
     const deviceId = req.cookies.device_id;
+
     const { shippingAddress, paymentMethod, couponCode, guestInfo } = req.body;
 
-    // --- 1. VALIDATION CHECKS ---
+    // Validate identifier
     if (!userId && !deviceId) {
       await session.abortTransaction();
       return res.status(401).json({
@@ -61,6 +60,7 @@ export const createOrder = async (req, res) => {
       });
     }
 
+    // Validate required fields
     if (!shippingAddress || !paymentMethod) {
       await session.abortTransaction();
       return res.status(400).json({
@@ -69,6 +69,7 @@ export const createOrder = async (req, res) => {
       });
     }
 
+    // Validate guest info for guest orders
     if (!userId && (!guestInfo || !guestInfo.email || !guestInfo.name)) {
       await session.abortTransaction();
       return res.status(400).json({
@@ -77,6 +78,7 @@ export const createOrder = async (req, res) => {
       });
     }
 
+    // Validate payment method
     if (!["ONLINE", "COD"].includes(paymentMethod)) {
       await session.abortTransaction();
       return res.status(400).json({
@@ -85,7 +87,7 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    // --- 2. GET & VALIDATE CART ---
+    // Get cart
     const cart = await Cart.getOrCreateCart({ userId, deviceId });
 
     if (!cart || cart.items.length === 0) {
@@ -96,6 +98,7 @@ export const createOrder = async (req, res) => {
       });
     }
 
+    // Validate cart items
     const validation = await cart.validateCart();
     if (!validation.isValid) {
       await session.abortTransaction();
@@ -112,15 +115,14 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    // --- 3. CALCULATE SUBTOTAL ---
-    // ✅ Fix: Apply rounding
+    // Calculate products subtotal
     const rawSubtotal = cart.items
       .filter((item) => !item.isFreeGift)
       .reduce((sum, item) => sum + item.price * item.quantity, 0);
-    
-    const productsSubtotal = roundPrice(rawSubtotal);
 
-    // --- 4. SECURE COUPON VALIDATION ---
+    const productsSubtotal = Math.round(rawSubtotal);
+
+    // SECURE COUPON VALIDATION (Active DB Check)
     let couponDiscount = 0;
     let validatedCoupon = null;
     let couponDetails = {
@@ -134,79 +136,95 @@ export const createOrder = async (req, res) => {
       applicableCategories: [],
     };
 
-    const activeCouponCode = couponCode || (cart.coupon.isApplied ? cart.coupon.code : null);
+    const activeCouponCode =
+      couponCode || (cart.coupon.isApplied ? cart.coupon.code : null);
 
     if (activeCouponCode) {
       try {
-        validatedCoupon = await Coupon.findOne({ code: activeCouponCode.toUpperCase() }).session(session);
+        validatedCoupon = await Coupon.findOne({
+          code: activeCouponCode.toUpperCase(),
+        }).session(session);
 
         if (!validatedCoupon) {
-            if (couponCode) throw new Error("Invalid coupon code");
+          if (couponCode) throw new Error("Invalid coupon code");
         } else {
-            validatedCoupon.validateForCart(cart, userId, userId ? null : deviceId);
+          validatedCoupon.validateForCart(
+            cart,
+            userId,
+            userId ? null : deviceId
+          );
 
-            let rawDiscount = 0;
-            const nonGiftItems = cart.items.filter((item) => !item.isFreeGift);
+          // Re-Apply logic (simplified for calculation)
+          let rawDiscount = 0;
+          const nonGiftItems = cart.items.filter((item) => !item.isFreeGift);
 
-            if (validatedCoupon.applyType === "each-product") {
-                if (validatedCoupon.discountType === "fixed") {
-                    const totalQuantity = nonGiftItems.reduce((sum, item) => sum + item.quantity, 0);
-                    rawDiscount = validatedCoupon.discountValue * totalQuantity;
-                } else {
-                    nonGiftItems.forEach((item) => {
-                        const itemTotal = item.price * item.quantity;
-                        rawDiscount += (itemTotal * validatedCoupon.discountValue) / 100;
-                    });
-                }
+          if (validatedCoupon.applyType === "each-product") {
+            if (validatedCoupon.discountType === "fixed") {
+              const totalQuantity = nonGiftItems.reduce(
+                (sum, item) => sum + item.quantity,
+                0
+              );
+              rawDiscount = validatedCoupon.discountValue * totalQuantity;
             } else {
-                if (validatedCoupon.discountType === "fixed") {
-                    rawDiscount = validatedCoupon.discountValue;
-                } else {
-                    rawDiscount = (productsSubtotal * validatedCoupon.discountValue) / 100;
-                }
+              nonGiftItems.forEach((item) => {
+                const itemTotal = item.price * item.quantity;
+                rawDiscount +=
+                  (itemTotal * validatedCoupon.discountValue) / 100;
+              });
             }
-            
-            // ✅ Fix: Apply rounding to discount
-            couponDiscount = Math.min(rawDiscount, productsSubtotal);
-            couponDiscount = roundPrice(couponDiscount);
+          } else {
+            if (validatedCoupon.discountType === "fixed") {
+              rawDiscount = validatedCoupon.discountValue;
+            } else {
+              rawDiscount =
+                (productsSubtotal * validatedCoupon.discountValue) / 100;
+            }
+          }
 
-            couponDetails = {
-                code: validatedCoupon.code,
-                discountType: validatedCoupon.discountType,
-                discountValue: validatedCoupon.discountValue,
-                applyType: validatedCoupon.applyType,
-                discountAmount: couponDiscount,
-                minPurchaseAmount: validatedCoupon.minPurchaseAmount,
-                minItemsRequired: validatedCoupon.minItemsRequired,
-                applicableCategories: validatedCoupon.applicableCategories,
-            };
+          couponDiscount = Math.min(rawDiscount, productsSubtotal);
+          couponDiscount = Math.round(couponDiscount);
+
+          couponDetails = {
+            code: validatedCoupon.code,
+            discountType: validatedCoupon.discountType,
+            discountValue: validatedCoupon.discountValue,
+            applyType: validatedCoupon.applyType,
+            discountAmount: couponDiscount,
+            minPurchaseAmount: validatedCoupon.minPurchaseAmount,
+            minItemsRequired: validatedCoupon.minItemsRequired,
+            applicableCategories: validatedCoupon.applicableCategories,
+          };
         }
       } catch (error) {
         if (couponCode) {
-            await session.abortTransaction();
-            return res.status(400).json({
-                success: false,
-                message: error.message || "Coupon is no longer valid",
-            });
+          await session.abortTransaction();
+          return res.status(400).json({
+            success: false,
+            message: error.message || "Coupon is no longer valid",
+          });
         }
       }
     }
 
-    // --- 5. CALCULATE FINALS ---
-    // ✅ Fix: Apply rounding to all subtractions and additions
-    const subtotalAfterCoupon = roundPrice(productsSubtotal - couponDiscount);
+    // Calculate Subtotal After Coupon
+    const subtotalAfterCoupon = Math.round(productsSubtotal - couponDiscount);
 
-    const codFee = paymentMethod === "COD" ? 49 : 0; 
-    
-    const finalTotal = roundPrice(subtotalAfterCoupon + codFee);
+    // Set COD Fee to 49 (was 50)
+    const codFee = paymentMethod === "COD" ? 49 : 0;
 
-    const amountToPayOnline = paymentMethod === "ONLINE" ? finalTotal : codFee;
+    // Calculate Final Total
+    const finalTotal = Math.round(subtotalAfterCoupon + codFee);
 
-    // --- 6. INITIALIZE RAZORPAY ---
+    // Determine Online Payment Amount
+    // If ONLINE: Pay Everything. If COD: Pay ONLY the Fee (49).
+    const amountToPayOnline = Math.round(
+      paymentMethod === "ONLINE" ? finalTotal : codFee
+    );
+
     let razorpayOrder;
     try {
       razorpayOrder = await razorpay.orders.create({
-        amount: Math.round(amountToPayOnline * 100), // Convert to paise (Integer)
+        amount: amountToPayOnline * 100,
         currency: "INR",
         receipt: `receipt_${Date.now()}`,
         notes: {
@@ -221,12 +239,12 @@ export const createOrder = async (req, res) => {
       console.error("Razorpay order creation failed:", razorpayError);
       return res.status(500).json({
         success: false,
-        message: "Failed to initialize payment. Please try again.",
+        message: "Failed to initialize payment.",
         error: razorpayError.message,
       });
     }
 
-    // --- 7. PREPARE ORDER ITEMS ---
+    // Prepare Items
     const orderItems = cart.items
       .filter((item) => !item.isFreeGift)
       .map((item) => ({
@@ -243,10 +261,10 @@ export const createOrder = async (req, res) => {
         originalPrice: item.originalPrice,
         discount: item.discount,
         price: item.price,
-        // ✅ Fix: Ensure item totals are also rounded
-        itemTotal: roundPrice(item.price * item.quantity),
+        itemTotal: Math.round(item.price * item.quantity),
       }));
 
+    // 1Sync Guest Info
     const finalGuestInfo = userId
       ? {}
       : {
@@ -255,15 +273,19 @@ export const createOrder = async (req, res) => {
           phone: shippingAddress.phone,
         };
 
+    // 11-12. Generate Order Number & Save Address
     const orderNumber = await generateUniqueOrderNumber(session);
 
-    // --- 8. SAVE ADDRESS (OPTIONAL) ---
     if (userId && shippingAddress) {
       try {
         const existingAddress = await Address.findOne({
           user: userId,
-          fullName: { $regex: new RegExp(`^${shippingAddress.fullName.trim()}$`, "i") },
-          address: { $regex: new RegExp(`^${shippingAddress.address.trim()}$`, "i") },
+          fullName: {
+            $regex: new RegExp(`^${shippingAddress.fullName.trim()}$`, "i"),
+          },
+          address: {
+            $regex: new RegExp(`^${shippingAddress.address.trim()}$`, "i"),
+          },
           city: { $regex: new RegExp(`^${shippingAddress.city.trim()}$`, "i") },
           pincode: shippingAddress.pincode.trim(),
         });
@@ -290,7 +312,7 @@ export const createOrder = async (req, res) => {
       }
     }
 
-    // --- 9. SAVE ORDER TO DB ---
+    // Create Order Document
     const order = await Order.create(
       [
         {
@@ -305,8 +327,11 @@ export const createOrder = async (req, res) => {
             method: paymentMethod,
             status: "pending",
             razorpayOrderId: razorpayOrder.id,
-            amountPaidOnline: amountToPayOnline, 
-            amountPaidOnDelivery: paymentMethod === "COD" ? subtotalAfterCoupon : 0,
+            // Save the exact amount we asked Razorpay for
+            amountPaidOnline: amountToPayOnline,
+            // If COD, the rest is paid on delivery
+            amountPaidOnDelivery:
+              paymentMethod === "COD" ? subtotalAfterCoupon : 0,
           },
           coupon: couponDetails,
           pricing: {
@@ -326,33 +351,35 @@ export const createOrder = async (req, res) => {
       { session }
     );
 
-    // --- 10. ATOMIC STOCK REDUCTION ---
+    // Atomic Inventory Update
     for (const item of cart.items) {
       if (item.isFreeGift) continue;
 
       const updatedProduct = await Product.findOneAndUpdate(
         {
           _id: item.product._id,
-          "sizes": {
+          sizes: {
             $elemMatch: {
               value: item.size.value,
-              stock: { $gte: item.quantity } // Atomic Guard
-            }
-          }
+              stock: { $gte: item.quantity }, // Guard
+            },
+          },
         },
         {
           $inc: {
             "sizes.$.stock": -item.quantity,
             "sizes.$.salesCount": item.quantity,
-            "totalStock": -item.quantity,
-            "totalSales": item.quantity
-          }
+            totalStock: -item.quantity,
+            totalSales: item.quantity,
+          },
         },
         { session, new: true }
       );
 
       if (!updatedProduct) {
-        throw new Error(`Insufficient stock for ${item.name} (Size: ${item.size.label})`);
+        throw new Error(
+          `Insufficient stock for ${item.name} (Size: ${item.size.label})`
+        );
       }
     }
 
@@ -365,11 +392,11 @@ export const createOrder = async (req, res) => {
         orderId: order[0]._id,
         orderNumber: order[0].orderNumber,
         status: order[0].orderStatus,
-        payment: order[0].payment 
+        payment: order[0].payment, // Send payment info so frontend knows what to pay
       },
       razorpay: {
         orderId: razorpayOrder.id,
-        amount: amountToPayOnline, 
+        amount: amountToPayOnline, // Send ONLY the online amount
         currency: "INR",
         keyId: process.env.RAZORPAY_KEY_ID,
       },
@@ -402,7 +429,7 @@ export const handleRazorpayWebhook = async (req, res) => {
     const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
     const signature = req.headers["x-razorpay-signature"];
 
-    // ✅ FIX 1: Use req.rawBody (buffer) instead of JSON.stringify
+    // Use req.rawBody (buffer) instead of JSON.stringify
     if (!req.rawBody) {
       console.error("⚠️ Raw body not available. Check express.json setup.");
       return res.status(400).json({ message: "Server misconfiguration" });
@@ -427,7 +454,7 @@ export const handleRazorpayWebhook = async (req, res) => {
       const razorpayOrderId = payment.order_id;
       const razorpayPaymentId = payment.id;
 
-      // 1. Find the order
+      // Find the order
       const order = await Order.findOne({
         "payment.razorpayOrderId": razorpayOrderId,
       });
@@ -437,12 +464,12 @@ export const handleRazorpayWebhook = async (req, res) => {
         return res.status(404).json({ message: "Order not found" });
       }
 
-      // 2. Idempotency Check
+      // Idempotency Check
       if (order.payment.status === "completed") {
         return res.status(200).json({ status: "already_processed" });
       }
 
-      // 3. ✅ FIX 2: Security Check with COD Logic
+      // Security Check with COD Logic
       // We must compare against 'amountPaidOnline' (which handles COD fee vs Full Payment)
       const expectedAmountPaise = Math.round(
         order.payment.amountPaidOnline * 100
@@ -457,13 +484,13 @@ export const handleRazorpayWebhook = async (req, res) => {
         return res.status(400).json({ message: "Amount mismatch" });
       }
 
-      // 4. Complete Payment
+      // Complete Payment
       await order.completePayment({
         razorpayPaymentId,
         razorpaySignature: "webhook_verified_signature",
       });
 
-      // 5. Increment Coupon Usage
+      // Increment Coupon Usage
       if (order.coupon && order.coupon.code) {
         const coupon = await Coupon.findOne({ code: order.coupon.code });
         if (coupon) {
@@ -474,7 +501,7 @@ export const handleRazorpayWebhook = async (req, res) => {
         }
       }
 
-      // 6. Clear Cart
+      // Clear Cart
       const cart = await Cart.getOrCreateCart({
         userId: order.user,
         deviceId: order.deviceId,
@@ -484,7 +511,7 @@ export const handleRazorpayWebhook = async (req, res) => {
         await cart.clearCart();
       }
 
-      // 7. Generate Invoice
+      // Generate Invoice
       await order.generateInvoiceNumber();
 
       console.log(`Webhook verified payment for Order: ${order.orderNumber}`);
@@ -1024,8 +1051,7 @@ export const validateCouponForCheckout = async (req, res) => {
       });
     }
 
-    // ✅ FIXED: Use cart's coupon calculation logic
-    const productsSubtotal = cart.summary.subtotal;
+    const productsSubtotal = Math.round(cart.summary.subtotal);
 
     // Apply coupon to temporary cart instance to get discount
     const tempCart = { ...cart.toObject() };
@@ -1059,8 +1085,8 @@ export const validateCouponForCheckout = async (req, res) => {
       }
     }
 
-    discount = Math.min(discount, productsSubtotal);
-    discount = Math.round(discount * 100) / 100;
+    // Using Math.round() ensures we store/display a whole number
+    discount = Math.round(Math.min(discount, productsSubtotal));
 
     return res.status(200).json({
       success: true,
@@ -1077,7 +1103,7 @@ export const validateCouponForCheckout = async (req, res) => {
       discount: {
         amount: discount,
         productsSubtotal,
-        subtotalAfterDiscount: productsSubtotal - discount,
+        subtotalAfterDiscount: Math.round(productsSubtotal - discount),
       },
     });
   } catch (error) {
@@ -1129,15 +1155,15 @@ export const getOrderSummary = async (req, res) => {
           size: item.size,
           quantity: item.quantity,
           price: item.price,
-          itemTotal: item.itemTotal,
+          itemTotal: Math.round(item.itemTotal),
           isFreeGift: item.isFreeGift,
         })),
         freeGifts: cart.freeGifts,
-        productsSubtotal: cart.summary.subtotal,
+        productsSubtotal: Math.round(cart.summary.subtotal),
         totalItems: cart.summary.itemsCount,
         totalQuantity: cart.summary.totalQuantity,
-        couponDiscount: cart.summary.couponDiscount, // ✅ CRITICAL
-        appliedCoupon: cart.coupon.isApplied ? cart.coupon : null, // ✅ CRITICAL
+        couponDiscount: Math.round(cart.summary.couponDiscount),
+        appliedCoupon: cart.coupon.isApplied ? cart.coupon : null,
       },
       validation: {
         isValid: validation.isValid,

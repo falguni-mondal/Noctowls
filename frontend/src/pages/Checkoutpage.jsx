@@ -9,16 +9,12 @@ import {
   verifyPayment,
   getOrderSummary,
   clearCheckoutOrder,
-  selectCheckoutOrder,
-  selectRazorpayDetails,
   selectCreateOrderLoading,
   selectVerifyPaymentLoading,
   selectOrderSummary,
   selectSummaryLoading,
-  selectOrderError,
 } from '../store/features/user/orderSlice';
 
-// ✅ Address slice imports
 import {
   getAddresses,
   getDefaultAddress,
@@ -27,7 +23,6 @@ import {
   selectAddressLoading,
 } from '../store/features/user/addressSlice';
 
-// ✅ Cart slice imports (for coupon)
 import {
   applyCoupon,
   removeCoupon,
@@ -37,7 +32,6 @@ import {
   selectAppliedCoupon,
 } from '../store/features/user/cartSlice';
 
-// ✅ Auth slice imports
 import { selectIsAuthenticated } from '../store/features/user/authSlice';
 
 import toastControls from '../utils/global/toastControls';
@@ -48,14 +42,11 @@ const CheckoutPage = () => {
 
   // ===================== REDUX STATE =====================
   const isAuthenticated = useSelector(selectIsAuthenticated);
-  const checkoutOrder = useSelector(selectCheckoutOrder);
-  const razorpayDetails = useSelector(selectRazorpayDetails);
   const createLoading = useSelector(selectCreateOrderLoading);
   const verifyLoading = useSelector(selectVerifyPaymentLoading);
   const couponValidation = useSelector(selectCouponValidation);
   const orderSummary = useSelector(selectOrderSummary);
   const summaryLoading = useSelector(selectSummaryLoading);
-  const orderError = useSelector(selectOrderError);
   const addresses = useSelector(selectAddresses);
   const defaultAddress = useSelector(selectDefaultAddress);
   const addressLoading = useSelector(selectAddressLoading);
@@ -482,7 +473,8 @@ const CheckoutPage = () => {
 
     const productsSubtotal = orderSummary.productsSubtotal || 0;
     const couponDiscount = orderSummary.couponDiscount || 0;
-    const subtotalAfterCoupon = productsSubtotal - couponDiscount;
+    // ✅ CHANGED: Round to integer
+    const subtotalAfterCoupon = Math.round(productsSubtotal - couponDiscount);
     const codFee = paymentMethod === 'COD' ? 49 : 0;
     const finalTotal = subtotalAfterCoupon + codFee;
 
