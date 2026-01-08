@@ -13,6 +13,40 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
+// Helper: Retry logic for generating invoice to handle duplicate key errors
+const generateInvoiceSafe = async (order) => {
+  let attempts = 0;
+  const maxAttempts = 3;
+
+  while (attempts < maxAttempts) {
+    try {
+      await order.generateInvoiceNumber();
+      return; // Success!
+    } catch (error) {
+      // If error is Duplicate Key (E11000) on invoiceNumber, retry
+      if (
+        error.code === 11000 &&
+        error.keyPattern &&
+        error.keyPattern["invoice.invoiceNumber"]
+      ) {
+        attempts++;
+        console.warn(
+          `Invoice duplication detected. Retrying... (${attempts}/${maxAttempts})`
+        );
+        // Wait a random short time (50-200ms) to let the other process finish
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.random() * 150 + 50)
+        );
+      } else {
+        throw error; // Throw other errors immediately
+      }
+    }
+  }
+  throw new Error(
+    "Failed to generate unique invoice number after multiple attempts"
+  );
+};
+
 // HELPER FUNCTION for Order Number
 async function generateUniqueOrderNumber(session) {
   const date = new Date();
@@ -273,7 +307,7 @@ export const createOrder = async (req, res) => {
           phone: shippingAddress.phone,
         };
 
-    // 11-12. Generate Order Number & Save Address
+    // Generate Order Number & Save Address
     const orderNumber = await generateUniqueOrderNumber(session);
 
     if (userId && shippingAddress) {
@@ -512,7 +546,9 @@ export const handleRazorpayWebhook = async (req, res) => {
       }
 
       // Generate Invoice
-      await order.generateInvoiceNumber();
+      if (!order.invoice || !order.invoice.invoiceNumber) {
+        await generateInvoiceSafe(order);
+      }
 
       console.log(`Webhook verified payment for Order: ${order.orderNumber}`);
       return res.status(200).json({ status: "ok" });
@@ -637,7 +673,9 @@ export const verifyPayment = async (req, res) => {
     if (cart) await cart.clearCart();
 
     // Generate Invoice
-    await order.generateInvoiceNumber();
+    if (!order.invoice || !order.invoice.invoiceNumber) {
+      await generateInvoiceSafe(order);
+    }
 
     return res.status(200).json({
       success: true,

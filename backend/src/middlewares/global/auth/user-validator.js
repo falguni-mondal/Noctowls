@@ -203,16 +203,18 @@ export const optionalAuth = async (req, res, next) => {
   const accessToken = req.cookies.accessToken;
   const refreshToken = req.cookies.refreshToken;
   const reqDeviceId = req.cookies.device_id;
-  const deviceId = randomUUID();
+  
 
   // If no tokens at all, continue as guest
   if (!accessToken && !refreshToken) {
     req.user = null;
     if(!reqDeviceId){
+      const deviceId = randomUUID();
       res.cookie("device_id", deviceId, {
         ...cookieOptions,
         maxAge: 365 * 24 * 60 * 60 * 1000,
       });
+      req.cookies.device_id = deviceId;
     }
     return next();
   }

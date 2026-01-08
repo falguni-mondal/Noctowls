@@ -41,12 +41,17 @@ const AdminProducts = () => {
       }
       <div className="admin-product-btns w-10 fixed bottom-18 right-3">
         <div className="add-product-btn w-full aspect-square rounded mb-2">
-          <Link className="w-full h-full flex justify-center items-center bg-green-950 text-base rounded" to="/admin/coupons">
+          <Link className="w-full h-full flex justify-center items-center bg-blue-900 text-base rounded" to="/admin/reviews">
+            <Icon icon="material-symbols-light:inbox-text-asterisk" />
+          </Link>
+        </div>
+        <div className="add-product-btn w-full aspect-square rounded mb-2">
+          <Link className="w-full h-full flex justify-center items-center bg-green-900 text-base rounded" to="/admin/coupons">
             <Icon icon="hugeicons:coupon-01" />
           </Link>
         </div>
         <div className="add-product-btn w-full aspect-square rounded">
-          <Link className="w-full h-full flex justify-center items-center bg-indigo-950 text-base rounded" to="/admin/products/add">
+          <Link className="w-full h-full flex justify-center items-center bg-indigo-900 text-base rounded" to="/admin/products/add">
             <Icon icon="material-symbols:add-2-rounded" />
           </Link>
         </div>

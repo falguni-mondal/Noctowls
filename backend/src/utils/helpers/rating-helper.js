@@ -1,5 +1,5 @@
-import Review from "../models/review-model.js";
-import Product from "../models/product-model.js";
+import Review from "../../models/review-model.js";
+import Product from "../../models/product-model.js";
 
 /**
  * Update product rating cache after review changes

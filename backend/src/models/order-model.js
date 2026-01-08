@@ -467,24 +467,7 @@ orderSchema.pre("validate", function () {
     throw new Error("Either user or deviceId must be provided");
   }
 
-  // ✅ CHANGE 1: Enhanced guest validation with better phone handling
-  // OLD CODE:
-  // if (this.deviceId && !this.user) {
-  //   if (!this.guestInfo.email) {
-  //     throw new Error("Guest email is required for guest orders");
-  //   }
-  //   
-  //   if (this.guestInfo.phone && this.shippingAddress.phone) {
-  //     if (this.guestInfo.phone !== this.shippingAddress.phone) {
-  //       console.warn('Guest info phone differs from shipping phone - using shipping phone');
-  //       this.guestInfo.phone = this.shippingAddress.phone;
-  //     }
-  //   } else if (!this.guestInfo.phone && this.shippingAddress.phone) {
-  //     this.guestInfo.phone = this.shippingAddress.phone;
-  //   }
-  // }
-
-  // NEW CODE:
+  // Enhanced guest validation with better phone handling
   if (this.deviceId && !this.user) {
     // Validate required guest fields
     if (!this.guestInfo.email) {
@@ -519,13 +502,13 @@ orderSchema.pre("validate", function () {
     }
   }
 
-  // ✅ CHANGE 2: Validate that user orders don't have deviceId
+  // Validate that user orders don't have deviceId
   if (this.user && this.deviceId) {
     console.warn("⚠️ Order has both user and deviceId - removing deviceId");
     this.deviceId = null;
   }
 
-  // ✅ CHANGE 3: Validate payment amounts
+  // Validate payment amounts
   if (this.payment.method === "COD") {
     // COD: amountPaidOnline should be codFee only
     if (this.payment.amountPaidOnline > this.pricing.codFee + 1) {
@@ -571,7 +554,6 @@ orderSchema.index({ "payment.razorpayPaymentId": 1 });
 orderSchema.index({ "coupon.code": 1 });
 orderSchema.index({ "guestInfo.email": 1 }, { sparse: true });
 orderSchema.index({ createdAt: -1 });
-// ✅ CHANGE 4: Add compound index for better query performance
 orderSchema.index({ user: 1, orderStatus: 1, createdAt: -1 });
 orderSchema.index({ deviceId: 1, orderStatus: 1, createdAt: -1 });
 
@@ -650,7 +632,7 @@ orderSchema.methods.completePayment = function (paymentDetails) {
   return this.save();
 };
 
-// ✅ CHANGE 5: Enhanced cancel order with proper coupon tracking
+// Enhanced cancel order with proper coupon tracking
 // Cancel order with proper coupon handling
 orderSchema.methods.cancelOrder = async function (cancelledBy, reason) {
   // OLD CODE (no changes, just adding more context)
@@ -675,7 +657,7 @@ orderSchema.methods.cancelOrder = async function (cancelledBy, reason) {
     this.cancellation.refundStatus = "not-applicable";
   }
 
-  // ✅ NEW: Return coupon usage tracking data for controller to handle
+  // Return coupon usage tracking data for controller to handle
   const couponData = this.coupon.code
     ? {
         code: this.coupon.code,
@@ -698,18 +680,48 @@ orderSchema.methods.updateTracking = function (trackingData) {
   return this.save();
 };
 
-// Generate invoice number
-orderSchema.methods.generateInvoiceNumber = function () {
+// Method to generate unique Invoice Number
+orderSchema.methods.generateInvoiceNumber = async function () {
+  // If invoice number already exists, do nothing
+  if (this.invoice && this.invoice.invoiceNumber) return;
+
   const date = new Date();
   const year = date.getFullYear();
-  const month = (date.getMonth() + 1).toString().padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const prefix = `INV-${year}-${month}`; // e.g., INV-2026-01
 
-  const invoiceNum = `INV-${year}-${month}-${this.orderNumber.split("-")[2]}`;
+  // Find the LAST order that actually HAS an invoice number with this prefix
+  // We sort by invoiceNumber descending to get the highest one
+  const lastInvoiceOrder = await this.constructor
+    .findOne({
+      "invoice.invoiceNumber": { $regex: `^${prefix}` },
+    })
+    .sort({ "invoice.invoiceNumber": -1 }) // Sort by Invoice Number, NOT createdAt
+    .select("invoice.invoiceNumber");
 
-  this.invoice.invoiceNumber = invoiceNum;
-  this.invoice.generatedAt = new Date();
+  let sequence = 1;
 
-  return this.save();
+  if (
+    lastInvoiceOrder &&
+    lastInvoiceOrder.invoice &&
+    lastInvoiceOrder.invoice.invoiceNumber
+  ) {
+    const parts = lastInvoiceOrder.invoice.invoiceNumber.split("-");
+    const lastSeq = parseInt(parts[3], 10); // Get the '00001' part
+    if (!isNaN(lastSeq)) {
+      sequence = lastSeq + 1;
+    }
+  }
+
+  // Set the new invoice number
+  this.invoice = {
+    ...this.invoice,
+    invoiceNumber: `${prefix}-${String(sequence).padStart(5, "0")}`,
+    generatedAt: new Date(),
+  };
+
+  // Save immediately to reserve this number
+  await this.save();
 };
 
 // Get payment summary
@@ -761,7 +773,7 @@ orderSchema.methods.canBeModified = function () {
   );
 };
 
-// ✅ CHANGE 6: Add method to check if order can be cancelled
+// Add method to check if order can be cancelled
 orderSchema.methods.canBeCancelledByUser = function () {
   return (
     !this.cancellation.isCancelled &&
@@ -770,7 +782,7 @@ orderSchema.methods.canBeCancelledByUser = function () {
   );
 };
 
-// ✅ CHANGE 7: Add method to get customer identifier
+// Add method to get customer identifier
 orderSchema.methods.getCustomerIdentifier = function () {
   return {
     userId: this.user || null,
@@ -831,27 +843,6 @@ orderSchema.statics.getOrderByNumber = async function (
 
   return this.findOne(query);
 };
-
-// ✅ CHANGE 8: REMOVED - No guest-to-user conversion
-// Guest orders remain separate and are not converted when user logs in
-// This maintains clear separation between guest and user orders
-// OLD CODE (commented out):
-// orderSchema.statics.convertGuestOrdersToUser = async function (
-//   deviceId,
-//   userId
-// ) {
-//   const result = await this.updateMany(
-//     { deviceId: deviceId, user: null },
-//     {
-//       $set: { user: userId },
-//       $unset: { deviceId: "", guestInfo: "" },
-//     }
-//   );
-//
-//   return {
-//     convertedOrders: result.modifiedCount,
-//   };
-// };
 
 orderSchema.statics.getOrderStats = async function (dateRange = {}) {
   const { startDate, endDate } = dateRange;
@@ -961,7 +952,7 @@ orderSchema.statics.searchOrders = async function (searchTerm, options = {}) {
   };
 };
 
-// ✅ CHANGE 9: Add method to find orders by email (for guest order lookup)
+// Add method to find orders by email (for guest order lookup)
 orderSchema.statics.findOrdersByEmail = async function (email) {
   return this.find({
     "guestInfo.email": { $regex: new RegExp(`^${email}$`, "i") },
@@ -973,7 +964,7 @@ orderSchema.statics.findOrdersByEmail = async function (email) {
     .lean();
 };
 
-// ✅ CHANGE 10: Add method to check if order exists for validation
+// Add method to check if order exists for validation
 orderSchema.statics.existsByOrderNumber = async function (orderNumber) {
   return this.exists({ orderNumber });
 };
@@ -992,16 +983,7 @@ orderSchema.virtual("customerType").get(function () {
   return this.user ? "registered" : "guest";
 });
 
-// ✅ CHANGE 11: Updated canBeCancelled to use new method
-// OLD CODE:
-// orderSchema.virtual("canBeCancelled").get(function () {
-//   return (
-//     !this.cancellation.isCancelled &&
-//     ["pending", "confirmed", "processing"].includes(this.orderStatus)
-//   );
-// });
-
-// NEW CODE:
+// Updated canBeCancelled to use new method
 orderSchema.virtual("canBeCancelled").get(function () {
   return this.canBeCancelledByUser();
 });

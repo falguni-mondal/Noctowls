@@ -3,10 +3,10 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import Loader from '../../../../utils/loader/Loader';
-import Logo from '../../../../utils/logo/Logo'; 
-import { 
-    getAdminOrderById, 
-    updateAdminOrderStatus, 
+import Logo from '../../../../utils/logo/Logo';
+import {
+    getAdminOrderById,
+    updateAdminOrderStatus,
     clearCurrentAdminOrder,
     selectAdminCurrentOrder,
     selectAdminOrderDetailsLoading,
@@ -46,8 +46,8 @@ const AdminOrderDetails = () => {
             toast.warn("Please enter a Tracking ID for shipped orders.");
         }
 
-        const result = await dispatch(updateAdminOrderStatus({ 
-            orderId: id, 
+        const result = await dispatch(updateAdminOrderStatus({
+            orderId: id,
             status: statusToUpdate,
             trackingId: statusToUpdate === 'shipped' ? trackingId : undefined
         }));
@@ -90,7 +90,7 @@ const AdminOrderDetails = () => {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                     <div>
                         <div className="flex items-center gap-4 mb-3">
-                             <button onClick={() => navigate('/admin/orders')} className="p-2 hover:bg-zinc-900 rounded-full transition-colors text-zinc-400 hover:text-white">
+                            <button onClick={() => navigate('/admin/orders')} className="p-2 hover:bg-zinc-900 rounded-full transition-colors text-zinc-400 hover:text-white">
                                 <Icon icon="ph:arrow-left-bold" />
                             </button>
                             <h1 className='text-2xl font-semibold'>Order Details</h1>
@@ -99,7 +99,7 @@ const AdminOrderDetails = () => {
                             <div className="flex flex-col gap-1">
                                 <h2 className="text-lg font-semibold flex items-center gap-2">
                                     Order #{order.orderNumber}
-                                    <button 
+                                    <button
                                         onClick={() => copyToClipboard(order.orderNumber, "Order ID")}
                                         className="text-zinc-500 hover:text-blue-500 text-lg transition-colors"
                                         title="Copy Order ID"
@@ -116,9 +116,9 @@ const AdminOrderDetails = () => {
                             </p>
                         </div>
                     </div>
-                    
+
                     <div className="flex gap-2">
-                        <button 
+                        <button
                             onClick={handlePrint}
                             className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm hover:bg-zinc-800 transition active:scale-95"
                         >
@@ -151,8 +151,8 @@ const AdminOrderDetails = () => {
                                         </div>
                                     </div>
                                 ))}
-                                
-                                {/* ✅ SCREEN VIEW: Free Gifts with Quantity */}
+
+                                {/* Free Gifts with Quantity */}
                                 {order.freeGifts?.gifts?.map((gift, idx) => (
                                     <div key={`gift-${idx}`} className="p-4 flex gap-4 bg-zinc-900/50">
                                         <div className="w-10 h-10 rounded-md overflow-hidden shrink-0 relative">
@@ -161,8 +161,7 @@ const AdminOrderDetails = () => {
                                         <div className="flex-1 flex flex-col justify-center">
                                             <h3 className="font-medium text-zinc-300 text-sm line-clamp-1">{gift.name}</h3>
                                             <div className="flex justify-between items-center mt-1">
-                                                <p className="text-xs text-green-500">Free Gift Applied</p>
-                                                {/* Uses real quantity from JSON */}
+                                                <p className="text-xs text-green-500">Free Gift</p>
                                                 <p className="text-xs text-zinc-400">Qty: {gift.quantity}</p>
                                             </div>
                                         </div>
@@ -198,6 +197,22 @@ const AdminOrderDetails = () => {
                                     <span>Total Amount</span>
                                     <span>₹{order.pricing.finalTotal}</span>
                                 </div>
+
+                                {/* ✅ PAID & DUE SECTION - SCREEN VIEW */}
+                                <div className="mt-4 pt-3 border-t border-dashed border-zinc-800 space-y-2">
+                                    <div className="flex justify-between text-sm text-zinc-400">
+                                        <span>Paid Online</span>
+                                        <span className="text-zinc-300">₹{order.payment.amountPaidOnline}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm font-medium">
+                                        <span className={order.payment.amountPaidOnDelivery > 0 ? "text-amber-500" : "text-green-500"}>
+                                            {order.payment.amountPaidOnDelivery > 0 ? "Due on Delivery" : "Balance Due"}
+                                        </span>
+                                        <span className={order.payment.amountPaidOnDelivery > 0 ? "text-amber-500" : "text-green-500"}>
+                                            ₹{order.payment.amountPaidOnDelivery}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -207,7 +222,7 @@ const AdminOrderDetails = () => {
                         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
                             <h3 className="font-medium text-zinc-300 mb-4">Update Status</h3>
                             <div className="space-y-4">
-                                <select 
+                                <select
                                     value={statusToUpdate}
                                     onChange={(e) => setStatusToUpdate(e.target.value)}
                                     className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm focus:border-blue-500 outline-none text-zinc-200"
@@ -221,8 +236,8 @@ const AdminOrderDetails = () => {
                                 </select>
                                 {statusToUpdate === 'shipped' && (
                                     <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-                                        <input 
-                                            type="text" 
+                                        <input
+                                            type="text"
                                             placeholder="Enter Tracking ID / Link"
                                             value={trackingId}
                                             onChange={(e) => setTrackingId(e.target.value)}
@@ -230,7 +245,7 @@ const AdminOrderDetails = () => {
                                         />
                                     </div>
                                 )}
-                                <button 
+                                <button
                                     onClick={handleStatusUpdate}
                                     disabled={actionLoading || statusToUpdate === order.orderStatus || order.orderStatus === 'cancelled'}
                                     className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-medium py-2.5 rounded-lg transition text-sm flex justify-center items-center gap-2"
@@ -271,17 +286,19 @@ const AdminOrderDetails = () => {
                2. PRINT VIEW (Standard Invoice Layout) - Visible ONLY when printing
                ================================================================================= */}
             <div className="hidden print:block print:p-8 bg-white text-black font-sans text-sm">
-                
+
                 {/* INVOICE HEADER */}
                 <div className="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-6">
                     <div>
-                        <div className="text-3xl font-bold tracking-tight mb-1">NOCTOWLS</div>
+                        <div className="noctowls-logo flex flex-col items-center">
+                            <Logo width="w-[7rem]" />
+                            <div className="text-xl font-bold tracking-tight mb-1">NOCTOWLS</div>
+                        </div>
                         <p className="text-xs text-gray-500 mt-2">
                             help.noctowls@gmail.com<br />
                             www.noctowls.com
                         </p>
                     </div>
-                    <Logo width="w-[4rem]" />
                     <div className="text-right">
                         <h2 className="text-xl font-bold mb-1">TAX INVOICE</h2>
                         <p className="text-gray-600">Order ID: <span className="font-mono font-bold text-black">#{order.orderNumber}</span></p>
@@ -339,8 +356,8 @@ const AdminOrderDetails = () => {
                                 <td className="py-3 text-right font-medium text-black">₹{item.itemTotal}</td>
                             </tr>
                         ))}
-                        
-                        {/* ✅ INVOICE VIEW: Free Gifts with correct quantity */}
+
+                        {/* Free Gifts */}
                         {order.freeGifts?.gifts?.map((gift, idx) => (
                             <tr key={`gift-${idx}`} className="border-b border-gray-200 bg-gray-50">
                                 <td className="py-3 text-center">-</td>
@@ -348,7 +365,6 @@ const AdminOrderDetails = () => {
                                     <p className="font-semibold text-black">{gift.name}</p>
                                     <p className="text-xs text-green-700 font-bold tracking-wide">FREE GIFT</p>
                                 </td>
-                                {/* Uses real quantity from JSON */}
                                 <td className="py-3 text-center font-medium">{gift.quantity}</td>
                                 <td className="py-3 text-right text-gray-500 line-through">₹{gift.originalPrice}</td>
                                 <td className="py-3 text-right font-medium text-black">₹0</td>
@@ -366,7 +382,6 @@ const AdminOrderDetails = () => {
                         </div>
                         {order.pricing.couponDiscount > 0 && (
                             <div className="flex justify-between py-1 text-gray-600">
-                                {/* ✅ Coupon Code Displayed */}
                                 <span>Coupon Discount ({order.coupon?.code})</span>
                                 <span>- ₹{order.pricing.couponDiscount}</span>
                             </div>
@@ -385,9 +400,20 @@ const AdminOrderDetails = () => {
                             <span>Grand Total</span>
                             <span>₹{order.pricing.finalTotal}</span>
                         </div>
-                        <div className="text-right text-xs text-gray-500 mt-1">
-                            (Inclusive of all taxes)
+
+                        {/* ✅ PAID & DUE SECTION - PRINT VIEW 
+                        <div className="flex justify-between py-1 text-gray-700">
+                            <span>Paid Online</span>
+                            <span>₹{order.payment.amountPaidOnline}</span>
                         </div>
+                        <div className="flex justify-between py-1 font-bold text-black border-t border-gray-300 mt-2 pt-2">
+                            <span>Balance Due</span>
+                            <span>₹{order.payment.amountPaidOnDelivery}</span>
+                        </div>
+
+                        <div className="text-right text-xs text-gray-500 mt-2">
+                            (Inclusive of all taxes)
+                        </div> */}
                     </div>
                 </div>
 
@@ -395,10 +421,14 @@ const AdminOrderDetails = () => {
                 <div className="border-t border-gray-300 pt-4">
                     <p className="font-bold text-xs uppercase mb-1">Payment Method: {order.payment.method}</p>
                     {order.payment.method === "COD" && (
-                        <p className="text-sm font-bold border border-black inline-block px-2 py-1 mt-1">
+                        <p className="text-sm font-bold border border-black inline-block px-2 py-1">
                             AMOUNT TO COLLECT: ₹{order.payment.amountPaidOnDelivery}
                         </p>
                     )}
+                    <p className="text-[10px] text-gray-500 mt-4">
+                        Returns Policy: Items can be returned within 7 days of delivery. Keep the gifts intact.<br />
+                        This is a computer-generated invoice. No signature required.
+                    </p>
                 </div>
             </div>
         </>

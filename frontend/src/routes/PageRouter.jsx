@@ -24,6 +24,7 @@ import UpdateCoupon from '../pages/admin/services/product/coupon/UpdateCoupon';
 import Wishlistpage from '../pages/Wishlistpage';
 import CheckoutPage from '../pages/Checkoutpage';
 import AdminOrderDetails from '../pages/admin/services/orders/AdminOrderDetails';
+import AdminReviews from '../pages/admin/panel/AdminReviews';
 
 
 const PageRouter = () => {
@@ -57,6 +58,7 @@ const PageRouter = () => {
         <Route path='/admin/orders' element={<AdminOrders />} />
         <Route path='/admin/products' element={<AdminProducts />} />
         <Route path='/admin/coupons' element={<AdminCoupons />} />
+        <Route path='/admin/reviews' element={<AdminReviews />} />
         <Route path='/admin/carts' element={<AdminCarts />} />
         <Route path='/admin/wishlists' element={<AdminWishlists />} />
 
@@ -66,6 +68,8 @@ const PageRouter = () => {
 
         <Route path='/admin/coupons/add' element={<AddCoupon />} />
         <Route path='/admin/coupons/update/:id' element={<UpdateCoupon />} />
+
+
 
         {/* ORDER SERVICES */}
         <Route path='/admin/orders/:id' element={<AdminOrderDetails />} />
