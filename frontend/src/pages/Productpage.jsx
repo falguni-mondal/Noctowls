@@ -14,17 +14,17 @@ import ProductSpecs from "../components/product/product-specs/ProductSpecs";
 import { useDispatch, useSelector } from "react-redux";
 import { getOneProduct, validateProductStock, clearStockValidation } from "../store/features/user/productSlice";
 import { addToCart, selectActionLoading, selectCart } from "../store/features/user/cartSlice";
-import { 
-    toggleWishlist, 
-    selectIsProductInWishlist, 
-    selectWishlistActionLoading 
+import {
+    toggleWishlist,
+    selectIsProductInWishlist,
+    selectWishlistActionLoading
 } from "../store/features/user/wishlistSlice";
 
 // Import Review Actions/Selectors
-import { 
-    fetchProductReviews, 
-    checkReviewEligibility, 
-    selectProductReviews, 
+import {
+    fetchProductReviews,
+    checkReviewEligibility,
+    selectProductReviews,
     selectReviewEligibility,
     resetReviewState
 } from "../store/features/user/reviewSlice";
@@ -50,8 +50,11 @@ const Productpage = () => {
     const cart = useSelector(selectCart);
 
     // Review State
-    const reviews = useSelector(selectProductReviews);
+    const reviews = useSelector(selectProductReviews); // Public Accepted Reviews
     const reviewEligibility = useSelector(selectReviewEligibility);
+    
+    // ✅ EXTRACT USER'S REVIEW DATA
+    const { existingReview, hasReviewed } = reviewEligibility;
 
     // Wishlist state
     const isInWishlist = useSelector(selectIsProductInWishlist(productId));
@@ -89,7 +92,7 @@ const Productpage = () => {
 
     useEffect(() => {
         dispatch(clearStockValidation());
-        setQuantity(1); 
+        setQuantity(1);
     }, [selectedSize, dispatch]);
 
     const validateStock = useCallback((newQuantity, size) => {
@@ -163,12 +166,12 @@ const Productpage = () => {
         try {
             if (!isInCart) {
                 await dispatch(addToCart({
-                    productId, 
+                    productId,
                     sizeValue: selectedSize,
                     quantity: quantity
                 })).unwrap();
             }
-            navigate("/buy"); 
+            navigate("/buy");
         } catch (error) {
             console.error("Buy Now Error:", error);
             toast.error(error || 'Failed to proceed to checkout', toastControls);
@@ -221,13 +224,19 @@ const Productpage = () => {
         }
     };
 
+    // ✅ Filter Public Reviews: Don't show my review in the public list if it's already there
+    // This avoids duplication since we show "Your Review" at the top separately.
+    const publicReviews = reviews
+        ? reviews.filter(r => r._id !== existingReview?._id)
+        : [];
+
     return (
         <div className="product-page-wrapper pb-10">
             {/* Modal */}
             {isReviewModalOpen && (
-                <ReviewModal 
-                    productId={productId} 
-                    onClose={() => setIsReviewModalOpen(false)} 
+                <ReviewModal
+                    productId={productId}
+                    onClose={() => setIsReviewModalOpen(false)}
                     userName={user?.name}
                 />
             )}
@@ -239,9 +248,8 @@ const Productpage = () => {
                 </div>
                 <div
                     onClick={handleWishlistToggle}
-                    className={`product-wishlist-btn absolute top-7 left-3 z-99 w-10 aspect-square rounded-full flex justify-center items-center text-[1.5rem] cursor-pointer transition ${
-                        isInWishlist ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-white/90 text-red-600 hover:bg-white'
-                    } ${!isLoggedInUser ? 'opacity-70' : ''} ${wishlistActionLoading ? 'pointer-events-none' : ''}`}
+                    className={`product-wishlist-btn absolute top-7 left-3 z-99 w-10 aspect-square rounded-full flex justify-center items-center text-[1.5rem] cursor-pointer transition ${isInWishlist ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-white/90 text-red-600 hover:bg-white'
+                        } ${!isLoggedInUser ? 'opacity-70' : ''} ${wishlistActionLoading ? 'pointer-events-none' : ''}`}
                 >
                     {wishlistActionLoading ? (
                         <Icon icon="eos-icons:loading" className="text-2xl" />
@@ -268,9 +276,8 @@ const Productpage = () => {
                     <button
                         onClick={addToCartHandler}
                         disabled={!canPurchase || cartActionLoading || isInCart}
-                        className={`product-add-to-cart-btn w-full py-3 text-center rounded-[3px] uppercase text-xs font-semibold transition-all relative ${
-                            isInCart ? 'bg-red-400 text-white cursor-default' : canPurchase && !cartActionLoading ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-red-400 text-zinc-100 cursor-not-allowed'
-                        }`}
+                        className={`product-add-to-cart-btn w-full py-3 text-center rounded-[3px] uppercase text-xs font-semibold transition-all relative ${isInCart ? 'bg-red-400 text-white cursor-default' : canPurchase && !cartActionLoading ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-red-400 text-zinc-100 cursor-not-allowed'
+                            }`}
                     >
                         {cartActionLoading ? (
                             <span className="flex items-center justify-center gap-2"><Icon icon="eos-icons:loading" className="text-lg" /> Adding...</span>
@@ -282,9 +289,8 @@ const Productpage = () => {
                     <button
                         onClick={buyNowHandler}
                         disabled={!canPurchase || cartActionLoading}
-                        className={`product-buy-btn w-full py-3 text-center rounded-[3px] uppercase text-xs font-semibold transition-all ${
-                            canPurchase && !cartActionLoading ? 'bg-zinc-100 text-black hover:bg-zinc-300' : 'bg-gray-500 text-zinc-800 cursor-not-allowed'
-                        }`}
+                        className={`product-buy-btn w-full py-3 text-center rounded-[3px] uppercase text-xs font-semibold transition-all ${canPurchase && !cartActionLoading ? 'bg-zinc-100 text-black hover:bg-zinc-300' : 'bg-gray-500 text-zinc-800 cursor-not-allowed'
+                            }`}
                     >
                         {cartActionLoading ? 'Processing...' : 'Buy now'}
                     </button>
@@ -292,9 +298,8 @@ const Productpage = () => {
                     <button
                         onClick={handleWishlistToggle}
                         disabled={wishlistActionLoading || !isLoggedInUser}
-                        className={`w-full py-3 text-center rounded-[3px] uppercase text-xs font-semibold transition-all border ${
-                            isInWishlist ? 'bg-indigo-400 text-black hover:bg-indigo-500' : 'bg-indigo-600 border-indigo-700 text-zinc-300 hover:border-indigo-500'
-                        } ${!isLoggedInUser ? 'opacity-50 cursor-not-allowed' : ''} flex items-center justify-center gap-2`}
+                        className={`w-full py-3 text-center rounded-[3px] uppercase text-xs font-semibold transition-all border ${isInWishlist ? 'bg-indigo-400 text-black hover:bg-indigo-500' : 'bg-indigo-600 border-indigo-700 text-zinc-300 hover:border-indigo-500'
+                            } ${!isLoggedInUser ? 'opacity-50 cursor-not-allowed' : ''} flex items-center justify-center gap-2`}
                     >
                         {wishlistActionLoading ? (
                             <><Icon icon="eos-icons:loading" className="text-lg" /> {isInWishlist ? 'Removing...' : 'Adding...'}</>
@@ -324,7 +329,7 @@ const Productpage = () => {
                     <h2 className="product-review-header uppercase text-center font-semibold text-xl">
                         customer reviews
                     </h2>
-                    
+
                     {/* Rating Summary Header */}
                     <div className="flex flex-col items-center justify-center mb-2">
                         <div className="flex items-center gap-2">
@@ -336,24 +341,48 @@ const Productpage = () => {
 
                     {/* Write Review Button (Condition Logic) */}
                     {reviewEligibility.canReview ? (
-                        <div 
+                        <div
                             onClick={() => setIsReviewModalOpen(true)}
-                            className="add-review-btn w-full py-3 text-center text-sm font-medium bg-red-600 border border-red-700 rounded hover:bg-red-700 cursor-pointer transition"
+                            className={`add-review-btn w-full py-3 text-center text-sm font-medium border rounded cursor-pointer transition ${reviewEligibility.hasReviewed
+                                    ? "bg-zinc-800 border-zinc-600 hover:bg-zinc-700 text-zinc-200" // Edit Style
+                                    : "bg-red-600 border-red-600 hover:bg-red-700 text-white"       // Write Style
+                                }`}
                         >
-                            Write a review
+                            {reviewEligibility.hasReviewed ? "Edit your review" : "Write a review"}
                         </div>
                     ) : reviewEligibility.hasReviewed ? (
                         <div className="w-full py-2 text-center text-xs text-green-500 bg-green-500/10 rounded border border-green-500/20">
-                            You have submitted a review for this product.
+                            You have reviewed.
                         </div>
-                    ) : null}
-                    
+                    ) : (
+                        <div className="w-full py-2 text-center text-xs text-zinc-500 bg-zinc-900 rounded border border-zinc-800">
+                            Purchase to review.
+                        </div>
+                    )}
+
                 </div>
 
-                <div className="reviews mt-6">
-                    {reviews && reviews.length > 0 ? (
+                <div className="reviews mt-6 max-h-[700px] overflow-y-scroll">
+                    
+                    {/* SHOW USER'S OWN REVIEW (Pinned at Top) */}
+                    {hasReviewed && existingReview && (
+                        <div className="mb-6 animate-in fade-in slide-in-from-top-2">
+                             <div className="flex items-center justify-between mb-2 px-1">
+                                <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest">Your Review</h4>
+                            </div>
+                            
+                            <ReviewCard 
+                                review={existingReview} 
+                                isOwner={true} 
+                                onEdit={() => setIsReviewModalOpen(true)}
+                            />
+                        </div>
+                    )}
+
+                    {/* SHOW PUBLIC REVIEWS (Filtered) */}
+                    {(publicReviews && publicReviews.length > 0) || (hasReviewed && existingReview) ? (
                         <div className="space-y-4">
-                            {reviews.map((review) => (
+                            {publicReviews.map((review) => (
                                 <ReviewCard key={review._id} review={review} />
                             ))}
                         </div>

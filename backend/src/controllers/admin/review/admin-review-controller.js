@@ -36,29 +36,30 @@ export const updateReviewStatus = async (req, res) => {
     const { status } = req.body;
 
     if (!["accepted", "rejected", "pending"].includes(status)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid status" });
+        return res.status(400).json({ success: false, message: "Invalid status" });
     }
 
     const review = await Review.findByIdAndUpdate(
-      reviewId,
-      { status },
-      { new: true }
-    );
+        reviewId, 
+        { status }, 
+        { new: true }
+    ).populate("product", "name images category"); 
 
-    if (!review)
-      return res
-        .status(404)
-        .json({ success: false, message: "Review not found" });
+    if (!review) {
+        return res.status(404).json({ success: false, message: "Review not found" });
+    }
 
-    // Recalculate Product Rating
-    await updateProductRating(review.product);
+    // Trigger Product Rating Recalculation
+    await updateProductRating(review.product._id || review.product); 
 
-    return res
-      .status(200)
-      .json({ success: true, message: `Review ${status}`, review });
+    return res.status(200).json({
+      success: true,
+      message: `Review marked as ${status}`,
+      review
+    });
+
   } catch (error) {
+    console.error("Review Status Update Error:", error);
     return res.status(500).json({ success: false, message: error.message });
   }
 };

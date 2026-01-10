@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import userApi from "../../../configs/userAxiosConfig";
 
-// Fetch Public Reviews for a Product
+// Fetch Public Reviews
 export const fetchProductReviews = createAsyncThunk(
     "reviews/fetchProductReviews",
     async ({ productId, page = 1, limit = 5 }, { rejectWithValue }) => {
@@ -11,7 +11,7 @@ export const fetchProductReviews = createAsyncThunk(
             });
             return { 
                 data: response.data, 
-                page // Return page so reducer knows whether to append or replace
+                page 
             };
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || "Failed to fetch reviews");
@@ -19,7 +19,7 @@ export const fetchProductReviews = createAsyncThunk(
     }
 );
 
-// Check Eligibility (Can the user review?)
+// Check Eligibility
 export const checkReviewEligibility = createAsyncThunk(
     "reviews/checkEligibility",
     async (productId, { rejectWithValue }) => {
@@ -32,14 +32,12 @@ export const checkReviewEligibility = createAsyncThunk(
     }
 );
 
-// Submit New Review (Handles FormData for images)
+// Submit New Review
 export const submitReview = createAsyncThunk(
     "reviews/submitReview",
     async ({ productId, formData }, { rejectWithValue }) => {
         try {
-            const response = await userApi.post(`/reviews/${productId}`, formData, {
-                headers: { "Content-Type": "multipart/form-data" },
-            });
+            const response = await userApi.post(`/reviews/${productId}`, formData);
             return response.data;
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || "Failed to submit review");
@@ -50,11 +48,9 @@ export const submitReview = createAsyncThunk(
 // Update Existing Review
 export const updateReview = createAsyncThunk(
     "reviews/updateReview",
-    async ({ reviewId, data }, { rejectWithValue }) => {
+    async ({ reviewId, formData }, { rejectWithValue }) => {
         try {
-            // 'data' is a JSON object here (rating, comment), not FormData
-            // If you want to support updating images, you'd need FormData here too
-            const response = await userApi.put(`/reviews/${reviewId}`, data);
+            const response = await userApi.put(`/reviews/${reviewId}`, formData);
             return response.data;
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || "Failed to update review");
@@ -62,16 +58,15 @@ export const updateReview = createAsyncThunk(
     }
 );
 
-
 const initialState = {
     reviews: [],
-    stats: null, // Average rating, counts, etc.
+    stats: null, 
     
     // Eligibility State
     eligibility: {
         canReview: false,
         hasReviewed: false,
-        existingReview: null, // If they want to edit
+        existingReview: null,
         message: "",
         loading: false
     },

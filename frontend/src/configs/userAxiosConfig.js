@@ -4,9 +4,6 @@ import { backendTestApi } from "../utils/global/keys";
 const userApi = axios.create({
   baseURL: `${backendTestApi}/api`,
   withCredentials: true,
-  headers: {
-    "Content-Type": "application/json",
-  },
 });
 
 // OPTIONAL: Request Interceptor

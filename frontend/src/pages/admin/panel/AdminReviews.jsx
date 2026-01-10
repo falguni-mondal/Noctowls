@@ -146,7 +146,7 @@ const AdminReviews = () => {
                                         </h4>
                                         <div className="flex items-center gap-1 text-[10px] md:text-xs text-zinc-500 font-mono bg-zinc-800/50 px-2 py-1 rounded w-fit">
                                             <span className="opacity-50">#</span>
-                                            {review.product?._id?.slice(-6)}
+                                            {review.product?._id}
                                         </div>
                                     </div>
                                 </div>
