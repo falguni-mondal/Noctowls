@@ -13,6 +13,7 @@ import cartRouter from "./routes/user/cart/cart-routes.js";
 import wishlistRouter from "./routes/user/wishlist/wishlist-routes.js";
 import addressRouter from "./routes/user/order/address-routes.js";
 import orderRouter from "./routes/user/order/order-routes.js";
+import gokwikRouter from "./routes/user/payment/gokwik-routes.js";
 import reviewRouter from "./routes/user/review/review-routes.js";
 
 import adminAuthRouter from "./routes/admin/auth/admin-auth-routes.js";
@@ -55,6 +56,7 @@ app.use("/api/cart", cartRouter);
 app.use("/api/wishlist", wishlistRouter);
 app.use("/api/address", addressRouter);
 app.use("/api/order", orderRouter);
+app.use("/api/gokwik", gokwikRouter);
 app.use("/api/reviews", reviewRouter);
 
 app.use("/api/admin/auth", adminAuthRouter);
