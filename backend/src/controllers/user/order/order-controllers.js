@@ -1247,12 +1247,12 @@ export const downloadInvoice = async (req, res) => {
       });
     }
 
-    if (order.orderStatus !== "delivered") {
-      return res.status(400).json({
-        success: false,
-        message: "Invoice is only available for delivered orders",
-      });
-    }
+    // if (order.orderStatus !== "delivered") {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Invoice is only available for delivered orders",
+    //   });
+    // }
 
     if (!order.invoice.invoiceNumber) {
       await order.generateInvoiceNumber();

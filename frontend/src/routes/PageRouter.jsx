@@ -25,6 +25,8 @@ import Wishlistpage from '../pages/Wishlistpage';
 import CheckoutPage from '../pages/Checkoutpage';
 import AdminOrderDetails from '../pages/admin/services/orders/AdminOrderDetails';
 import AdminReviews from '../pages/admin/panel/AdminReviews';
+import Orderspage from '../pages/OrdersPage';
+import OrderDetailsPage from '../pages/OrderDetailsPage';
 
 
 const PageRouter = () => {
@@ -42,6 +44,8 @@ const PageRouter = () => {
         <Route path='/bag' element={<Bagpage />} />
         <Route path='/wishlist' element={<Wishlistpage />} />
         <Route path='/checkout' element={<CheckoutPage />} />
+        <Route path="/orders" element={<Orderspage />} />
+        <Route path="/orders/:orderId" element={<OrderDetailsPage />} />
       </Route>
 
       {/* ADMIN AUTH */}
