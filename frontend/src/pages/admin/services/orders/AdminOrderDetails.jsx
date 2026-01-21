@@ -69,6 +69,8 @@ const AdminOrderDetails = () => {
         window.print();
     };
 
+    const formatCurrency = (amount) => Number(amount || 0).toLocaleString('en-IN');
+
     if (loading || !order) return <div className="w-full h-screen flex justify-center items-center bg-zinc-950"><Loader /></div>;
 
     const getStatusColor = (status) => {
@@ -144,9 +146,17 @@ const AdminOrderDetails = () => {
                                         <div className="flex-1">
                                             <h3 className="font-medium text-zinc-200 line-clamp-1">{item.productName}</h3>
                                             <p className="text-sm text-zinc-400 mt-1">Size: {item.size.label} | SKU: <span className="font-mono">{item.size.skuCode || "N/A"}</span></p>
+                                            
+                                            {/* GST Info per item */}
+                                            <div className="flex flex-wrap gap-x-4 mt-1 text-[10px] text-zinc-500">
+                                                <span>HSN: {item.hsnCode}</span>
+                                                <span>GST Rate: {item.gstRate}%</span>
+                                                <span>Tax Amount: ₹{Math.round(item.gstAmount)}</span>
+                                            </div>
+
                                             <div className="flex justify-between items-end mt-2">
-                                                <p className="text-xs text-zinc-400">Qty: {item.quantity} x ₹{item.price}</p>
-                                                <p className="font-medium text-zinc-200">₹{item.itemTotal}</p>
+                                                <p className="text-xs text-zinc-400">Qty: {item.quantity} x ₹{Math.round(item.price)}</p>
+                                                <p className="font-medium text-zinc-200">₹{Math.round(item.priceWithGST || item.itemTotal)}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -174,9 +184,36 @@ const AdminOrderDetails = () => {
                             <h3 className="font-medium text-zinc-300 mb-4">Payment Breakdown</h3>
                             <div className="space-y-3 text-sm">
                                 <div className="flex justify-between text-zinc-400">
-                                    <span>Subtotal</span>
-                                    <span>₹{order.pricing.productsSubtotal}</span>
+                                    <span>Subtotal (Excl. Tax)</span>
+                                    <span>₹{formatCurrency(Math.round(order.subTotal || order.pricing.productsSubtotal))}</span>
                                 </div>
+                                
+                                {/* GST Section */}
+                                <div className="bg-zinc-950/50 p-3 rounded border border-zinc-800/50 space-y-1">
+                                    <p className="text-[10px] uppercase font-bold text-zinc-500 mb-1">Tax Breakdown</p>
+                                    {order.items && order.items[0]?.taxType === 'cgst_sgst' ? (
+                                        <>
+                                            <div className="flex justify-between text-xs text-zinc-400">
+                                                <span>CGST</span>
+                                                <span>₹{formatCurrency(Math.round(order.totalCGST))}</span>
+                                            </div>
+                                            <div className="flex justify-between text-xs text-zinc-400">
+                                                <span>SGST</span>
+                                                <span>₹{formatCurrency(Math.round(order.totalSGST))}</span>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="flex justify-between text-xs text-zinc-400">
+                                            <span>IGST</span>
+                                            <span>₹{formatCurrency(Math.round(order.totalIGST))}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between text-xs font-medium text-zinc-300 pt-1 border-t border-zinc-800">
+                                        <span>Total GST</span>
+                                        <span>₹{formatCurrency(Math.round(order.totalGST))}</span>
+                                    </div>
+                                </div>
+
                                 {order.pricing.couponDiscount > 0 && (
                                     <div className="flex justify-between text-green-500">
                                         <span>Coupon Discount ({order.coupon?.code})</span>
@@ -184,21 +221,21 @@ const AdminOrderDetails = () => {
                                     </div>
                                 )}
                                 <div className="flex justify-between text-zinc-400">
-                                    <span>Shipping</span>
+                                    <span>Shipping Charges</span>
                                     <span>{order.pricing.shippingCharges === 0 ? "Free" : `₹${order.pricing.shippingCharges}`}</span>
                                 </div>
                                 {order.pricing.codFee > 0 && (
                                     <div className="flex justify-between text-zinc-400">
-                                        <span>COD Fee</span>
+                                        <span>COD Handling Fee</span>
                                         <span>₹{order.pricing.codFee}</span>
                                     </div>
                                 )}
                                 <div className="border-t border-zinc-800 pt-3 flex justify-between text-base font-semibold text-zinc-100">
                                     <span>Total Amount</span>
-                                    <span>₹{order.pricing.finalTotal}</span>
+                                    <span>₹{formatCurrency(Math.round(order.pricing.finalTotal))}</span>
                                 </div>
 
-                                {/* ✅ PAID & DUE SECTION - SCREEN VIEW */}
+                                {/* PAID & DUE SECTION */}
                                 <div className="mt-4 pt-3 border-t border-dashed border-zinc-800 space-y-2">
                                     <div className="flex justify-between text-sm text-zinc-400">
                                         <span>Paid Online</span>
@@ -285,10 +322,19 @@ const AdminOrderDetails = () => {
             {/* =================================================================================
                2. PRINT VIEW (Standard Invoice Layout) - Visible ONLY when printing
                ================================================================================= */}
-            <div className="hidden print:block print:p-8 bg-white text-black font-sans text-sm">
+            <div className="hidden print:block print:p-8 bg-white text-black font-sans text-sm relative">
+                
+                {/* Cancelled Watermark Logic */}
+                {order.orderStatus === 'cancelled' && (
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-0 opacity-20 pointer-events-none transform -rotate-45">
+                        <span className="text-[150px] font-black text-red-600 border-[12px] border-red-600 px-12 py-4 rounded-3xl tracking-widest uppercase">
+                            CANCELLED
+                        </span>
+                    </div>
+                )}
 
                 {/* INVOICE HEADER */}
-                <div className="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-6">
+                <div className="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-6 relative z-10">
                     <div>
                         <div className="noctowls-logo flex flex-col items-center">
                             <Logo width="w-[7rem]" />
@@ -308,7 +354,7 @@ const AdminOrderDetails = () => {
                 </div>
 
                 {/* ADDRESSES */}
-                <div className="grid grid-cols-2 gap-8 mb-8">
+                <div className="grid grid-cols-2 gap-8 mb-8 relative z-10">
                     <div>
                         <h3 className="font-bold text-gray-800 mb-2 uppercase text-xs tracking-wider">Sold By</h3>
                         <div className="text-gray-700 leading-snug">
@@ -322,6 +368,7 @@ const AdminOrderDetails = () => {
                     <div>
                         <h3 className="font-bold text-gray-800 mb-2 uppercase text-xs tracking-wider">Billing & Shipping Address</h3>
                         <div className="text-gray-700 leading-snug">
+                            {/* ✅ Safety Check */}
                             <p className="font-semibold">{order.shippingAddress?.fullName}</p>
                             <p>{order.shippingAddress?.address}</p>
                             {order.shippingAddress?.landmark && <p>{order.shippingAddress.landmark}</p>}
@@ -333,14 +380,15 @@ const AdminOrderDetails = () => {
                 </div>
 
                 {/* ITEMS TABLE */}
-                <table className="w-full mb-6 border-collapse">
+                <table className="w-full mb-6 border-collapse relative z-10">
                     <thead>
                         <tr className="border-b-2 border-gray-800 text-left">
                             <th className="py-2 font-bold uppercase text-xs w-[5%]">#</th>
-                            <th className="py-2 font-bold uppercase text-xs w-[50%]">Product Description</th>
-                            <th className="py-2 font-bold uppercase text-xs w-[15%] text-center">Qty</th>
+                            <th className="py-2 font-bold uppercase text-xs w-[40%]">Product Description</th>
+                            <th className="py-2 font-bold uppercase text-xs w-[10%] text-center">Qty</th>
                             <th className="py-2 font-bold uppercase text-xs w-[15%] text-right">Price</th>
-                            <th className="py-2 font-bold uppercase text-xs w-[15%] text-right">Total</th>
+                            <th className="py-2 font-bold uppercase text-xs w-[15%] text-center">GST %</th>
+                            <th className="py-2 font-bold uppercase text-xs w-[15%] text-right">Total (Incl. Tax)</th>
                         </tr>
                     </thead>
                     <tbody className="text-gray-700">
@@ -350,10 +398,12 @@ const AdminOrderDetails = () => {
                                 <td className="py-3">
                                     <p className="font-semibold text-black">{item.productName}</p>
                                     <p className="text-xs text-gray-500">Size: {item.size.label} {item.size.skuCode && `| SKU: ${item.size.skuCode}`}</p>
+                                    <p className="text-[10px] text-gray-400">HSN: {item.hsnCode}</p>
                                 </td>
                                 <td className="py-3 text-center">{item.quantity}</td>
-                                <td className="py-3 text-right">₹{item.price}</td>
-                                <td className="py-3 text-right font-medium text-black">₹{item.itemTotal}</td>
+                                <td className="py-3 text-right">₹{formatCurrency(Math.round(item.price))}</td>
+                                <td className="py-3 text-center">{item.gstRate}%</td>
+                                <td className="py-3 text-right font-medium text-black">₹{formatCurrency(Math.round(item.priceWithGST || item.itemTotal))}</td>
                             </tr>
                         ))}
 
@@ -367,22 +417,49 @@ const AdminOrderDetails = () => {
                                 </td>
                                 <td className="py-3 text-center font-medium">{gift.quantity}</td>
                                 <td className="py-3 text-right text-gray-500 line-through">₹{gift.originalPrice}</td>
-                                <td className="py-3 text-right font-medium text-black">₹0</td>
+                                <td className="py-3 text-center">0%</td>
+                                <td className="py-3 text-right font-medium text-black line-through">₹{gift.originalPrice * gift.quantity}</td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
 
                 {/* TOTALS SECTION */}
-                <div className="flex justify-end mb-10">
-                    <div className="w-[40%]">
+                <div className="flex justify-end mb-10 relative z-10">
+                    <div className="w-[45%]">
                         <div className="flex justify-between py-1 text-gray-600">
-                            <span>Subtotal</span>
-                            <span>₹{order.pricing.productsSubtotal}</span>
+                            <span>Taxable Subtotal</span>
+                            <span>₹{formatCurrency(Math.round(order.subTotal || order.pricing.productsSubtotal))}</span>
                         </div>
+                        
+                        {/* GST Breakdown for Print */}
+                        <div className="my-2 border-y border-gray-200 py-2">
+                            {order.items && order.items[0]?.taxType === 'cgst_sgst' ? (
+                                <>
+                                    <div className="flex justify-between text-xs text-gray-500">
+                                        <span>CGST</span>
+                                        <span>₹{formatCurrency(Math.round(order.totalCGST))}</span>
+                                    </div>
+                                    <div className="flex justify-between text-xs text-gray-500">
+                                        <span>SGST</span>
+                                        <span>₹{formatCurrency(Math.round(order.totalSGST))}</span>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="flex justify-between text-xs text-gray-500">
+                                    <span>Add: IGST</span>
+                                    <span>₹{formatCurrency(Math.round(order.totalIGST))}</span>
+                                </div>
+                            )}
+                            <div className="flex justify-between text-xs font-bold text-gray-800 mt-1">
+                                <span>Total Tax Amount</span>
+                                <span>₹{formatCurrency(Math.round(order.totalGST))}</span>
+                            </div>
+                        </div>
+
                         {order.pricing.couponDiscount > 0 && (
                             <div className="flex justify-between py-1 text-gray-600">
-                                <span>Coupon Discount ({order.coupon?.code})</span>
+                                <span>Coupon Discount</span>
                                 <span>- ₹{order.pricing.couponDiscount}</span>
                             </div>
                         )}
@@ -398,27 +475,13 @@ const AdminOrderDetails = () => {
                         )}
                         <div className="flex justify-between py-3 border-t-2 border-gray-800 mt-2 text-lg font-bold text-black">
                             <span>Grand Total</span>
-                            <span>₹{order.pricing.finalTotal}</span>
+                            <span>₹{formatCurrency(Math.round(order.pricing.finalTotal))}</span>
                         </div>
-
-                        {/* ✅ PAID & DUE SECTION - PRINT VIEW 
-                        <div className="flex justify-between py-1 text-gray-700">
-                            <span>Paid Online</span>
-                            <span>₹{order.payment.amountPaidOnline}</span>
-                        </div>
-                        <div className="flex justify-between py-1 font-bold text-black border-t border-gray-300 mt-2 pt-2">
-                            <span>Balance Due</span>
-                            <span>₹{order.payment.amountPaidOnDelivery}</span>
-                        </div>
-
-                        <div className="text-right text-xs text-gray-500 mt-2">
-                            (Inclusive of all taxes)
-                        </div> */}
                     </div>
                 </div>
 
                 {/* FOOTER / TERMS */}
-                <div className="border-t border-gray-300 pt-4">
+                <div className="border-t border-gray-300 pt-4 relative z-10">
                     <p className="font-bold text-xs uppercase mb-1">Payment Method: {order.payment.method}</p>
                     {order.payment.method === "COD" && (
                         <p className="text-sm font-bold border border-black inline-block px-2 py-1">

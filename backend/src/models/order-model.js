@@ -704,6 +704,7 @@ orderSchema.pre("save", function () {
     this.totalIGST = orderTotalIGST;
     this.grandTotal = this.subTotal + this.totalGST;
 
+    if (!this.pricing) this.pricing = {};
     // Sync with existing pricing object for backward compatibility
     this.pricing.tax = this.totalGST;
   } catch (error) {
@@ -727,21 +728,21 @@ orderSchema.pre("save", async function () {
 
 // 3. Auto-calculate pricing totals (Existing)
 orderSchema.pre("save", function () {
+  if (!this.pricing) this.pricing = {};
+
   this.pricing.productsSubtotal = this.items.reduce(
     (sum, item) => sum + item.itemTotal,
     0
   );
 
-  this.pricing.subtotalAfterCoupon =
-    this.pricing.productsSubtotal - this.pricing.couponDiscount;
+  const discount = this.pricing.couponDiscount || 0;
+  this.pricing.subtotalAfterCoupon = this.pricing.productsSubtotal - discount;
 
   this.pricing.finalTotal =
     this.pricing.subtotalAfterCoupon +
-    this.pricing.codFee +
-    this.pricing.shippingCharges;
-  // Note: Tax is already included in product prices in B2C usually,
-  // but if you add extra tax on top, enable this line:
-  // + this.pricing.tax;
+    (this.pricing.codFee || 0) +
+    (this.pricing.shippingCharges || 0) +
+    (this.pricing.tax || 0);
 });
 
 // 4. Update status timestamps
@@ -794,6 +795,7 @@ orderSchema.methods.cancelOrder = async function (cancelledBy, reason) {
     if (this.payment.method === "ONLINE") {
       this.cancellation.refundAmount = this.payment.amountPaidOnline;
     } else if (this.payment.method === "COD") {
+      // COD fee is refundable ONLY if order is NOT YET shipped
       const nonRefundableStatuses = [
         "shipped",
         "out-for-delivery",

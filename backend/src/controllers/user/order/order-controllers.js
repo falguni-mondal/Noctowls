@@ -909,7 +909,7 @@ export const cancelOrder = async (req, res) => {
       reason
     );
 
-    // Restore product stock
+    // Restore product stock & Revert sales count
     for (const item of cancelledOrder.items) {
       const product = await Product.findById(item.product);
       if (product) {
@@ -918,6 +918,11 @@ export const cancelOrder = async (req, res) => {
         );
         if (sizeIndex !== -1) {
           product.sizes[sizeIndex].stock += item.quantity;
+          // Decrement sales count, prevent negative numbers just in case
+          product.sizes[sizeIndex].salesCount = Math.max(
+            0,
+            product.sizes[sizeIndex].salesCount - item.quantity
+          );
           await product.save();
         }
       }
@@ -1056,7 +1061,7 @@ export const cancelGuestOrder = async (req, res) => {
       reason
     );
 
-    // Restore product stock
+    // Restore product stock & Revert sales count
     for (const item of cancelledOrder.items) {
       const product = await Product.findById(item.product);
       if (product) {
@@ -1065,6 +1070,11 @@ export const cancelGuestOrder = async (req, res) => {
         );
         if (sizeIndex !== -1) {
           product.sizes[sizeIndex].stock += item.quantity;
+          // Decrement sales count, prevent negative numbers just in case
+          product.sizes[sizeIndex].salesCount = Math.max(
+            0,
+            product.sizes[sizeIndex].salesCount - item.quantity
+          );
           await product.save();
         }
       }

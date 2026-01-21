@@ -1,5 +1,6 @@
 import Order from "../../../models/order-model.js";
 import Product from "../../../models/product-model.js";
+import Coupon from "../../../models/coupon-model.js"; // Needed for coupon reversion
 
 // ==================== GET ALL ORDERS (ADMIN) ====================
 // Supports: Pagination, Filtering (Status), Searching (Order ID/Guest Email)
@@ -14,15 +15,15 @@ export const getAllAdminOrders = async (req, res) => {
       query.orderStatus = status;
     }
 
-    // 2. Search Logic (Order Number or Guest Email)
+    // 2. Search Logic (Order Number, Guest Email, or Phone)
     if (search) {
       const searchRegex = new RegExp(search, "i");
       query.$or = [
         { orderNumber: searchRegex },
         { "guestInfo.email": searchRegex },
         { "guestInfo.name": searchRegex },
-        // Note: Searching registered user email requires lookup/aggregate, 
-        // skipped here for performance unless strictly needed.
+        { "shippingAddress.phone": searchRegex }, // Added phone search
+        { "shippingAddress.fullName": searchRegex },
       ];
     }
 
@@ -91,7 +92,18 @@ export const updateOrderStatus = async (req, res) => {
     const { status } = req.body;
 
     // Validate Status
-    const validStatuses = ["pending", "confirmed", "shipped", "delivered", "cancelled"];
+    const validStatuses = [
+      "pending",
+      "confirmed",
+      "processing",
+      "packed",
+      "shipped",
+      "out-for-delivery",
+      "delivered",
+      "cancelled",
+      "returned",
+    ];
+
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
@@ -116,37 +128,78 @@ export const updateOrderStatus = async (req, res) => {
       });
     }
 
-    // Logic: If delivering a COD order, mark payment as completed
-    if (status === "delivered" && order.payment.method === "COD" && order.payment.status === "pending") {
-      order.payment.status = "completed";
-      order.payment.amountPaidOnDelivery = order.pricing.subtotalAfterCoupon; // Ensure this matches logic
+    // --- CANCELLATION LOGIC (Standardized) ---
+    if (status === "cancelled" && order.orderStatus !== "cancelled") {
+      // Use the model method to handle Refunds (COD logic) & Coupon logic
+      const { order: cancelledOrder, couponToRevert } = await order.cancelOrder(
+        "admin",
+        "Cancelled by Admin"
+      );
+
+      // Restore Stock & Revert Sales Count
+      for (const item of cancelledOrder.items) {
+        if (item.isFreeGift) continue;
+
+        const product = await Product.findById(item.product);
+        if (product) {
+          const sizeIndex = product.sizes.findIndex(
+            (s) => s.value === item.size.value
+          );
+          if (sizeIndex !== -1) {
+            // Restore stock
+            product.sizes[sizeIndex].stock += item.quantity;
+
+            // Revert sales count (Prevent negative)
+            product.sizes[sizeIndex].salesCount = Math.max(
+              0,
+              product.sizes[sizeIndex].salesCount - item.quantity
+            );
+
+            await product.save();
+          }
+        }
+      }
+
+      // Decrement Coupon Usage if applicable
+      if (couponToRevert) {
+        const coupon = await Coupon.findOne({ code: couponToRevert.code });
+        if (coupon) {
+          await coupon.decrementUsageForUser(
+            couponToRevert.userId,
+            couponToRevert.deviceId
+          );
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Order cancelled by Admin successfully",
+        order: cancelledOrder,
+      });
     }
 
-    // Logic: Handle Cancellation (Restock items)
-    if (status === "cancelled" && order.orderStatus !== "cancelled") {
-      for (const item of order.items) {
-        if (item.isFreeGift) continue;
-        
-        await Product.findOneAndUpdate(
-          { _id: item.product, "sizes.value": item.size.value },
-          { 
-            $inc: { 
-              "sizes.$.stock": item.quantity, 
-              "sizes.$.salesCount": -item.quantity,
-              totalStock: item.quantity,
-              totalSales: -item.quantity
-            } 
-          }
-        );
-      }
+    // --- STANDARD STATUS UPDATE ---
+
+    // Logic: If delivering a COD order, mark payment as completed
+    if (
+      status === "delivered" &&
+      order.payment.method === "COD" &&
+      order.payment.status === "pending"
+    ) {
+      order.payment.status = "completed";
+      // Ensure paidOnDelivery matches the pending amount
+      // Since it's inclusive tax, amountPaidOnDelivery is (FinalTotal - PaidOnline)
+      order.payment.paidAt = new Date();
     }
 
     order.orderStatus = status;
-    
-    // Optional: Add tracking info if provided
-    if (status === "shipped" && req.body.trackingId) {
-       // Assuming you might add a tracking schema later
-       // order.shipping.trackingId = req.body.trackingId;
+
+    // Optional: Add tracking info if provided in body
+    if (status === "shipped" && req.body.tracking) {
+      if (req.body.tracking.trackingNumber)
+        order.tracking.trackingNumber = req.body.tracking.trackingNumber;
+      if (req.body.tracking.courier)
+        order.tracking.courierService = req.body.tracking.courier;
     }
 
     await order.save();
@@ -173,16 +226,18 @@ export const deleteOrder = async (req, res) => {
 
     const order = await Order.findById(orderId);
     if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
     }
 
     // Only allow deleting cancelled orders to maintain financial records consistency
-    // OR create a hard delete flag logic
     if (order.orderStatus !== "cancelled") {
-        return res.status(400).json({ 
-            success: false, 
-            message: "Only cancelled orders can be deleted to maintain stock/financial integrity." 
-        });
+      return res.status(400).json({
+        success: false,
+        message:
+          "Only cancelled orders can be deleted to maintain stock/financial integrity.",
+      });
     }
 
     await order.deleteOne();
@@ -208,23 +263,33 @@ export const getOrderStats = async (req, res) => {
         $group: {
           _id: "$orderStatus",
           count: { $sum: 1 },
-          totalRevenue: { $sum: "$pricing.finalTotal" }
-        }
-      }
+          // Gross Sales (Inclusive of Tax)
+          totalSales: { $sum: "$pricing.finalTotal" },
+          // Net Revenue (Exclusive of Tax)
+          netRevenue: { $sum: "$subTotal" },
+          // Total Tax Collected
+          totalTax: { $sum: "$totalGST" },
+        },
+      },
     ]);
 
     const totalOrders = stats.reduce((acc, curr) => acc + curr.count, 0);
-    const totalRevenue = stats.reduce((acc, curr) => acc + curr.totalRevenue, 0);
+    const totalSales = stats.reduce((acc, curr) => acc + curr.totalSales, 0);
+    const totalTax = stats.reduce((acc, curr) => acc + curr.totalTax, 0);
+    const netRevenue = stats.reduce((acc, curr) => acc + curr.netRevenue, 0);
 
     return res.status(200).json({
       success: true,
       stats: {
         breakdown: stats,
         totalOrders,
-        totalRevenue
-      }
+        totalSales: Math.round(totalSales),
+        totalTax: Math.round(totalTax),
+        netRevenue: Math.round(netRevenue),
+      },
     });
   } catch (error) {
+    console.error("Get Order Stats Error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch stats",

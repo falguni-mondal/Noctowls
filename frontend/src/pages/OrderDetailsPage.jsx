@@ -321,14 +321,14 @@ const OrderDetailsPage = () => {
                             <option value="Other">Other</option>
                         </select>
                         <div className="flex justify-end gap-3">
-                            <button onClick={() => setShowCancelModal(false)} className="px-4 py-2 text-zinc-400 hover:text-white transition">Keep Order</button>
+                            <button onClick={() => setShowCancelModal(false)} className="px-4 py-2 text-zinc-400 hover:text-white transition">Cancel</button>
                             <button
                                 onClick={handleCancelOrder}
                                 disabled={!cancelReason || cancelLoading}
                                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                                 {cancelLoading && <Icon icon="eos-icons:loading" />}
-                                Confirm Cancellation
+                                Confirm
                             </button>
                         </div>
                     </div>
@@ -429,9 +429,9 @@ const OrderDetailsPage = () => {
                                             <p className="font-semibold text-gray-700">{gift.name} (Free Gift)</p>
                                         </td>
                                         <td className="py-2 px-1 text-center">{gift.quantity}</td>
-                                        <td className="py-2 px-1 text-right">₹0</td>
+                                        <td className="py-2 px-1 text-right line-through text-gray-700">₹{gift.originalPrice}</td>
                                         <td className="py-2 px-1 text-center">0%</td>
-                                        <td className="py-2 px-1 text-right">₹0</td>
+                                        <td className="py-2 px-1 text-right line-through text-gray-700">₹{gift.originalPrice * gift.quantity}</td>
                                     </tr>
                                 ))}
                             </tbody>

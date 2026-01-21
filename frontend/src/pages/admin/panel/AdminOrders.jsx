@@ -113,7 +113,7 @@ const AdminOrders = () => {
                 <th className="p-4 font-medium">Customer</th>
                 <th className="p-4 font-medium">Date</th>
                 <th className="p-4 font-medium">Payment</th>
-                <th className="p-4 font-medium">Total</th>
+                <th className="p-4 font-medium">Amount</th> {/* ✅ Renamed from Total */}
                 <th className="p-4 font-medium">Status</th>
                 <th className="p-4 font-medium text-right">Action</th>
               </tr>
@@ -159,8 +159,18 @@ const AdminOrders = () => {
                           <span className={`w-2 h-2 rounded-full ${order.payment.status === 'completed' ? 'bg-green-500' : 'bg-amber-500'}`} title={`Payment: ${order.payment.status}`}></span>
                         </div>
                       </td>
-                      <td className="p-4 font-semibold text-zinc-200">
-                        ₹{order.pricing.finalTotal.toLocaleString('en-IN')}
+                      <td className="p-4">
+                        {/* ✅ GST-Aware Amount Display */}
+                        <div className="flex flex-col items-start">
+                            <span className="font-semibold text-zinc-200">
+                                ₹{Math.round(order.pricing?.finalTotal || 0).toLocaleString('en-IN')}
+                            </span>
+                            {(order.totalGST > 0 || order.pricing?.tax > 0) && (
+                                <span className="text-[10px] text-zinc-500">
+                                    GST: ₹{Math.round(order.totalGST || order.pricing?.tax || 0).toLocaleString('en-IN')}
+                                </span>
+                            )}
+                        </div>
                       </td>
                       <td className="p-4">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.orderStatus)} capitalize`}>
