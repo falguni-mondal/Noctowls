@@ -30,6 +30,14 @@ const IMAGE_COUNTS = {
   "anime-katana": { images: 4, highlights: 3 },
 };
 
+// ---------- GST Mapping ----------
+const GST_MAPPING = {
+  deskmat: { hsn: "6307", gstRate: 12 },
+  "anime-keychain": { hsn: "3926", gstRate: 18 },
+  "anime-figure": { hsn: "9503", gstRate: 18 },
+  "anime-katana": { hsn: "8306", gstRate: 18 },
+};
+
 // ---------- Image Schema ----------
 const simpleImageSchema = new mongoose.Schema(
   {
@@ -53,12 +61,12 @@ const sizeSchema = new mongoose.Schema(
     label: { type: String, default: "" },
 
     originalPrice: { type: Number, required: true, min: 0 },
-    
+
     formattedOriginalPrice: String,
 
     // Price is now required from frontend
     numPrice: { type: Number, required: true, min: 0 },
-    
+
     price: String, // Formatted price
 
     // Discount is now calculated, not required from frontend
@@ -82,14 +90,18 @@ sizeSchema.pre("validate", function () {
   // Calculate discount percentage from originalPrice and numPrice
   if (this.originalPrice !== undefined && this.numPrice !== undefined) {
     if (this.numPrice > this.originalPrice) {
-      throw new Error("Discounted price cannot be greater than original price");
+      throw new Error(
+        "Discounted price cannot be greater than original price"
+      );
     }
-    
+
     if (this.numPrice === this.originalPrice) {
       this.discount = 0;
     } else {
       const discountAmount = this.originalPrice - this.numPrice;
-      this.discount = Math.round((discountAmount / this.originalPrice) * 100);
+      this.discount = Math.round(
+        (discountAmount / this.originalPrice) * 100
+      );
     }
 
     // Format the price
@@ -148,12 +160,27 @@ const productSchema = new mongoose.Schema(
       lowercase: true,
     },
 
+    // ---------- GST & HSN Fields ----------
+    hsnCode: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    gstRate: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
     images: {
       type: [simpleImageSchema],
       required: true,
       validate: {
         validator(images) {
           const rule = IMAGE_COUNTS[this.category];
+          // Determine rule based on category if available, otherwise skip (handled by category validator)
+          if (!rule) return true;
           return images.length === rule.images;
         },
         message: "Invalid number of images for this product category.",
@@ -233,6 +260,26 @@ productSchema.virtual("reviews", {
   foreignField: "product",
 });
 
+// ---------- Auto GST & HSN Assignment ----------
+// Note: Must be pre('validate') because fields are required
+productSchema.pre("validate", function () {
+  // If category is set and matches our mapping
+  if (this.category && GST_MAPPING[this.category]) {
+    const rules = GST_MAPPING[this.category];
+
+    // Assign HSN Code if not manually provided
+    if (!this.hsnCode) {
+      this.hsnCode = rules.hsn;
+    }
+
+    // Assign GST Rate if not manually provided
+    // Check for undefined or null to allow explicit 0 if needed in future
+    if (this.gstRate === undefined || this.gstRate === null) {
+      this.gstRate = rules.gstRate;
+    }
+  }
+});
+
 // ---------- Auto Slug ----------
 productSchema.pre("save", function () {
   if (this.isModified("name") && this.name) {
@@ -247,8 +294,10 @@ productSchema.pre("save", function () {
 
 // ---------- Auto Total Stock & Sales ----------
 productSchema.pre("save", function () {
-  this.totalStock = this.sizes.reduce((t, s) => t + (s.stock || 0), 0);
-  this.totalSales = this.sizes.reduce((t, s) => t + (s.salesCount || 0), 0);
+  if (this.sizes && Array.isArray(this.sizes)) {
+    this.totalStock = this.sizes.reduce((t, s) => t + (s.stock || 0), 0);
+    this.totalSales = this.sizes.reduce((t, s) => t + (s.salesCount || 0), 0);
+  }
 });
 
 // ---------- Instance Method: Update Rating Cache ----------

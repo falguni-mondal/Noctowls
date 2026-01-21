@@ -36,6 +36,17 @@ import { selectIsAuthenticated } from '../store/features/user/authSlice';
 
 import toastControls from '../utils/global/toastControls';
 
+// ✅ List of Indian States for robust GST calculation (State selection preserved)
+const INDIAN_STATES = [
+  "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam",
+  "Bihar", "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jammu and Kashmir",
+  "Jharkhand", "Karnataka", "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh",
+  "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha",
+  "Puducherry", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana",
+  "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
+];
+
 const CheckoutPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -254,7 +265,7 @@ const CheckoutPage = () => {
     }
 
     if (!shippingAddress.state || shippingAddress.state.trim().length < 2) {
-      toast.error('Please enter a valid state', toastControls);
+      toast.error('Please select a valid state', toastControls);
       return false;
     }
 
@@ -311,7 +322,7 @@ const CheckoutPage = () => {
       key: razorpayData.keyId,
       amount: razorpayData.amount,
       currency: razorpayData.currency,
-      name: 'Your Store Name',
+      name: 'Noctowls',
       description:
         paymentMethod === 'COD'
           ? `COD Fee - Order #${orderData.orderNumber}`
@@ -357,7 +368,7 @@ const CheckoutPage = () => {
       },
 
       theme: {
-        color: '#3399cc',
+        color: '#2563eb',
       },
 
       modal: {
@@ -457,7 +468,7 @@ const CheckoutPage = () => {
     }
   };
 
-  // Calculate totals
+  // Calculate totals (GST Removed from Logic as requested)
   const calculateTotals = () => {
     if (!orderSummary) {
       return {
@@ -511,7 +522,7 @@ const CheckoutPage = () => {
   if (!orderSummary || orderSummary.totalItems === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-zinc-950">
-        <div className="text-center max-w-md mx-auto px-4">
+        <div className="text-center max-w-md mx-auto px-2.5">
           <div className="text-6xl mb-4">🛒</div>
           <h2 className="text-3xl font-bold text-zinc-100 mb-4">Your cart is empty</h2>
           <p className="text-zinc-400 mb-6">Add items to your cart before checkout</p>
@@ -555,7 +566,7 @@ const CheckoutPage = () => {
                       onChange={(e) =>
                         setGuestInfo({ ...guestInfo, name: e.target.value })
                       }
-                      className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
+                      className="w-full px-2.5 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
                     />
                   </div>
                   <div>
@@ -569,7 +580,7 @@ const CheckoutPage = () => {
                       onChange={(e) =>
                         setGuestInfo({ ...guestInfo, email: e.target.value })
                       }
-                      className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
+                      className="w-full px-2.5 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
                     />
                     <small className="text-zinc-400 text-xs mt-2 block">
                       We'll send order confirmation to this email
@@ -585,7 +596,6 @@ const CheckoutPage = () => {
                 Shipping Address
               </h2>
 
-              {/* ✅ UPDATED: Show toggle only if user has saved addresses */}
               {!isGuest && addresses.length > 0 && (
                 <div className="mb-4">
                   <div className="flex flex-wrap gap-3 mb-4">
@@ -613,7 +623,6 @@ const CheckoutPage = () => {
                     </label>
                   </div>
 
-                  {/* Saved Addresses List */}
                   {!useCustomAddress && (
                     <div className="space-y-3">
                       {addresses.map((address) => (
@@ -660,7 +669,6 @@ const CheckoutPage = () => {
                 </div>
               )}
 
-              {/* ✅ UPDATED: Show message if no saved addresses */}
               {!isGuest && addresses.length === 0 && (
                 <div className="mb-4 p-3 bg-blue-950 border border-blue-700 rounded">
                   <p className="text-sm text-blue-200">
@@ -669,7 +677,6 @@ const CheckoutPage = () => {
                 </div>
               )}
 
-              {/* ✅ UPDATED: Show form for: guests, users with no addresses, or when "Enter new address" is selected */}
               {(isGuest || addresses.length === 0 || useCustomAddress) && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -687,7 +694,7 @@ const CheckoutPage = () => {
                             fullName: e.target.value,
                           })
                         }
-                        className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
+                        className="w-full px-2.5 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
                       />
                     </div>
                     <div>
@@ -705,7 +712,7 @@ const CheckoutPage = () => {
                             phone: e.target.value.replace(/\D/g, ''),
                           })
                         }
-                        className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
+                        className="w-full px-2.5 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
                       />
                     </div>
                   </div>
@@ -724,7 +731,7 @@ const CheckoutPage = () => {
                           address: e.target.value,
                         })
                       }
-                      className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none resize-none"
+                      className="w-full px-2.5 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none resize-none"
                     ></textarea>
                   </div>
 
@@ -742,7 +749,7 @@ const CheckoutPage = () => {
                           landmark: e.target.value,
                         })
                       }
-                      className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
+                      className="w-full px-2.5 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
                     />
                   </div>
 
@@ -761,16 +768,15 @@ const CheckoutPage = () => {
                             city: e.target.value,
                           })
                         }
-                        className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
+                        className="w-full px-2.5 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-zinc-300 mb-1">
                         State <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="text"
-                        placeholder="Enter state"
+                      {/* ✅ State Dropdown ensures backend tax logic matches correctly */}
+                      <select
                         value={customAddress.state}
                         onChange={(e) =>
                           setCustomAddress({
@@ -778,8 +784,15 @@ const CheckoutPage = () => {
                             state: e.target.value,
                           })
                         }
-                        className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
-                      />
+                        className="w-full p-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 transition-all outline-none"
+                      >
+                        <option value="">Select State</option>
+                        {INDIAN_STATES.map((state) => (
+                          <option key={state} value={state}>
+                            {state}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-zinc-300 mb-1">
@@ -796,12 +809,11 @@ const CheckoutPage = () => {
                             pincode: e.target.value.replace(/\D/g, ''),
                           })
                         }
-                        className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
+                        className="w-full px-2.5 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
                       />
                     </div>
                   </div>
 
-                  {/* ✅ NEW: Show save option for logged-in users */}
                   {!isGuest && (
                     <div className="flex items-center gap-2 p-3 bg-blue-950 border border-blue-700 rounded">
                       <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

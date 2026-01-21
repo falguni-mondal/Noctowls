@@ -171,7 +171,7 @@ const Productpage = () => {
                     quantity: quantity
                 })).unwrap();
             }
-            navigate("/buy");
+            navigate("/checkout");
         } catch (error) {
             console.error("Buy Now Error:", error);
             toast.error(error || 'Failed to proceed to checkout', toastControls);

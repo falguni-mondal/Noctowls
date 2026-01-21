@@ -246,11 +246,96 @@ export const createOrder = async (req, res) => {
     // Set COD Fee to 49 (was 50)
     const codFee = paymentMethod === "COD" ? 49 : 0;
 
+    // --- GST LOGIC START ---
+    const SELLER_STATE = "West Bengal";
+    const customerState = shippingAddress.state.trim();
+    const normalize = (s) => s?.toLowerCase().replace(/\s+/g, "");
+    const isSameState = normalize(customerState) === normalize(SELLER_STATE);
+
+    // Prepare Items with Reverse GST Calculation
+    const orderItems = cart.items
+      .filter((item) => !item.isFreeGift)
+      .map((item) => {
+        const inclusivePrice = item.price; // This is the price user sees (including GST)
+        const gstRate = item.product.gstRate || 0;
+        const hsnCode = item.product.hsnCode || "N/A";
+
+        // Reverse Math: Extract Base Price from Inclusive Price
+        const unitBasePrice = inclusivePrice / (1 + gstRate / 100);
+        const unitGstAmount = inclusivePrice - unitBasePrice;
+
+        const totalItemBasePrice = unitBasePrice * item.quantity;
+        const totalItemGstAmount = unitGstAmount * item.quantity;
+
+        let taxType, cgstAmount, sgstAmount, igstAmount;
+
+        if (isSameState) {
+          taxType = "cgst_sgst";
+          cgstAmount = totalItemGstAmount / 2;
+          sgstAmount = totalItemGstAmount / 2;
+          igstAmount = 0;
+        } else {
+          taxType = "igst";
+          cgstAmount = 0;
+          sgstAmount = 0;
+          igstAmount = totalItemGstAmount;
+        }
+
+        return {
+          product: item.product._id,
+          productName: item.name,
+          productImage: item.image,
+          category: item.category,
+          quantity: item.quantity,
+          size: {
+            value: item.size.value,
+            label: item.size.label,
+            skuCode: item.size.skuCode,
+          },
+          originalPrice: item.originalPrice,
+          discount: item.discount,
+          price: unitBasePrice, // Store base price in 'price' field
+          itemTotal: totalItemBasePrice, // Store base total
+          // New GST fields snapshot
+          gstRate,
+          hsnCode,
+          gstAmount: totalItemGstAmount,
+          cgstAmount,
+          sgstAmount,
+          igstAmount,
+          taxType,
+          priceWithGST: inclusivePrice * item.quantity,
+        };
+      });
+
+    // Compute Order-Level GST Totals from snapshot data
+    const totalGST = orderItems.reduce((sum, item) => sum + item.gstAmount, 0);
+    const totalCGST = orderItems.reduce(
+      (sum, item) => sum + item.cgstAmount,
+      0
+    );
+    const totalSGST = orderItems.reduce(
+      (sum, item) => sum + item.sgstAmount,
+      0
+    );
+    const totalIGST = orderItems.reduce(
+      (sum, item) => sum + item.igstAmount,
+      0
+    );
+
+    // productsSubtotal is inclusive, so subTotalTaxable is after extracting tax
+    // Formula: subtotalAfterCoupon (Inclusive) / (1 + AverageRate) - simpler to sum base prices
+    const subTotalTaxable = orderItems.reduce(
+      (sum, item) => sum + item.itemTotal,
+      0
+    );
+    // --- GST LOGIC END ---
+
     // Calculate Final Total
+    // Since productsSubtotal is inclusive, finalTotal = productsSubtotal - discount + codFee
     const finalTotal = Math.round(subtotalAfterCoupon + codFee);
 
     // Determine Online Payment Amount
-    // If ONLINE: Pay Everything. If COD: Pay ONLY the Fee (49).
     const amountToPayOnline = Math.round(
       paymentMethod === "ONLINE" ? finalTotal : codFee
     );
@@ -278,27 +363,7 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    // Prepare Items
-    const orderItems = cart.items
-      .filter((item) => !item.isFreeGift)
-      .map((item) => ({
-        product: item.product._id,
-        productName: item.name,
-        productImage: item.image,
-        category: item.category,
-        quantity: item.quantity,
-        size: {
-          value: item.size.value,
-          label: item.size.label,
-          skuCode: item.size.skuCode,
-        },
-        originalPrice: item.originalPrice,
-        discount: item.discount,
-        price: item.price,
-        itemTotal: Math.round(item.price * item.quantity),
-      }));
-
-    // 1Sync Guest Info
+    // Sync Guest Info
     const finalGuestInfo = userId
       ? {}
       : {
@@ -320,7 +385,9 @@ export const createOrder = async (req, res) => {
           address: {
             $regex: new RegExp(`^${shippingAddress.address.trim()}$`, "i"),
           },
-          city: { $regex: new RegExp(`^${shippingAddress.city.trim()}$`, "i") },
+          city: {
+            $regex: new RegExp(`^${shippingAddress.city.trim()}$`, "i"),
+          },
           pincode: shippingAddress.pincode.trim(),
         });
 
@@ -361,22 +428,26 @@ export const createOrder = async (req, res) => {
             method: paymentMethod,
             status: "pending",
             razorpayOrderId: razorpayOrder.id,
-            // Save the exact amount we asked Razorpay for
             amountPaidOnline: amountToPayOnline,
-            // If COD, the rest is paid on delivery
             amountPaidOnDelivery:
-              paymentMethod === "COD" ? subtotalAfterCoupon : 0,
+              paymentMethod === "COD" ? finalTotal - amountToPayOnline : 0,
           },
           coupon: couponDetails,
           pricing: {
-            productsSubtotal,
+            productsSubtotal: productsSubtotal,
             couponDiscount,
-            subtotalAfterCoupon,
+            subtotalAfterCoupon: subtotalAfterCoupon,
             codFee,
             shippingCharges: 0,
-            tax: 0,
+            tax: totalGST,
             finalTotal,
           },
+          totalGST,
+          totalCGST,
+          totalSGST,
+          totalIGST,
+          subTotal: subTotalTaxable,
+          grandTotal: finalTotal,
           orderStatus: "pending",
           ipAddress: req.ip,
           userAgent: req.headers["user-agent"],
@@ -426,11 +497,11 @@ export const createOrder = async (req, res) => {
         orderId: order[0]._id,
         orderNumber: order[0].orderNumber,
         status: order[0].orderStatus,
-        payment: order[0].payment, // Send payment info so frontend knows what to pay
+        payment: order[0].payment,
       },
       razorpay: {
         orderId: razorpayOrder.id,
-        amount: amountToPayOnline, // Send ONLY the online amount
+        amount: amountToPayOnline,
         currency: "INR",
         keyId: process.env.RAZORPAY_KEY_ID,
       },
@@ -439,9 +510,11 @@ export const createOrder = async (req, res) => {
         couponDiscount,
         subtotalAfterCoupon,
         codFee,
+        totalGST,
         finalTotal,
         payNow: amountToPayOnline,
-        payOnDelivery: paymentMethod === "COD" ? subtotalAfterCoupon : 0,
+        payOnDelivery:
+          paymentMethod === "COD" ? finalTotal - amountToPayOnline : 0,
       },
     });
   } catch (error) {
@@ -476,7 +549,7 @@ export const handleRazorpayWebhook = async (req, res) => {
 
     if (signature !== expectedSignature) {
       console.warn("⚠️ Invalid Razorpay Webhook Signature");
-      // Security: Return 200 to confuse attackers, or 400 if you prefer logs
+      // Security: Return 400 for invalid signature logs
       return res.status(400).json({ message: "Invalid signature" });
     }
 
@@ -503,8 +576,8 @@ export const handleRazorpayWebhook = async (req, res) => {
         return res.status(200).json({ status: "already_processed" });
       }
 
-      // Security Check with COD Logic
-      // We must compare against 'amountPaidOnline' (which handles COD fee vs Full Payment)
+      // Security Check:
+      // Compare against 'amountPaidOnline' (which now includes totalGST from createOrder)
       const expectedAmountPaise = Math.round(
         order.payment.amountPaidOnline * 100
       );
@@ -621,12 +694,9 @@ export const verifyPayment = async (req, res) => {
       });
     }
 
-    // SECURE AMOUNT CHECK (Updated for COD Logic)
+    // SECURE AMOUNT CHECK
     try {
       const paymentDetails = await razorpay.payments.fetch(razorpayPaymentId);
-
-      // Verify against the specific online amount set during creation
-      // For COD, this will be 4900 paise. For Online, it's the full amount.
       const expectedAmountPaise = Math.round(
         order.payment.amountPaidOnline * 100
       );
@@ -981,8 +1051,6 @@ export const cancelGuestOrder = async (req, res) => {
       });
     }
 
-    // await order.cancelOrder("guest", reason);
-    // NEW
     const { order: cancelledOrder, couponToRevert } = await order.cancelOrder(
       "guest",
       reason
@@ -1003,14 +1071,6 @@ export const cancelGuestOrder = async (req, res) => {
     }
 
     // Decrement coupon usage
-    // if (order.coupon && order.coupon.code) {
-    //   const coupon = await Coupon.findOne({ code: order.coupon.code });
-    //   if (coupon && deviceId) {
-    //     await coupon.decrementUsageForUser(null, deviceId);
-    //   }
-    // }
-
-    // ✅ NEW CODE: Use couponToRevert data
     if (couponToRevert) {
       const coupon = await Coupon.findOne({ code: couponToRevert.code });
       if (coupon) {
@@ -1246,13 +1306,6 @@ export const downloadInvoice = async (req, res) => {
         message: "Order not found",
       });
     }
-
-    // if (order.orderStatus !== "delivered") {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: "Invoice is only available for delivered orders",
-    //   });
-    // }
 
     if (!order.invoice.invoiceNumber) {
       await order.generateInvoiceNumber();

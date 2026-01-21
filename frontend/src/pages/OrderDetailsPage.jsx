@@ -92,7 +92,7 @@ const OrderDetailsPage = () => {
     const formatDate = (date) => date ? new Date(date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : "";
     const formatCurrency = (amount) => Number(amount || 0).toLocaleString('en-IN');
 
-    if (loading) return <div className="min-h-screen flex items-center justify-center bg-zinc-950"><Loader /></div>;
+    if (loading) return <div className="w-full h-screen flex justify-center items-center bg-zinc-950"><Loader /></div>;
 
     if (error || !order) return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-center">
@@ -102,8 +102,7 @@ const OrderDetailsPage = () => {
     );
 
     return (
-        // Added print:p-0 to remove body padding during print
-        <div className="min-h-[70vh] bg-zinc-950 text-zinc-100 pb-20 print:p-0 print:bg-white print:text-black">
+        <div className="min-h-[70vh] bg-zinc-950 text-zinc-100 pb-10 print:p-0 print:bg-white print:text-black">
 
             {/* ======================== SCREEN VIEW HEADER (Hidden on Print) ======================== */}
             <div className="bg-zinc-900 border-b border-zinc-800 pt-14 pb-6 px-4 md:px-8 print:hidden">
@@ -146,32 +145,26 @@ const OrderDetailsPage = () => {
                                 <p className="text-zinc-400 text-sm mt-1">Reason: {order.cancellation?.reason || "Cancelled by user"}</p>
                                 {order.cancellation?.refundStatus !== 'not-applicable' && (
                                     <p className="text-sm mt-2 font-medium">
-                                        Refund Status: <span className="text-white capitalize">{order.cancellation.refundStatus}</span>
-                                        {order.cancellation.refundAmount > 0 && ` (₹${order.cancellation.refundAmount})`}
+                                        Refund Status: <span className="text-white capitalize">{order.cancellation?.refundStatus}</span>
+                                        {order.cancellation?.refundAmount > 0 && ` (₹${order.cancellation?.refundAmount})`}
                                     </p>
                                 )}
                             </div>
                         </div>
                     ) : (
                         <div className="relative pl-2">
-                            {/* Vertical Steps */}
                             <div className="space-y-8 relative">
-                                {/* Connecting Line */}
                                 <div className="absolute top-2 left-[19px] bottom-6 w-0.5 bg-zinc-800 z-0" />
-
                                 {steps.map((step, index) => {
                                     const isCompleted = index + 1 <= currentStep;
                                     const isCurrent = index + 1 === currentStep;
 
                                     return (
                                         <div key={index} className="flex gap-4 relative z-10">
-                                            {/* Icon Circle */}
                                             <div className={`w-10 h-10 rounded-full flex items-center justify-center border-4 text-lg shrink-0 transition-all duration-300 ${isCompleted ? "bg-green-500 border-zinc-900 text-white" : "bg-zinc-800 border-zinc-900 text-zinc-500"
                                                 }`}>
                                                 {isCompleted ? <Icon icon="solar:check-read-bold" /> : <span className="text-xs">{index + 1}</span>}
                                             </div>
-
-                                            {/* Text Info */}
                                             <div className="pt-1">
                                                 <p className={`text-base font-medium ${isCompleted || isCurrent ? "text-white" : "text-zinc-500"}`}>
                                                     {step.label}
@@ -196,7 +189,7 @@ const OrderDetailsPage = () => {
                         Items in this order
                     </div>
                     <div className="divide-y divide-zinc-800">
-                        {order.items.map((item, idx) => (
+                        {order.items?.map((item, idx) => (
                             <div key={idx} className="p-4 md:p-6 flex flex-row gap-4 items-center">
                                 <Link to={`/products/${item.product}`} className="w-20 h-20 bg-zinc-800 rounded-lg overflow-hidden shrink-0 border border-zinc-700">
                                     <img src={item.productImage} alt={item.productName} className="w-full h-full object-cover" />
@@ -206,17 +199,16 @@ const OrderDetailsPage = () => {
                                         {item.productName}
                                     </Link>
                                     <div className="flex flex-wrap gap-4 mt-2 text-sm text-zinc-400">
-                                        <span className="px-2 py-0.5 rounded border border-zinc-800">Size: {item.size.label}</span>
+                                        <span className="px-2 py-0.5 rounded border border-zinc-800">Size: {item.size?.label}</span>
                                         <span>Qty: {item.quantity}</span>
                                     </div>
                                 </div>
                                 <div className="text-lg font-bold text-white sm:text-right">
-                                    ₹{formatCurrency(item.itemTotal)}
+                                    ₹{formatCurrency(item.priceWithGST || item.itemTotal)}
                                 </div>
                             </div>
                         ))}
                     </div>
-                    {/* Free Gifts */}
                     {order.freeGifts?.gifts?.length > 0 && (
                         <div className="p-4 bg-green-500/5 border-t border-zinc-800">
                             <h4 className="text-xs font-bold text-green-500 uppercase mb-3 flex items-center gap-1">
@@ -243,55 +235,60 @@ const OrderDetailsPage = () => {
                     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
                         <h3 className="font-bold text-zinc-400 text-xs uppercase mb-4">Shipping Details</h3>
                         <div className="text-sm text-zinc-300 space-y-1">
-                            <p className="font-semibold text-white text-base mb-2">{order.shippingAddress.fullName}</p>
-                            <p>{order.shippingAddress.address}</p>
-                            {order.shippingAddress.landmark && <p>{order.shippingAddress.landmark}</p>}
-                            <p>{order.shippingAddress.city}, {order.shippingAddress.state} - {order.shippingAddress.pincode}</p>
+                            {/* ✅ Safety Check: Optional Chaining on Shipping Address */}
+                            <p className="font-semibold text-white text-base mb-2">{order.shippingAddress?.fullName}</p>
+                            <p>{order.shippingAddress?.address}</p>
+                            {order.shippingAddress?.landmark && <p>{order.shippingAddress?.landmark}</p>}
+                            <p>{order.shippingAddress?.city}, {order.shippingAddress?.state} - {order.shippingAddress?.pincode}</p>
                             <p className="mt-3 flex items-center gap-2 text-zinc-400">
-                                <Icon icon="solar:phone-bold" /> {order.shippingAddress.phone}
+                                <Icon icon="solar:phone-bold" /> {order.shippingAddress?.phone}
                             </p>
                         </div>
                     </div>
 
-                    {/* Payment & Price */}
+                    {/* Payment & Price Summary */}
                     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 md:col-span-2">
                         <h3 className="font-bold text-zinc-400 text-xs uppercase mb-4">Payment Summary</h3>
                         <div className="space-y-3">
                             <div className="flex justify-between text-sm text-zinc-300">
                                 <span>Payment Method</span>
-                                <span className="font-medium">{order.payment.method === 'COD' ? 'Cash on Delivery' : 'Online Payment'}</span>
+                                <span className="font-medium">{order.payment?.method === 'COD' ? 'Cash on Delivery' : 'Online Payment'}</span>
                             </div>
                             <div className="border-t border-zinc-800 my-2"></div>
 
                             <div className="flex justify-between text-sm text-zinc-400">
-                                <span>Subtotal</span>
-                                <span>₹{formatCurrency(order.pricing.productsSubtotal)}</span>
+                                <span>Subtotal (Excl. Tax)</span>
+                                <span>₹{formatCurrency(Math.round(order.subTotal) || Math.round(order.pricing?.productsSubtotal))}</span>
                             </div>
-                            {order.pricing.couponDiscount > 0 && (
+                            <div className="flex justify-between text-sm text-zinc-400">
+                                <span>Tax (GST)</span>
+                                <span>₹{formatCurrency(Math.round(order.totalGST) || Math.round(order.pricing?.tax))}</span>
+                            </div>
+                            {order.pricing?.couponDiscount > 0 && (
                                 <div className="flex justify-between text-sm text-green-500">
                                     <span>Discount</span>
-                                    <span>- ₹{formatCurrency(order.pricing.couponDiscount)}</span>
+                                    <span>- ₹{formatCurrency(order.pricing?.couponDiscount)}</span>
                                 </div>
                             )}
                             <div className="flex justify-between text-sm text-zinc-400">
                                 <span>Shipping</span>
-                                <span>{order.pricing.shippingCharges === 0 ? "Free" : `₹${formatCurrency(order.pricing.shippingCharges)}`}</span>
+                                <span>{order.pricing?.shippingCharges === 0 ? "Free" : `₹${formatCurrency(order.pricing?.shippingCharges)}`}</span>
                             </div>
-                            {order.pricing.codFee > 0 && (
+                            {order.pricing?.codFee > 0 && (
                                 <div className="flex justify-between text-sm text-zinc-400">
                                     <span>COD Fee</span>
-                                    <span>₹{formatCurrency(order.pricing.codFee)}</span>
+                                    <span>₹{formatCurrency(order.pricing?.codFee)}</span>
                                 </div>
                             )}
                             <div className="flex justify-between text-lg font-bold text-white mt-4 pt-4 border-t border-zinc-800">
                                 <span>Total Amount</span>
-                                <span>₹{formatCurrency(order.pricing.finalTotal)}</span>
+                                <span>₹{formatCurrency(Math.round(order.pricing?.finalTotal))}</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* --- 4. CANCEL BUTTON (Only if pending/confirmed) --- */}
+                {/* --- 4. CANCEL BUTTON --- */}
                 {!isCancelled && order.orderStatus !== 'delivered' && order.orderStatus !== 'shipped' && (
                     <div className="flex justify-end pt-4 pb-10">
                         <button
@@ -302,7 +299,6 @@ const OrderDetailsPage = () => {
                         </button>
                     </div>
                 )}
-
             </div>
 
             {/* --- CANCEL MODAL --- */}
@@ -310,10 +306,7 @@ const OrderDetailsPage = () => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm print:hidden">
                     <div className="bg-zinc-900 border border-zinc-800 w-full max-w-md rounded-xl p-6 shadow-2xl animate-in zoom-in-95 duration-200">
                         <h3 className="text-xl font-bold text-white mb-2">Cancel Order?</h3>
-                        <p className="text-zinc-400 text-sm mb-4">
-                            Are you sure you want to cancel this order? This action cannot be undone.
-                        </p>
-
+                        <p className="text-zinc-400 text-sm mb-4">Are you sure you want to cancel this order? This action cannot be undone.</p>
                         <label className="block text-xs font-bold text-zinc-500 uppercase mb-2">Reason for Cancellation</label>
                         <select
                             value={cancelReason}
@@ -327,14 +320,8 @@ const OrderDetailsPage = () => {
                             <option value="Delay in shipping">Delay in shipping</option>
                             <option value="Other">Other</option>
                         </select>
-
                         <div className="flex justify-end gap-3">
-                            <button
-                                onClick={() => setShowCancelModal(false)}
-                                className="px-4 py-2 text-zinc-400 hover:text-white transition"
-                            >
-                                Keep Order
-                            </button>
+                            <button onClick={() => setShowCancelModal(false)} className="px-4 py-2 text-zinc-400 hover:text-white transition">Keep Order</button>
                             <button
                                 onClick={handleCancelOrder}
                                 disabled={!cancelReason || cancelLoading}
@@ -349,155 +336,186 @@ const OrderDetailsPage = () => {
             )}
 
             {/* ======================== FULL PAGE PRINT VIEW (Visible ONLY on print) ======================== */}
-            <div className="hidden print:block print:fixed print:inset-0 print:z-9999 print:bg-white print:py-4 print:px-6 print:h-screen print:overflow-hidden font-sans text-black">
+            <div className="hidden print:block print:fixed print:inset-0 print:z-9999 print:bg-white print:py-4 print:px-8 font-sans text-black">
+                <div className="h-full flex flex-col max-w-3xl mx-auto relative">
+                    
+                    {/* ✅ ADDED: Cancelled Watermark Logic */}
+                    {isCancelled && (
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-999999 opacity-20 pointer-events-none transform -rotate-45">
+                            <span className="text-[150px] font-black text-red-600 border-12 border-red-600 px-12 py-4 rounded-3xl tracking-widest uppercase">
+                                CANCELLED
+                            </span>
+                        </div>
+                    )}
 
-                <div className="h-full flex flex-col max-w-3xl mx-auto">
-
-                    {/* 1. INVOICE HEADER (Clean: Logo + Title) */}
-                    <div className="flex justify-between border-b-2 border-gray-800 pb-6 mb-6">
-                        {/* Left: Logo & Brand */}
-                            <div className="flex flex-col items-center justify-start">
-                                <div className="w-28 h-28">
-                                    <Logo width="w-full h-full" color="text-black" />
-                                </div>
-                                <p className="text-xl font-extrabold tracking-tight leading-0 text-black">NOCTOWLS</p>
+                    {/* 1. INVOICE HEADER (Logo & Metadata) */}
+                    <div className="flex justify-between items-center border-b-2 border-gray-800 pb-4 mb-6 shrink-0 relative z-10">
+                        <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 shrink-0">
+                                <Logo width="w-full h-full" color="text-black" />
                             </div>
-
-                        {/* Right: Invoice Details */}
+                            <div>
+                                <h1 className="text-2xl font-extrabold tracking-tight leading-none">NOCTOWLS</h1>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Premium Desk Accessories</p>
+                            </div>
+                        </div>
                         <div className="text-right">
-                            <h2 className="text-3xl font-bold mb-2 text-gray-900">TAX INVOICE</h2>
-                            <p className="text-sm text-gray-600 mb-1">Order ID: <span className="font-mono font-bold text-black">#{order.orderNumber}</span></p>
-                            <p className="text-sm text-gray-600 mb-1">Date: <span className="font-medium text-black">{new Date(order.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</span></p>
-                            {order.invoice?.invoiceNumber && <p className="text-sm text-gray-600">Invoice #: <span className="font-medium text-black">{order.invoice.invoiceNumber}</span></p>}
+                            <h2 className="text-2xl font-bold text-gray-900 mb-1">TAX INVOICE</h2>
+                            <div className="text-xs text-gray-600 space-y-0.5">
+                                <p>Order ID: <span className="font-mono font-bold text-black">#{order.orderNumber}</span></p>
+                                <p>Date: <span className="font-medium text-black">{new Date(order.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</span></p>
+                                {order.invoice?.invoiceNumber && <p>Invoice #: <span className="font-medium text-black">{order.invoice.invoiceNumber}</span></p>}
+                            </div>
                         </div>
                     </div>
 
-                    {/* 2. ADDRESSES (Sold By + Billed To) */}
-                    <div className="grid grid-cols-2 gap-12 mb-8 shrink-0">
-                        {/* Sold By */}
+                    {/* 2. ADDRESS SECTION (Sold By + Shipped To) */}
+                    <div className="grid grid-cols-2 gap-10 mb-8 shrink-0 border-b border-gray-100 pb-6 relative z-10">
                         <div>
-                            <h3 className="font-bold text-gray-800 uppercase text-xs tracking-wider">Sold By</h3>
-                            <div className="text-sm text-gray-700 leading-snug">
-                                <p className="font-bold text-black text-base mb-1">Noctowls</p>
+                            <h3 className="font-bold text-gray-800 uppercase text-[10px] tracking-wider mb-2">Sold By</h3>
+                            <div className="text-xs text-gray-700 leading-relaxed">
+                                <p className="font-bold text-black text-sm">Noctowls Properties</p>
                                 <p>2nd Floor, Arushi Complex, Muchipara</p>
                                 <p>Durgapur-713212, West Bengal, India</p>
-                                <p className="mt-2"><span className="font-semibold">GSTIN:</span> 19BNYPG7506F1ZJ</p>
+                                <p className="mt-1 font-semibold">GSTIN: 19BNYPG7506F1ZJ</p>
+                                <p>Email: help.noctowls@gmail.com</p>
                             </div>
                         </div>
-
-                        {/* Billed To */}
                         <div>
-                            <h3 className="font-bold text-gray-800 uppercase text-xs tracking-wider">Billed To / Shipped To</h3>
-                            <div className="text-sm text-gray-700 leading-snug">
-                                <p className="font-bold text-black text-base mb-1">{order.shippingAddress?.fullName}</p>
+                            <h3 className="font-bold text-gray-800 uppercase text-[10px] tracking-wider mb-2">Billed To / Shipped To</h3>
+                            <div className="text-xs text-gray-700 leading-relaxed">
+                                {/* ✅ Safety Check: Optional Chaining on Shipping Address */}
+                                <p className="font-bold text-black text-sm">{order.shippingAddress?.fullName}</p>
                                 <p>{order.shippingAddress?.address}</p>
-                                {order.shippingAddress?.landmark && <p>{order.shippingAddress?.landmark}</p>}
+                                {order.shippingAddress?.landmark && <p>Landmark: {order.shippingAddress?.landmark}</p>}
                                 <p>{order.shippingAddress?.city}, {order.shippingAddress?.state} - <span className="font-semibold">{order.shippingAddress?.pincode}</span></p>
-                                <p className="mt-2"><span className="font-semibold">Phone:</span> {order.shippingAddress?.phone}</p>
+                                <p className="mt-1 font-semibold">Phone: {order.shippingAddress?.phone}</p>
                             </div>
                         </div>
                     </div>
 
-                    {/* 3. ITEMS TABLE (FLEXIBLE HEIGHT) */}
-                    <div className="flex-1">
-                        <table className="w-full border-collapse mb-4">
+                    {/* 3. TAXABLE ITEMS TABLE */}
+                    <div className="flex-1 relative z-10">
+                        <table className="w-full border-collapse">
                             <thead>
-                                <tr className="border-b-2 border-gray-800 text-left">
-                                    <th className="py-2 font-bold uppercase text-xs w-[5%] text-center">#</th>
-                                    <th className="py-2 font-bold uppercase text-xs w-[55%]">Item Description</th>
-                                    <th className="py-2 font-bold uppercase text-xs w-[10%] text-center">Qty</th>
-                                    <th className="py-2 font-bold uppercase text-xs w-[15%] text-right">Price</th>
-                                    <th className="py-2 font-bold uppercase text-xs w-[15%] text-right">Total</th>
+                                <tr className="border-b-2 border-gray-800 text-left bg-gray-50">
+                                    <th className="py-2 px-1 font-bold uppercase text-[10px] w-[5%] text-center">#</th>
+                                    <th className="py-2 px-1 font-bold uppercase text-[10px] w-[40%]">Description & HSN</th>
+                                    <th className="py-2 px-1 font-bold uppercase text-[10px] w-[10%] text-center">Qty</th>
+                                    <th className="py-2 px-1 font-bold uppercase text-[10px] w-[15%] text-right">Unit Price</th>
+                                    <th className="py-2 px-1 font-bold uppercase text-[10px] w-[12%] text-center">GST %</th>
+                                    <th className="py-2 px-1 font-bold uppercase text-[10px] w-[18%] text-right">Total (Incl. Tax)</th>
                                 </tr>
                             </thead>
-                            <tbody className="text-sm leading-tight">
-                                {order.items.map((item, idx) => (
-                                    <tr key={idx} className="border-b border-gray-200 print:text-xs">
-                                        <td className="py-2 text-center">{idx + 1}</td>
-                                        <td className="py-2">
-                                            <p className="font-bold text-black text-sm">{item.productName}</p>
-                                            <p className="text-[11px] text-gray-500">Size: {item.size.label} {item.size.skuCode && `| SKU: ${item.size.skuCode}`}</p>
+                            <tbody className="text-xs divide-y divide-gray-200">
+                                {/* ✅ Safety Check: Optional Chaining on Items */}
+                                {order.items?.map((item, idx) => (
+                                    <tr key={idx} className="print:text-[11px]">
+                                        <td className="py-3 px-1 text-center text-gray-500">{idx + 1}</td>
+                                        <td className="py-3 px-1">
+                                            <p className="font-bold text-black text-[12px]">{item.productName}</p>
+                                            <p className="text-[10px] text-gray-500 mt-0.5">Size: {item.size?.label} | HSN: {item.hsnCode}</p>
                                         </td>
-                                        <td className="py-2 text-center font-medium">{item.quantity}</td>
-                                        <td className="py-2 text-right text-gray-600">₹{formatCurrency(item.price)}</td>
-                                        <td className="py-2 text-right font-bold text-black">₹{formatCurrency(item.itemTotal)}</td>
+                                        <td className="py-3 px-1 text-center font-medium">{item.quantity}</td>
+                                        <td className="py-3 px-1 text-right text-gray-600">₹{formatCurrency(Math.round(item.price))}</td>
+                                        <td className="py-3 px-1 text-center text-gray-600">{item.gstRate}%</td>
+                                        <td className="py-3 px-1 text-right font-bold text-black">₹{formatCurrency(Math.round(item.priceWithGST) || Math.round(item.itemTotal))}</td>
                                     </tr>
                                 ))}
-
-                                {/* Free Gifts */}
                                 {order.freeGifts?.gifts?.map((gift, idx) => (
-                                    <tr key={`gift-${idx}`} className="border-b border-gray-200 bg-gray-50 print:text-xs">
-                                        <td className="py-2 text-center">-</td>
-                                        <td className="py-2">
-                                            <p className="font-semibold text-black">{gift.name}</p>
-                                            <p className="text-[10px] text-green-700 font-bold uppercase tracking-wide">FREE GIFT</p>
+                                    <tr key={`gift-${idx}`} className="bg-gray-50/50 italic">
+                                        <td className="py-2 px-1 text-center">-</td>
+                                        <td className="py-2 px-1">
+                                            <p className="font-semibold text-gray-700">{gift.name} (Free Gift)</p>
                                         </td>
-                                        <td className="py-2 text-center font-medium">{gift.quantity}</td>
-                                        <td className="py-2 text-right text-gray-400 line-through text-[11px]">₹{formatCurrency(gift.originalPrice)}</td>
-                                        <td className="py-2 text-right font-medium text-black">₹0</td>
+                                        <td className="py-2 px-1 text-center">{gift.quantity}</td>
+                                        <td className="py-2 px-1 text-right">₹0</td>
+                                        <td className="py-2 px-1 text-center">0%</td>
+                                        <td className="py-2 px-1 text-right">₹0</td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
 
-                    {/* 4. TOTALS & FOOTER SECTION (FIXED BOTTOM) */}
-                    <div className="shrink-0 break-inside-avoid">
-                        <div className="flex justify-end border-t-2 border-gray-800 pt-4">
-                            <div className="w-[45%] space-y-1 text-sm">
-                                <div className="flex justify-between text-gray-600">
-                                    <span>Subtotal:</span>
-                                    <span>₹{formatCurrency(order.pricing.productsSubtotal)}</span>
+                    {/* 4. TOTALS & BREAKDOWN (Fixed Bottom) */}
+                    <div className="shrink-0 break-inside-avoid mt-6 border-t-2 border-gray-800 pt-6 relative z-10">
+                        <div className="flex justify-between items-start">
+                            {/* Left Side: Tax Breakdown */}
+                            <div className="w-[50%] bg-gray-50 p-4 rounded border border-gray-100">
+                                <h4 className="font-bold text-[10px] uppercase text-gray-500 mb-3 border-b border-gray-200 pb-1">GST Breakdown</h4>
+                                <div className="space-y-1.5 text-[11px]">
+                                    {/* ✅ Safety Check: Ensure items exist before checking taxType */}
+                                    {order.items && order.items[0]?.taxType === 'cgst_sgst' ? (
+                                        <>
+                                            <div className="flex justify-between">
+                                                <span>Central Tax (CGST):</span>
+                                                <span className="font-medium">₹{formatCurrency(Math.round(order.totalCGST))}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span>State Tax (SGST):</span>
+                                                <span className="font-medium">₹{formatCurrency(Math.round(order.totalSGST))}</span>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="flex justify-between">
+                                            <span>Integrated Tax (IGST):</span>
+                                            <span className="font-medium">₹{formatCurrency(Math.round(order.totalIGST))}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between pt-1 border-t border-gray-200 font-bold text-black">
+                                        <span>Total GST Amount:</span>
+                                        <span>₹{formatCurrency(Math.round(order.totalGST))}</span>
+                                    </div>
                                 </div>
-                                {order.pricing.couponDiscount > 0 && (
-                                    <div className="flex justify-between text-green-700">
+                            </div>
+
+                            {/* Right Side: Grand Total */}
+                            <div className="w-[40%] space-y-2">
+                                <div className="flex justify-between text-xs text-gray-600">
+                                    <span>Taxable Subtotal:</span>
+                                    <span>₹{formatCurrency(Math.round(order.subTotal) || Math.round(order.pricing?.productsSubtotal))}</span>
+                                </div>
+                                <div className="flex justify-between text-xs text-gray-600">
+                                    <span>Shipping & Fees:</span>
+                                    <span>₹{formatCurrency((order.pricing?.shippingCharges || 0) + (order.pricing?.codFee || 0))}</span>
+                                </div>
+                                {order.pricing?.couponDiscount > 0 && (
+                                    <div className="flex justify-between text-xs text-green-700">
                                         <span>Discount ({order.coupon?.code}):</span>
-                                        <span>- ₹{formatCurrency(order.pricing.couponDiscount)}</span>
+                                        <span>- ₹{formatCurrency(order.pricing?.couponDiscount)}</span>
                                     </div>
                                 )}
-                                <div className="flex justify-between text-gray-600">
-                                    <span>Shipping Charges:</span>
-                                    <span>{order.pricing.shippingCharges === 0 ? "Free" : `₹${formatCurrency(order.pricing.shippingCharges)}`}</span>
+                                <div className="flex justify-between py-2 border-t-2 border-gray-900 mt-2 text-xl font-black text-black">
+                                    <span>GRAND TOTAL:</span>
+                                    <span>₹{formatCurrency(Math.round(order.pricing?.finalTotal))}</span>
                                 </div>
-                                {order.pricing.codFee > 0 && (
-                                    <div className="flex justify-between text-gray-600">
-                                        <span>COD Handling Fee:</span>
-                                        <span>₹{formatCurrency(order.pricing.codFee)}</span>
-                                    </div>
-                                )}
-                                <div className="flex justify-between py-2 border-t border-gray-300 mt-2 text-xl font-extrabold text-black">
-                                    <span>Grand Total:</span>
-                                    <span>₹{formatCurrency(order.pricing.finalTotal)}</span>
-                                </div>
-                                <div className="text-right text-xs text-gray-500 mb-4">(Inclusive of all taxes)</div>
+                                <p className="text-[10px] text-right text-gray-400 font-medium">Inclusive of all taxes</p>
                             </div>
                         </div>
 
-                        {/* Payment Info & Terms */}
-                        <div className="border-t border-gray-300 pt-4 grid grid-cols-2 gap-8 text-xs">
+                        {/* Footer Information */}
+                        <div className="mt-8 border-t border-gray-200 pt-4 grid grid-cols-2 gap-8 text-[10px]">
                             <div>
-                                <p className="font-bold uppercase mb-1">Payment Information:</p>
-                                <p><span className="font-semibold">Method:</span> {order.payment.method === 'COD' ? 'Cash on Delivery' : 'Online Payment'}</p>
-                                <p><span className="font-semibold">Status:</span> <span className="capitalize">{order.payment.status}</span></p>
-                                {order.payment.method === 'COD' && order.payment.status !== 'completed' && (
-                                    <p className="mt-2 text-sm font-bold border-2 border-black p-2 inline-block bg-gray-100">
-                                        AMOUNT TO COLLECT: ₹{formatCurrency(order.payment.amountPaidOnDelivery)}
-                                    </p>
+                                <p className="font-bold uppercase mb-1">Payment Method: <span className="text-gray-900">{order.payment?.method}</span></p>
+                                {order.payment?.method === 'COD' && (
+                                     <p className="mt-2 text-xs font-black border-2 border-black p-2 inline-block bg-gray-50">
+                                        COLLECT AT DELIVERY: ₹{formatCurrency(Math.round(order.payment?.amountPaidOnDelivery))}
+                                     </p>
                                 )}
                             </div>
-                            <div className="text-gray-500 text-right flex flex-col justify-end">
-                                <p>Returns Policy: Items can be returned within 7 days of delivery subject to policy terms. Keep gifts intact.</p>
-                                <p className="mt-1 font-semibold">This is a computer-generated invoice. No signature required.</p>
+                            <div className="text-gray-500 text-right">
+                                <p>Returns Policy: Items returnable within 7 days. Keep gifts intact.</p>
+                                <p className="mt-1 font-bold text-gray-800 underline uppercase tracking-tight">Computer Generated Invoice. No Signature Required.</p>
                             </div>
                         </div>
 
-                        <div className="text-center text-[10px] text-gray-400 mt-6">
-                            © {new Date().getFullYear()} Noctowls. All rights reserved.
+                        <div className="text-center text-[9px] text-gray-400 mt-6 pb-2">
+                            © {new Date().getFullYear()} Noctowls | www.noctowls.com
                         </div>
                     </div>
                 </div>
             </div>
-
         </div>
     );
 };

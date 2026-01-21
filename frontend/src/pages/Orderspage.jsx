@@ -200,9 +200,9 @@ const Orderspage = () => {
 
                   {/* Right: Price & Action */}
                   <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-2 border-t md:border-t-0 border-zinc-800 pt-4 md:pt-0">
-                    <div className="text-right">
+                    <div>
                         <p className="text-xs text-zinc-400 mb-1">Total Amount</p>
-                        <p className="text-lg font-bold text-white">₹{order.pricing.finalTotal.toLocaleString('en-IN')}</p>
+                        <p className="text-lg font-bold text-white">₹{Math.round(order.pricing.finalTotal).toLocaleString('en-IN')}</p>
                     </div>
                     
                     <button className="hidden md:flex items-center gap-1 text-sm text-blue-500 font-medium group-hover:text-blue-400 transition">

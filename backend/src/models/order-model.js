@@ -130,6 +130,48 @@ const orderItemSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+
+    // ---------- GST Fields (Per Item) ----------
+    gstRate: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    hsnCode: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    gstAmount: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    cgstAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    sgstAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    igstAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    taxType: {
+      type: String,
+      enum: ["cgst_sgst", "igst"],
+      required: true,
+    },
+    priceWithGST: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
   },
   { _id: false }
 );
@@ -138,6 +180,10 @@ const orderItemSchema = new mongoose.Schema(
 orderItemSchema.pre("validate", function () {
   if (this.price && this.quantity) {
     this.itemTotal = this.price * this.quantity;
+    // Ensure priceWithGST matches itemTotal if not explicitly set differently
+    if (!this.priceWithGST) {
+      this.priceWithGST = this.itemTotal;
+    }
   }
 });
 
@@ -152,7 +198,7 @@ const paymentSchema = new mongoose.Schema(
     status: {
       type: String,
       required: true,
-      enum: ["pending", "completed", "failed", "delivered",  "refunded"],
+      enum: ["pending", "completed", "failed", "delivered", "refunded"],
       default: "pending",
     },
     razorpayOrderId: {
@@ -355,6 +401,46 @@ const orderSchema = new mongoose.Schema(
       type: shippingAddressSchema,
       required: true,
     },
+    
+    // ---------- GST Summary Fields (Order Level) ----------
+    sellerState: {
+      type: String,
+      default: "West Bengal",
+      trim: true,
+    },
+    totalGST: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    totalCGST: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    totalSGST: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    totalIGST: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    subTotal: {
+      type: Number,
+      default: 0,
+      min: 0,
+      comment: "Taxable Value (Total before tax)",
+    },
+    grandTotal: {
+      type: Number,
+      default: 0,
+      min: 0,
+      comment: "Total Payable Value (including tax)",
+    },
+
     payment: {
       type: paymentSchema,
       required: true,
@@ -559,28 +645,87 @@ orderSchema.index({ deviceId: 1, orderStatus: 1, createdAt: -1 });
 
 // ---------- Pre-save Hooks ----------
 
-// Auto-generate order number (FALLBACK ONLY - should not be used)
+// 1. GST Calculation & State Logic Hook (NEW)
+orderSchema.pre("save", function () {
+  // Only calculate if items or shipping address changed, or on creation
+  if (!this.isModified("items") && !this.isModified("shippingAddress")) {
+    return;
+  }
+
+  try {
+    const sellerState = (this.sellerState || "West Bengal").trim().toLowerCase();
+    const customerState = (this.shippingAddress.state || "")
+      .trim()
+      .toLowerCase();
+
+    // Determine Intra-state (Same State) or Inter-state (Different State)
+    const isIntraState = sellerState === customerState;
+
+    let orderTotalGST = 0;
+    let orderTotalCGST = 0;
+    let orderTotalSGST = 0;
+    let orderTotalIGST = 0;
+    let orderSubTotal = 0;
+
+    // Process each item
+    this.items.forEach((item) => {
+      const gstAmt = item.gstAmount || 0;
+
+      // Split tax based on state
+      if (isIntraState) {
+        item.taxType = "cgst_sgst";
+        item.cgstAmount = gstAmt / 2;
+        item.sgstAmount = gstAmt / 2;
+        item.igstAmount = 0;
+      } else {
+        item.taxType = "igst";
+        item.cgstAmount = 0;
+        item.sgstAmount = 0;
+        item.igstAmount = gstAmt;
+      }
+
+      // Calculate base price (Taxable Value) for this item
+      // priceWithGST includes tax, so base = total - tax
+      const basePrice = (item.priceWithGST || item.itemTotal) - gstAmt;
+
+      // Accumulate Order Totals
+      orderSubTotal += basePrice;
+      orderTotalGST += gstAmt;
+      orderTotalCGST += item.cgstAmount;
+      orderTotalSGST += item.sgstAmount;
+      orderTotalIGST += item.igstAmount;
+    });
+
+    // Update Root Order Fields
+    this.subTotal = orderSubTotal;
+    this.totalGST = orderTotalGST;
+    this.totalCGST = orderTotalCGST;
+    this.totalSGST = orderTotalSGST;
+    this.totalIGST = orderTotalIGST;
+    this.grandTotal = this.subTotal + this.totalGST;
+
+    // Sync with existing pricing object for backward compatibility
+    this.pricing.tax = this.totalGST;
+  } catch (error) {
+    console.error("Error in GST Calculation Hook:", error);
+  }
+});
+
+// 2. Auto-generate order number (FALLBACK ONLY)
 orderSchema.pre("save", async function () {
   try {
-    // Only generate if orderNumber is somehow missing (shouldn't happen)
     if (this.isNew && !this.orderNumber) {
       console.warn("⚠️ Order number not provided! Generating fallback...");
-
-      const date = new Date();
       const timestamp = Date.now();
       const random = Math.floor(Math.random() * 1000);
-
-      // Fallback format: ORD-timestamp-random
       this.orderNumber = `ORD-${timestamp}-${random}`;
-
-      console.log("⚠️ Fallback order number:", this.orderNumber);
     }
   } catch (error) {
     console.error("❌ Error in order pre-save hook:", error);
   }
 });
 
-// Auto-calculate pricing totals
+// 3. Auto-calculate pricing totals (Existing)
 orderSchema.pre("save", function () {
   this.pricing.productsSubtotal = this.items.reduce(
     (sum, item) => sum + item.itemTotal,
@@ -593,11 +738,13 @@ orderSchema.pre("save", function () {
   this.pricing.finalTotal =
     this.pricing.subtotalAfterCoupon +
     this.pricing.codFee +
-    this.pricing.shippingCharges +
-    this.pricing.tax;
+    this.pricing.shippingCharges;
+  // Note: Tax is already included in product prices in B2C usually,
+  // but if you add extra tax on top, enable this line:
+  // + this.pricing.tax;
 });
 
-// Update status timestamps
+// 4. Update status timestamps
 orderSchema.pre("save", function () {
   if (this.isModified("orderStatus")) {
     const statusKey = this.orderStatus.replace(/-/g, "");
@@ -633,9 +780,7 @@ orderSchema.methods.completePayment = function (paymentDetails) {
 };
 
 // Enhanced cancel order with proper coupon tracking
-// Cancel order with proper coupon handling
 orderSchema.methods.cancelOrder = async function (cancelledBy, reason) {
-  // OLD CODE (no changes, just adding more context)
   this.orderStatus = "cancelled";
   this.cancellation.isCancelled = true;
   this.cancellation.cancelledBy = cancelledBy;
@@ -647,17 +792,27 @@ orderSchema.methods.cancelOrder = async function (cancelledBy, reason) {
     this.cancellation.refundStatus = "pending";
 
     if (this.payment.method === "ONLINE") {
-      // Full refund for online payment
       this.cancellation.refundAmount = this.payment.amountPaidOnline;
     } else if (this.payment.method === "COD") {
-      // Refund COD fee (₹50) only
-      this.cancellation.refundAmount = this.pricing.codFee;
+      const nonRefundableStatuses = [
+        "shipped",
+        "out-for-delivery",
+        "delivered",
+        "returned",
+      ];
+      
+      if (nonRefundableStatuses.includes(this.orderStatus)) {
+        // If order is already shipped, COD fee is forfeited
+        this.cancellation.refundAmount = 0;
+      } else {
+        // If not shipped, refund the fee (since they paid it online)
+        this.cancellation.refundAmount = this.pricing.codFee;
+      }
     }
   } else {
     this.cancellation.refundStatus = "not-applicable";
   }
 
-  // Return coupon usage tracking data for controller to handle
   const couponData = this.coupon.code
     ? {
         code: this.coupon.code,
@@ -682,21 +837,18 @@ orderSchema.methods.updateTracking = function (trackingData) {
 
 // Method to generate unique Invoice Number
 orderSchema.methods.generateInvoiceNumber = async function () {
-  // If invoice number already exists, do nothing
   if (this.invoice && this.invoice.invoiceNumber) return;
 
   const date = new Date();
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
-  const prefix = `INV-${year}-${month}`; // e.g., INV-2026-01
+  const prefix = `INV-${year}-${month}`;
 
-  // Find the LAST order that actually HAS an invoice number with this prefix
-  // We sort by invoiceNumber descending to get the highest one
   const lastInvoiceOrder = await this.constructor
     .findOne({
       "invoice.invoiceNumber": { $regex: `^${prefix}` },
     })
-    .sort({ "invoice.invoiceNumber": -1 }) // Sort by Invoice Number, NOT createdAt
+    .sort({ "invoice.invoiceNumber": -1 })
     .select("invoice.invoiceNumber");
 
   let sequence = 1;
@@ -707,20 +859,18 @@ orderSchema.methods.generateInvoiceNumber = async function () {
     lastInvoiceOrder.invoice.invoiceNumber
   ) {
     const parts = lastInvoiceOrder.invoice.invoiceNumber.split("-");
-    const lastSeq = parseInt(parts[3], 10); // Get the '00001' part
+    const lastSeq = parseInt(parts[3], 10);
     if (!isNaN(lastSeq)) {
       sequence = lastSeq + 1;
     }
   }
 
-  // Set the new invoice number
   this.invoice = {
     ...this.invoice,
     invoiceNumber: `${prefix}-${String(sequence).padStart(5, "0")}`,
     generatedAt: new Date(),
   };
 
-  // Save immediately to reserve this number
   await this.save();
 };
 
@@ -952,7 +1102,6 @@ orderSchema.statics.searchOrders = async function (searchTerm, options = {}) {
   };
 };
 
-// Add method to find orders by email (for guest order lookup)
 orderSchema.statics.findOrdersByEmail = async function (email) {
   return this.find({
     "guestInfo.email": { $regex: new RegExp(`^${email}$`, "i") },
@@ -964,7 +1113,6 @@ orderSchema.statics.findOrdersByEmail = async function (email) {
     .lean();
 };
 
-// Add method to check if order exists for validation
 orderSchema.statics.existsByOrderNumber = async function (orderNumber) {
   return this.exists({ orderNumber });
 };
@@ -983,7 +1131,6 @@ orderSchema.virtual("customerType").get(function () {
   return this.user ? "registered" : "guest";
 });
 
-// Updated canBeCancelled to use new method
 orderSchema.virtual("canBeCancelled").get(function () {
   return this.canBeCancelledByUser();
 });
@@ -1026,21 +1173,17 @@ orderSchema.virtual("customerName").get(function () {
   return this.guestInfo.name || this.shippingAddress.fullName;
 });
 
-// ✅ CHANGE 12: Add virtual for days since order placed
 orderSchema.virtual("daysSinceOrdered").get(function () {
   return Math.floor(
     (Date.now() - this.createdAt.getTime()) / (1000 * 60 * 60 * 24)
   );
 });
 
-// ✅ CHANGE 13: Add virtual for estimated delivery date
 orderSchema.virtual("estimatedDeliveryDate").get(function () {
   if (this.tracking.estimatedDelivery) {
     return this.tracking.estimatedDelivery;
   }
 
-  // Default: 7 days from order date for pending/confirmed
-  // 5 days from shipped date for shipped orders
   if (
     this.orderStatus === "shipped" ||
     this.orderStatus === "out-for-delivery"
