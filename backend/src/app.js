@@ -21,6 +21,7 @@ import adminProductsRouter from "./routes/admin/products/admin-product-routes.js
 import adminCouponRouter from "./routes/admin/products/admin-coupon-routes.js";
 import adminOrderRouter from "./routes/admin/orders/admin-order-routes.js";
 import adminReviewRouter from "./routes/admin/review/admin-review-routes.js";
+import adminUserRouter from "./routes/admin/user/admin-users-routes.js";
 
 const app = express();
 app.set("trust proxy", true);
@@ -64,5 +65,6 @@ app.use("/api/admin/products", adminProductsRouter);
 app.use("/api/admin/coupons", adminCouponRouter);
 app.use("/api/admin/orders", adminOrderRouter);
 app.use("/api/admin/reviews", adminReviewRouter);
+app.use("/api/admin/users", adminUserRouter);
 
 export default app;

@@ -27,6 +27,7 @@ import AdminOrderDetails from '../pages/admin/services/orders/AdminOrderDetails'
 import AdminReviews from '../pages/admin/panel/AdminReviews';
 import Orderspage from '../pages/OrdersPage';
 import OrderDetailsPage from '../pages/OrderDetailsPage';
+import AdminUserDetails from '../pages/admin/services/user/AdminUserDetails';
 
 
 const PageRouter = () => {
@@ -77,6 +78,10 @@ const PageRouter = () => {
 
         {/* ORDER SERVICES */}
         <Route path='/admin/orders/:id' element={<AdminOrderDetails />} />
+
+        {/* USER SERVICE */}
+        <Route path='/admin/users/:userId' element={<AdminUserDetails />} />
+
       </Route>
     </Routes>
   )

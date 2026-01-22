@@ -1,7 +1,8 @@
 import express from "express";
 import { 
     getAllReviews, 
-    updateReviewStatus 
+    updateReviewStatus,
+    deleteReview // [!code ++]
 } from "../../../controllers/admin/review/admin-review-controller.js";
 
 // Middleware
@@ -14,5 +15,6 @@ const router = express.Router();
 
 router.get("/all", isValidUser, isAdmin, getAllReviews);
 router.patch("/:reviewId/status", isValidUser, isAdmin, updateReviewStatus);
+router.delete("/:reviewId", isValidUser, isAdmin, deleteReview);
 
 export default router;

@@ -13,6 +13,7 @@ import adminProductsReducer from "./features/admin/adminProductSlice";
 import adminCouponsReducer from "./features/admin/adminCouponSlice";
 import adminReviewReducer from "./features/admin/adminReviewSlice";
 import adminOrdersReducer from "./features/admin/adminOrderSlice";
+import adminUserReducer from "./features/admin/adminUserSlice";
 
 export const store = configureStore({
     reducer : {
@@ -30,6 +31,7 @@ export const store = configureStore({
         adminCoupons: adminCouponsReducer,
         adminReviews: adminReviewReducer,
         adminOrders: adminOrdersReducer,
+        adminUsers: adminUserReducer,
     },
 })
 

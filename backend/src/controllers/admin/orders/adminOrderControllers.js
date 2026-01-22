@@ -1,12 +1,12 @@
 import Order from "../../../models/order-model.js";
 import Product from "../../../models/product-model.js";
-import Coupon from "../../../models/coupon-model.js"; // Needed for coupon reversion
+import Coupon from "../../../models/coupon-model.js";
 
 // ==================== GET ALL ORDERS (ADMIN) ====================
-// Supports: Pagination, Filtering (Status), Searching (Order ID/Guest Email)
+// Supports: Pagination, Filtering (Status, Date), Searching (Order ID/Guest Email)
 export const getAllAdminOrders = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, search } = req.query;
+    const { page = 1, limit = 10, status, search, startDate, endDate } = req.query;
 
     const query = {};
 
@@ -15,26 +15,40 @@ export const getAllAdminOrders = async (req, res) => {
       query.orderStatus = status;
     }
 
-    // 2. Search Logic (Order Number, Guest Email, or Phone)
+    // 2. Date Range Filter
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999); // Ensure full day coverage
+
+      query.createdAt = {
+        $gte: start,
+        $lte: end,
+      };
+    }
+
+    // 3. Search Logic (Order Number, Guest Email, or Phone)
     if (search) {
       const searchRegex = new RegExp(search, "i");
       query.$or = [
         { orderNumber: searchRegex },
         { "guestInfo.email": searchRegex },
         { "guestInfo.name": searchRegex },
-        { "shippingAddress.phone": searchRegex }, // Added phone search
+        { "shippingAddress.phone": searchRegex },
         { "shippingAddress.fullName": searchRegex },
       ];
     }
 
-    // 3. Execute Query with Pagination
+    // 4. Execute Query with Pagination
     const orders = await Order.find(query)
-      .populate("user", "name email phone") // Populate registered user details
-      .sort({ createdAt: -1 }) // Newest first
+      .populate("user", "name email phone")
+      .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
 
-    // 4. Get Total Count for Pagination
+    // 5. Get Total Count for Pagination
     const count = await Order.countDocuments(query);
 
     return res.status(200).json({
@@ -56,6 +70,7 @@ export const getAllAdminOrders = async (req, res) => {
   }
 };
 
+// ... (Rest of the file remains unchanged: getAdminOrderById, updateOrderStatus, etc.)
 // ==================== GET SINGLE ORDER DETAILS ====================
 export const getAdminOrderById = async (req, res) => {
   try {
@@ -103,7 +118,7 @@ export const updateOrderStatus = async (req, res) => {
       "cancelled",
       "returned",
     ];
-
+    
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
@@ -148,13 +163,13 @@ export const updateOrderStatus = async (req, res) => {
           if (sizeIndex !== -1) {
             // Restore stock
             product.sizes[sizeIndex].stock += item.quantity;
-
+            
             // Revert sales count (Prevent negative)
             product.sizes[sizeIndex].salesCount = Math.max(
-              0,
+              0, 
               product.sizes[sizeIndex].salesCount - item.quantity
             );
-
+            
             await product.save();
           }
         }

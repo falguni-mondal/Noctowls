@@ -1,5 +1,6 @@
 import Review from "../../../models/review-model.js";
 import { updateProductRating } from "../../../utils/helpers/rating-helper.js";
+import imagekit from "../../../configs/imagekit.js"; // Import ImageKit instance
 
 export const getAllReviews = async (req, res) => {
   try {
@@ -36,21 +37,21 @@ export const updateReviewStatus = async (req, res) => {
     const { status } = req.body;
 
     if (!["accepted", "rejected", "pending"].includes(status)) {
-        return res.status(400).json({ success: false, message: "Invalid status" });
+      return res.status(400).json({ success: false, message: "Invalid status" });
     }
 
     const review = await Review.findByIdAndUpdate(
-        reviewId, 
-        { status }, 
-        { new: true }
-    ).populate("product", "name images category"); 
+      reviewId,
+      { status },
+      { new: true }
+    ).populate("product", "name images category");
 
     if (!review) {
-        return res.status(404).json({ success: false, message: "Review not found" });
+      return res.status(404).json({ success: false, message: "Review not found" });
     }
 
     // Trigger Product Rating Recalculation
-    await updateProductRating(review.product._id || review.product); 
+    await updateProductRating(review.product._id || review.product);
 
     return res.status(200).json({
       success: true,
@@ -60,6 +61,47 @@ export const updateReviewStatus = async (req, res) => {
 
   } catch (error) {
     console.error("Review Status Update Error:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const deleteReview = async (req, res) => {
+  try {
+    const { reviewId } = req.params;
+
+    const review = await Review.findById(reviewId);
+    if (!review) {
+      return res.status(404).json({ success: false, message: "Review not found" });
+    }
+
+    // 1. Delete images from ImageKit
+    if (review.images && review.images.length > 0) {
+      const imageIds = review.images.map((img) => img.imageId).filter(Boolean);
+
+      if (imageIds.length > 0) {
+        try {
+          await imagekit.bulkDeleteFiles(imageIds);
+        } catch (ikError) {
+          console.error("Failed to delete images from ImageKit:", ikError);
+          // Continue execution to delete the review even if image deletion fails partially
+        }
+      }
+    }
+
+    // 2. Delete Review from DB
+    await Review.findByIdAndDelete(reviewId);
+
+    // 3. Recalculate Product Rating
+    await updateProductRating(review.product);
+
+    return res.status(200).json({
+      success: true,
+      message: "Review deleted successfully",
+      reviewId // Return ID to update frontend state
+    });
+
+  } catch (error) {
+    console.error("Delete Review Error:", error);
     return res.status(500).json({ success: false, message: error.message });
   }
 };

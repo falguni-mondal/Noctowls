@@ -4,6 +4,7 @@ import { Icon } from "@iconify/react";
 import { 
     fetchAllReviews, 
     updateReviewStatus, 
+    deleteReview, // [!code ++]
     setReviewFilter,
     selectAdminReviews,
     selectAdminReviewPagination,
@@ -55,6 +56,20 @@ const AdminReviews = () => {
             toast.error(error || "Action failed", toastControls);
         }
     };
+
+    // [!code ++]
+    const handleDelete = async (reviewId) => {
+        if (actionLoading) return;
+        if (!window.confirm("Are you sure you want to delete this review? This will also delete any attached images.")) return;
+
+        try {
+            await dispatch(deleteReview(reviewId)).unwrap();
+            toast.success("Review deleted successfully", toastControls);
+        } catch (error) {
+            toast.error(error || "Deletion failed", toastControls);
+        }
+    };
+    // [!code --]
 
     // --- SUB-COMPONENTS ---
 
@@ -131,7 +146,7 @@ const AdminReviews = () => {
                         <div key={review._id} className="group bg-zinc-900 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-all duration-300 overflow-hidden shadow-sm hover:shadow-md">
                             <div className="flex flex-col lg:flex-row">
                                 
-                                {/* 1. Product Context (Left Sidebar on Desktop, Top Row on Mobile) */}
+                                {/* 1. Product Context */}
                                 <div className="lg:w-64 p-4 md:p-5 bg-zinc-900 border-b lg:border-b-0 lg:border-r border-zinc-800 flex lg:flex-col gap-4 items-center lg:items-start shrink-0">
                                     <div className="w-12 h-12 md:w-16 md:h-16 lg:w-full lg:h-auto lg:aspect-square rounded-lg overflow-hidden bg-zinc-800 border border-zinc-700 shadow-inner shrink-0">
                                         <img 
@@ -200,47 +215,59 @@ const AdminReviews = () => {
                                 </div>
 
                                 {/* 3. Actions (Right Sidebar on Desktop, Bottom Row on Mobile) */}
-                                <div className="lg:w-48 bg-zinc-900/50 border-t lg:border-t-0 lg:border-l border-zinc-800 p-4 md:p-5 flex flex-row lg:flex-col justify-end lg:justify-center gap-3 shrink-0">
-                                    {review.status === "pending" && (
-                                        <>
-                                            <button 
-                                                onClick={() => handleStatusUpdate(review._id, "accepted")}
-                                                disabled={actionLoading}
-                                                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 px-4 rounded-lg text-sm font-semibold shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 active:scale-95"
-                                            >
-                                                <Icon icon="solar:check-circle-bold" className="text-lg" />
-                                                <span className="lg:hidden xl:inline">Approve</span>
-                                            </button>
+                                <div className="lg:w-48 bg-zinc-900/50 border-t lg:border-t-0 lg:border-l border-zinc-800 p-4 md:p-5 flex flex-col justify-between shrink-0">
+                                    <div className="flex flex-row lg:flex-col gap-3">
+                                        {review.status === "pending" && (
+                                            <>
+                                                <button 
+                                                    onClick={() => handleStatusUpdate(review._id, "accepted")}
+                                                    disabled={actionLoading}
+                                                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 px-4 rounded-lg text-sm font-semibold shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 active:scale-95"
+                                                >
+                                                    <Icon icon="solar:check-circle-bold" className="text-lg" />
+                                                    <span className="lg:hidden xl:inline">Approve</span>
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleStatusUpdate(review._id, "rejected")}
+                                                    disabled={actionLoading}
+                                                    className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 hover:border-zinc-600 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 active:scale-95"
+                                                >
+                                                    <Icon icon="solar:close-circle-bold" className="text-lg" />
+                                                    <span className="lg:hidden xl:inline">Reject</span>
+                                                </button>
+                                            </>
+                                        )}
+                                        
+                                        {review.status === "accepted" && (
                                             <button 
                                                 onClick={() => handleStatusUpdate(review._id, "rejected")}
-                                                disabled={actionLoading}
-                                                className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 hover:border-zinc-600 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 active:scale-95"
+                                                className="w-full py-2 px-3 rounded-lg text-rose-400 hover:text-white hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 text-sm font-medium transition-all flex items-center justify-center gap-2 group/btn"
                                             >
-                                                <Icon icon="solar:close-circle-bold" className="text-lg" />
-                                                <span className="lg:hidden xl:inline">Reject</span>
+                                                <Icon icon="solar:close-circle-bold" className="text-lg group-hover/btn:scale-110 transition-transform" />
+                                                Revoke
                                             </button>
-                                        </>
-                                    )}
-                                    
-                                    {review.status === "accepted" && (
-                                        <button 
-                                            onClick={() => handleStatusUpdate(review._id, "rejected")}
-                                            className="w-full py-2 px-3 rounded-lg text-rose-400 hover:text-white hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 text-sm font-medium transition-all flex items-center justify-center gap-2 group/btn"
-                                        >
-                                            <Icon icon="solar:trash-bin-trash-linear" className="text-lg group-hover/btn:scale-110 transition-transform" />
-                                            Revoke
-                                        </button>
-                                    )}
+                                        )}
 
-                                    {review.status === "rejected" && (
-                                        <button 
-                                            onClick={() => handleStatusUpdate(review._id, "accepted")}
-                                            className="w-full py-2 px-3 rounded-lg text-emerald-400 hover:text-white hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/20 text-sm font-medium transition-all flex items-center justify-center gap-2 group/btn"
-                                        >
-                                            <Icon icon="solar:restart-bold" className="text-lg group-hover/btn:spin-slow transition-transform" />
-                                            Restore
-                                        </button>
-                                    )}
+                                        {review.status === "rejected" && (
+                                            <button 
+                                                onClick={() => handleStatusUpdate(review._id, "accepted")}
+                                                className="w-full py-2 px-3 rounded-lg text-emerald-400 hover:text-white hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/20 text-sm font-medium transition-all flex items-center justify-center gap-2 group/btn"
+                                            >
+                                                <Icon icon="solar:restart-bold" className="text-lg group-hover/btn:spin-slow transition-transform" />
+                                                Restore
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Delete Button (Added at bottom) */}
+                                    <button 
+                                        onClick={() => handleDelete(review._id)} // [!code ++]
+                                        disabled={actionLoading}
+                                        className="w-full mt-3 py-2 px-3 rounded-lg text-red-600 hover:text-red-500 hover:bg-red-500/5 border border-transparent hover:border-red-500/20 text-sm font-medium transition-all flex items-center justify-center gap-2 group/del"
+                                    >
+                                        <Icon icon="solar:trash-bin-trash-linear" className="text-lg group-hover/del:scale-110 transition-transform" />
+                                        Delete
+                                    </button>
                                 </div>
                             </div>
                         </div>

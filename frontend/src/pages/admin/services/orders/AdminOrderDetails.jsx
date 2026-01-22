@@ -327,7 +327,7 @@ const AdminOrderDetails = () => {
                 {/* Cancelled Watermark Logic */}
                 {order.orderStatus === 'cancelled' && (
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-0 opacity-20 pointer-events-none transform -rotate-45">
-                        <span className="text-[150px] font-black text-red-600 border-[12px] border-red-600 px-12 py-4 rounded-3xl tracking-widest uppercase">
+                        <span className="text-[150px] font-black text-red-600 border-12 border-red-600 px-12 py-4 rounded-3xl tracking-widest uppercase">
                             CANCELLED
                         </span>
                     </div>
@@ -388,7 +388,7 @@ const AdminOrderDetails = () => {
                             <th className="py-2 font-bold uppercase text-xs w-[10%] text-center">Qty</th>
                             <th className="py-2 font-bold uppercase text-xs w-[15%] text-right">Price</th>
                             <th className="py-2 font-bold uppercase text-xs w-[15%] text-center">GST %</th>
-                            <th className="py-2 font-bold uppercase text-xs w-[15%] text-right">Total (Incl. Tax)</th>
+                            <th className="py-2 font-bold uppercase text-xs w-[15%] text-right">Total</th>
                         </tr>
                     </thead>
                     <tbody className="text-gray-700">

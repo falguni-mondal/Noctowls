@@ -2,7 +2,6 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import adminApi from "../../../configs/adminAxiosConfig";
 
 // Fetch All Reviews (Admin)
-// Supports filtering by status (pending, accepted, rejected) and pagination
 export const fetchAllReviews = createAsyncThunk(
     "adminReviews/fetchAll",
     async ({ status = "", page = 1, limit = 10 }, { rejectWithValue }) => {
@@ -30,6 +29,19 @@ export const updateReviewStatus = createAsyncThunk(
     }
 );
 
+// Delete Review (NEW) [!code ++]
+export const deleteReview = createAsyncThunk(
+    "adminReviews/delete",
+    async (reviewId, { rejectWithValue }) => {
+        try {
+            const response = await adminApi.delete(`/reviews/${reviewId}`);
+            return response.data; // Expected: { success: true, message: "...", reviewId: "..." }
+        } catch (error) {
+            return rejectWithValue(error.response?.data?.message || "Failed to delete review");
+        }
+    }
+);
+// [!code --]
 
 const initialState = {
     reviews: [],
@@ -40,11 +52,11 @@ const initialState = {
     },
     
     // Filters
-    currentFilter: "all", // 'all', 'pending', 'accepted', 'rejected'
+    currentFilter: "all", 
 
     // Loading States
-    loading: false, // For fetching list
-    actionLoading: false, // For approve/reject buttons
+    loading: false, 
+    actionLoading: false, 
 
     // Feedback
     error: null,
@@ -57,7 +69,7 @@ const adminReviewSlice = createSlice({
     reducers: {
         setReviewFilter: (state, action) => {
             state.currentFilter = action.payload;
-            state.pagination.current = 1; // Reset to page 1 when filter changes
+            state.pagination.current = 1; 
         },
         clearAdminReviewFeedback: (state) => {
             state.error = null;
@@ -90,19 +102,14 @@ const adminReviewSlice = createSlice({
             state.actionLoading = false;
             state.successMessage = action.payload.message;
 
-            // Optimistic Update: Find the review and update its status locally
-            // This prevents needing to re-fetch the whole list immediately
             const updatedReview = action.payload.review;
             const index = state.reviews.findIndex(r => r._id === updatedReview._id);
             
             if (index !== -1) {
-                // If we are currently filtering by status (e.g. showing "Pending"), 
-                // and the status changed to "Accepted", we should remove it from the list.
                 if (state.currentFilter !== "all" && state.currentFilter !== updatedReview.status) {
                     state.reviews.splice(index, 1);
-                    state.pagination.total -= 1; // Decrement count
+                    state.pagination.total -= 1; 
                 } else {
-                    // Otherwise just update the object
                     state.reviews[index] = updatedReview;
                 }
             }
@@ -111,6 +118,26 @@ const adminReviewSlice = createSlice({
             state.actionLoading = false;
             state.error = action.payload;
         });
+
+        // --- DELETE REVIEW (NEW) --- [!code ++]
+        builder.addCase(deleteReview.pending, (state) => {
+            state.actionLoading = true;
+            state.error = null;
+            state.successMessage = null;
+        });
+        builder.addCase(deleteReview.fulfilled, (state, action) => {
+            state.actionLoading = false;
+            state.successMessage = action.payload.message;
+
+            // Remove from list
+            state.reviews = state.reviews.filter(r => r._id !== action.payload.reviewId);
+            state.pagination.total -= 1;
+        });
+        builder.addCase(deleteReview.rejected, (state, action) => {
+            state.actionLoading = false;
+            state.error = action.payload;
+        });
+        // [!code --]
     },
 });
 

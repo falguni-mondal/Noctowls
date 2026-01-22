@@ -6,6 +6,7 @@ import Order from "../../../models/order-model.js";
 import Product from "../../../models/product-model.js";
 import Coupon from "../../../models/coupon-model.js";
 import Address from "../../../models/address-model.js";
+import User from "../../../models/user-model.js";
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
@@ -294,8 +295,8 @@ export const createOrder = async (req, res) => {
           },
           originalPrice: item.originalPrice,
           discount: item.discount,
-          price: unitBasePrice, // Store base price in 'price' field
-          itemTotal: totalItemBasePrice, // Store base total
+          price: unitBasePrice,
+          itemTotal: totalItemBasePrice,
           // New GST fields snapshot
           gstRate,
           hsnCode,
@@ -374,6 +375,31 @@ export const createOrder = async (req, res) => {
 
     // Generate Order Number & Save Address
     const orderNumber = await generateUniqueOrderNumber(session);
+
+    // [!code ++] Start of User Name Update Logic
+    if (userId) {
+      try {
+        const user = await User.findById(userId).session(session);
+        if (user) {
+          // Update name if currently empty
+          if (!user.name && shippingAddress.fullName) {
+            user.name = shippingAddress.fullName;
+          }
+          // Optional: Update phone if currently empty
+          if (!user.phone && shippingAddress.phone) {
+            user.phone = shippingAddress.phone;
+          }
+          
+          if (user.isModified('name') || user.isModified('phone')) {
+            await user.save({ session });
+          }
+        }
+      } catch (userUpdateError) {
+        console.warn("⚠️ Failed to update user profile info:", userUpdateError.message);
+        // Don't abort transaction for this non-critical error
+      }
+    }
+    // [!code ++] End of User Name Update Logic
 
     if (userId && shippingAddress) {
       try {
