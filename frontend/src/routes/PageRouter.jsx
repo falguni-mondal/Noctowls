@@ -12,7 +12,6 @@ import AdminDashboard from '../pages/admin/panel/AdminDashboard';
 import AdminUsers from '../pages/admin/panel/AdminUsers';
 import AdminProducts from '../pages/admin/panel/AdminProducts';
 import AdminOrders from '../pages/admin/panel/AdminOrders';
-import AdminCarts from '../pages/admin/panel/AdminCarts';
 import AdminWishlists from '../pages/admin/panel/AdminWishlists';
 import AddProduct from '../pages/admin/services/product/AddProduct';
 import UpdateProduct from '../pages/admin/services/product/UpdateProduct';
@@ -28,6 +27,7 @@ import AdminReviews from '../pages/admin/panel/AdminReviews';
 import Orderspage from '../pages/OrdersPage';
 import OrderDetailsPage from '../pages/OrderDetailsPage';
 import AdminUserDetails from '../pages/admin/services/user/AdminUserDetails';
+import AdminBags from '../pages/admin/panel/AdminBags';
 
 
 const PageRouter = () => {
@@ -64,7 +64,7 @@ const PageRouter = () => {
         <Route path='/admin/products' element={<AdminProducts />} />
         <Route path='/admin/coupons' element={<AdminCoupons />} />
         <Route path='/admin/reviews' element={<AdminReviews />} />
-        <Route path='/admin/carts' element={<AdminCarts />} />
+        <Route path='/admin/bags' element={<AdminBags />} />
         <Route path='/admin/wishlists' element={<AdminWishlists />} />
 
         {/* PRODUCT SERVICES */}

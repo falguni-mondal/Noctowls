@@ -155,4 +155,4 @@ wishlistSchema.set("toJSON", { virtuals: true });
 wishlistSchema.set("toObject", { virtuals: true });
 
 
-export default mongoose.model("Wishlist", wishlistSchema);;
+export default mongoose.model("Wishlist", wishlistSchema);

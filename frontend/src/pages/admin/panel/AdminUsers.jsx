@@ -30,7 +30,7 @@ const AdminUsers = () => {
   // Local State
   const [searchTerm, setSearchTerm] = useState(filters.search);
 
-  // ✅ NEW: Menu State stores ID and Screen Position
+  // Menu State stores ID and Screen Position
   const [activeMenu, setActiveMenu] = useState({ id: null, top: 0, right: 0 });
   const actionMenuRef = useRef(null);
 
@@ -64,11 +64,10 @@ const AdminUsers = () => {
       }
     };
 
-    // Close menu on scroll to prevent floating position issues
     const handleScroll = () => closeMenu();
 
     document.addEventListener("mousedown", handleClickOutside);
-    window.addEventListener("scroll", handleScroll, true); // true for capturing scroll in nested divs
+    window.addEventListener("scroll", handleScroll, true);
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
@@ -81,21 +80,14 @@ const AdminUsers = () => {
 
   const handleMenuClick = (e, userId) => {
     e.stopPropagation();
-
-    // If clicking the same button, toggle off
     if (activeMenu.id === userId) {
       closeMenu();
       return;
     }
-
-    // Calculate Position relative to viewport
     const rect = e.currentTarget.getBoundingClientRect();
-
     setActiveMenu({
       id: userId,
-      // Position slightly below button
       top: rect.bottom + 6,
-      // Align right edge of menu with right edge of button
       right: window.innerWidth - rect.right
     });
   };
@@ -180,103 +172,124 @@ const AdminUsers = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 border border-zinc-800 rounded-lg px-5 py-3">
+        <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-lg px-5 py-3 shadow-sm">
           <div className="flex flex-col items-start">
             <span className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Total Users</span>
-            <span className="text-lg font-bold text-white leading-none mt-1">{pagination.totalUsers}</span>
+            <span className="text-2xl font-bold text-white leading-none mt-1">{pagination.totalUsers}</span>
           </div>
         </div>
       </div>
 
-      {/* --- FILTERS TOOLBAR --- */}
-      <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-1 mb-6 flex flex-col xl:flex-row gap-2">
-        <div className="flex flex-col sm:flex-row gap-2 flex-1 p-2">
-          {/* Search */}
-          <div className="relative group w-full sm:w-64">
-            <Icon icon="mynaui:search" className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-indigo-400 transition-colors" />
+      {/* --- FILTERS TOOLBAR (IMPROVED UI) --- */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-2 mb-6">
+        <div className="flex flex-col xl:flex-row gap-2">
+
+          {/* SEARCH (Flexible Width) */}
+          <div className="relative flex-1 min-w-[200px] group">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Icon icon="mynaui:search" className="text-zinc-500 text-lg group-focus-within:text-indigo-400 transition-colors" />
+            </div>
             <input
               type="text"
               placeholder="Search by name, email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 outline-none transition-all placeholder:text-zinc-600"
+              className="block w-full pl-10 pr-3 py-2.5 bg-zinc-950/50 border border-zinc-800 rounded-xl text-sm placeholder-zinc-500 text-zinc-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
             />
           </div>
 
-          {/* Role Filter */}
-          <div className="relative w-full sm:w-40">
-            <select
-              value={filters.role}
-              onChange={(e) => handleFilterChange("role", e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-500 text-zinc-300 cursor-pointer appearance-none"
-            >
-              <option value="all">All Roles</option>
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </select>
-            <Icon icon="solar:alt-arrow-down-linear" className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
-          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
 
-          {/* Status Filter */}
-          <div className="relative w-full sm:w-40">
-            <select
-              value={filters.status}
-              onChange={(e) => handleFilterChange("status", e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-500 text-zinc-300 cursor-pointer appearance-none"
-            >
-              <option value="all">All Status</option>
-              <option value="verified">Verified</option>
-              <option value="unverified">Unverified</option>
-            </select>
-            <Icon icon="solar:alt-arrow-down-linear" className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
-          </div>
-        </div>
+            {/* ROLE FILTER */}
+            <div className="relative w-full sm:w-40 group">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Icon icon="solar:user-circle-linear" className="text-zinc-500 group-focus-within:text-indigo-400 transition-colors" />
+              </div>
+              <select
+                value={filters.role}
+                onChange={(e) => handleFilterChange("role", e.target.value)}
+                className="appearance-none w-full pl-9 pr-8 py-2.5 bg-zinc-950/50 border border-zinc-800 rounded-xl text-sm text-zinc-300 focus:outline-none focus:border-indigo-500 cursor-pointer hover:bg-zinc-800/50 transition-all"
+              >
+                <option value="all">All Roles</option>
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                <Icon icon="solar:alt-arrow-down-linear" className="text-zinc-600 text-xs" />
+              </div>
+            </div>
 
-        <div className="flex flex-col sm:flex-row gap-2 items-center p-2 border-t xl:border-t-0 xl:border-l border-zinc-800/50">
-          {/* Date Range */}
-          <div className="flex items-center gap-2 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 w-full sm:w-auto">
-            <input
-              type="date"
-              value={filters.dateRange.start}
-              onChange={(e) => handleFilterChange("start", e.target.value)}
-              className="bg-transparent text-xs text-zinc-300 outline-none w-28 cursor-pointer placeholder-zinc-600"
-            />
-            <span className="text-zinc-600 text-xs">to</span>
-            <input
-              type="date"
-              value={filters.dateRange.end}
-              min={filters.dateRange.start}
-              onChange={(e) => handleFilterChange("end", e.target.value)}
-              className="bg-transparent text-xs text-zinc-300 outline-none w-28 cursor-pointer"
-            />
-          </div>
+            {/* STATUS FILTER */}
+            <div className="relative w-full sm:w-40 group">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Icon icon="solar:verified-check-linear" className="text-zinc-500 group-focus-within:text-indigo-400 transition-colors" />
+              </div>
+              <select
+                value={filters.status}
+                onChange={(e) => handleFilterChange("status", e.target.value)}
+                className="appearance-none w-full pl-9 pr-8 py-2.5 bg-zinc-950/50 border border-zinc-800 rounded-xl text-sm text-zinc-300 focus:outline-none focus:border-indigo-500 cursor-pointer hover:bg-zinc-800/50 transition-all"
+              >
+                <option value="all">All Status</option>
+                <option value="verified">Verified</option>
+                <option value="unverified">Unverified</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                <Icon icon="solar:alt-arrow-down-linear" className="text-zinc-600 text-xs" />
+              </div>
+            </div>
 
-          {/* Sort */}
-          <div className="relative w-full sm:w-40">
-            <select
-              value={filters.sortBy}
-              onChange={(e) => handleFilterChange("sortBy", e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-500 text-zinc-300 cursor-pointer appearance-none"
-            >
-              <option value="newest">Newest First</option>
-              <option value="oldest">Oldest First</option>
-              <option value="name_asc">Name (A-Z)</option>
-              <option value="name_desc">Name (Z-A)</option>
-            </select>
-            <Icon icon="solar:sort-vertical-linear" className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
-          </div>
+            {/* DIVIDER (Desktop Only) */}
+            <div className="w-px h-auto bg-zinc-800 hidden xl:block mx-1"></div>
 
-          {/* Clear Button */}
-          {(searchTerm || filters.role !== "all" || filters.status !== "all" || filters.dateRange.start) && (
-            <button
-              onClick={handleClearFilters}
-              className="p-2.5 text-zinc-400 hover:text-red-400 hover:bg-zinc-800 rounded-xl transition-all flex gap-1 items-center text-sm"
-              title="Clear Filters"
-            >
-              <Icon icon="solar:restart-bold" />
-              Clear Filters
-            </button>
-          )}
+            {/* DATE RANGE FILTER */}
+            <div className="flex items-center bg-zinc-950/50 border border-zinc-800 rounded-xl px-2 w-full sm:w-auto">
+              <input
+                type="date"
+                value={filters.dateRange.start}
+                onChange={(e) => handleFilterChange("start", e.target.value)}
+                className="bg-transparent border-none text-xs text-zinc-400 focus:ring-0 p-2 w-full sm:w-28 cursor-pointer hover:text-zinc-200 transition-colors placeholder-zinc-600"
+              />
+              <span className="text-zinc-600 text-xs">-</span>
+              <input
+                type="date"
+                value={filters.dateRange.end}
+                min={filters.dateRange.start}
+                onChange={(e) => handleFilterChange("end", e.target.value)}
+                className="bg-transparent border-none text-xs text-zinc-400 focus:ring-0 p-2 w-full sm:w-28 cursor-pointer hover:text-zinc-200 transition-colors"
+              />
+            </div>
+
+            {/* SORT FILTER */}
+            <div className="relative w-full sm:w-40 group">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Icon icon="solar:sort-vertical-linear" className="text-zinc-500 group-focus-within:text-indigo-400 transition-colors" />
+              </div>
+              <select
+                value={filters.sortBy}
+                onChange={(e) => handleFilterChange("sortBy", e.target.value)}
+                className="appearance-none w-full pl-9 pr-8 py-2.5 bg-zinc-950/50 border border-zinc-800 rounded-xl text-sm text-zinc-300 focus:outline-none focus:border-indigo-500 cursor-pointer hover:bg-zinc-800/50 transition-all"
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="name_asc">Name (A-Z)</option>
+                <option value="name_desc">Name (Z-A)</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                <Icon icon="solar:alt-arrow-down-linear" className="text-zinc-600 text-xs" />
+              </div>
+            </div>
+
+            {/* CLEAR FILTERS BUTTON */}
+            {(searchTerm || filters.role !== "all" || filters.status !== "all" || filters.dateRange.start) && (
+              <button
+                onClick={handleClearFilters}
+                className="w-full sm:w-auto px-3 py-2.5 bg-zinc-800 text-zinc-400 hover:text-white hover:bg-red-500/20 hover:border-red-500/30 border border-transparent rounded-xl transition-all flex items-center justify-center"
+                title="Clear Filters"
+              >
+                <Icon icon="solar:restart-bold" className="text-lg" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -296,9 +309,7 @@ const AdminUsers = () => {
                 <th className="p-5">Contact Info</th>
                 <th className="p-5">Role & Status</th>
                 <th className="p-5">Joined Date</th>
-                <th className="p-5 text-right pr-6 w-24">
-                  <Icon icon="solar:menu-dots-bold" className="ml-auto text-lg" />
-                </th>
+                <th className="p-5 text-right pr-6 w-24"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/50 text-sm">
@@ -414,7 +425,7 @@ const AdminUsers = () => {
         )}
       </div>
 
-      {/* ✅ FIXED MENU: Rendered Outside Table to prevent Overflow Clipping */}
+      {/* FIXED MENU */}
       {activeMenu.id && (
         <div
           ref={actionMenuRef}
@@ -435,7 +446,7 @@ const AdminUsers = () => {
             View Details
           </button>
 
-          {/* Retrieve role safely. Since activeMenu only stores ID, we find user from list. */}
+          {/* Retrieve role safely */}
           {users.find(u => u._id === activeMenu.id)?.role !== "admin" && (
             <button
               onClick={() => handleDelete(activeMenu.id)}

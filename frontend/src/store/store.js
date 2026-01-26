@@ -9,11 +9,14 @@ import orderReducer from "./features/user/orderSlice";
 import gokwikReducer from "./features/user/gokwikSlice";
 
 import adminAuthReducer from "./features/admin/adminAuthSlice";
+import adminDashboardReducer from "./features/admin/adminDashboardSlice";
 import adminProductsReducer from "./features/admin/adminProductSlice";
 import adminCouponsReducer from "./features/admin/adminCouponSlice";
 import adminReviewReducer from "./features/admin/adminReviewSlice";
 import adminOrdersReducer from "./features/admin/adminOrderSlice";
 import adminUserReducer from "./features/admin/adminUserSlice";
+import adminBagReducer from "./features/admin/adminBagSlice";
+import adminWishlistReducer from "./features/admin/adminWishlistSlice";
 
 export const store = configureStore({
     reducer : {
@@ -27,11 +30,14 @@ export const store = configureStore({
         gokwik: gokwikReducer,
 
         adminAuth: adminAuthReducer,
+        adminDashboard: adminDashboardReducer,
         adminProducts: adminProductsReducer,
         adminCoupons: adminCouponsReducer,
         adminReviews: adminReviewReducer,
         adminOrders: adminOrdersReducer,
         adminUsers: adminUserReducer,
+        adminBag: adminBagReducer,
+        adminWishlist: adminWishlistReducer,
     },
 })
 

@@ -19,7 +19,7 @@ const AdminUserDetails = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
 
-    const userData = useSelector(selectAdminCurrentUser); // Contains { profile, stats, orders, cart, wishlist, addresses }
+    const userData = useSelector(selectAdminCurrentUser);
     const loading = useSelector(selectAdminUserDetailsLoading);
     const actionLoading = useSelector(selectAdminUserActionLoading);
 

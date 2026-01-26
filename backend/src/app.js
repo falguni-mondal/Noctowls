@@ -17,11 +17,14 @@ import gokwikRouter from "./routes/user/payment/gokwik-routes.js";
 import reviewRouter from "./routes/user/review/review-routes.js";
 
 import adminAuthRouter from "./routes/admin/auth/admin-auth-routes.js";
+import adminDashboardRouter from "./routes/admin/dashboard/admin-dashboard-routes.js";
 import adminProductsRouter from "./routes/admin/products/admin-product-routes.js";
 import adminCouponRouter from "./routes/admin/products/admin-coupon-routes.js";
 import adminOrderRouter from "./routes/admin/orders/admin-order-routes.js";
 import adminReviewRouter from "./routes/admin/review/admin-review-routes.js";
 import adminUserRouter from "./routes/admin/user/admin-users-routes.js";
+import adminBagRouter from "./routes/admin/bag/admin-bag-routes.js";
+import adminWishlistRouter from "./routes/admin/wishlist/admin-wishlist-routes.js";
 
 const app = express();
 app.set("trust proxy", true);
@@ -61,10 +64,13 @@ app.use("/api/gokwik", gokwikRouter);
 app.use("/api/reviews", reviewRouter);
 
 app.use("/api/admin/auth", adminAuthRouter);
+app.use("/api/admin/dashboard", adminDashboardRouter);
 app.use("/api/admin/products", adminProductsRouter);
 app.use("/api/admin/coupons", adminCouponRouter);
 app.use("/api/admin/orders", adminOrderRouter);
 app.use("/api/admin/reviews", adminReviewRouter);
 app.use("/api/admin/users", adminUserRouter);
+app.use("/api/admin/bags", adminBagRouter);
+app.use("/api/admin/wishlists", adminWishlistRouter);
 
 export default app;
