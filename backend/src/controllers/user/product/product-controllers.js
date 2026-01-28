@@ -181,3 +181,56 @@ export const validateStock = async (req, res) => {
     });
   }
 };
+
+export const getBestSellingProducts = async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 4; // Default to 4 items
+
+    // 1. Fetch real best sellers (salesCount > 0)
+    let products = await Product.find({
+      status: "published",
+      salesCount: { $gt: 0 },
+    })
+      .sort({ salesCount: -1 })
+      .limit(limit)
+      .select("-__v")
+      .lean();
+
+    // 2. Fallback: If not enough best sellers, fill with random published products
+    if (products.length < limit) {
+      const existingIds = products.map((p) => p._id);
+      const needed = limit - products.length;
+
+      const randomProducts = await Product.aggregate([
+        {
+          $match: {
+            status: "published",
+            _id: { $nin: existingIds }, // Exclude ones we already have
+          },
+        },
+        { $sample: { size: needed } }, // Random selection
+      ]);
+
+      // Combine lists
+      products = [...products, ...randomProducts];
+    }
+
+    // 3. Trim data for frontend
+    const formattedProducts = products.map((product) =>
+      productForList(product)
+    );
+
+    return res.status(200).json({
+      success: true,
+      count: formattedProducts.length,
+      products: formattedProducts,
+    });
+  } catch (err) {
+    console.error("Get best selling error:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch best selling products",
+      error: process.env.NODE_ENV === "development" ? err.message : undefined,
+    });
+  }
+};

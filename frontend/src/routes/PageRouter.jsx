@@ -28,6 +28,7 @@ import Orderspage from '../pages/OrdersPage';
 import OrderDetailsPage from '../pages/OrderDetailsPage';
 import AdminUserDetails from '../pages/admin/services/user/AdminUserDetails';
 import AdminBags from '../pages/admin/panel/AdminBags';
+import Contact from '../pages/Contact';
 
 
 const PageRouter = () => {
@@ -35,6 +36,7 @@ const PageRouter = () => {
     <Routes>
       <Route path='/' element={<Homepage />} />
       <Route path='/catalog' element={<Catalog />} />
+      <Route path='/contact' element={<Contact />} />
       <Route path='/products/:productId' element={<Productpage />} />
 
       <Route element={<PublicOnly />}>

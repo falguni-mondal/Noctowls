@@ -7,6 +7,7 @@ import wishlistReducer from "./features/user/wishlistSlice";
 import addressReducer from "./features/user/addressSlice";
 import orderReducer from "./features/user/orderSlice";
 import gokwikReducer from "./features/user/gokwikSlice";
+import contactReducer from "./features/user/contactSlice";
 
 import adminAuthReducer from "./features/admin/adminAuthSlice";
 import adminDashboardReducer from "./features/admin/adminDashboardSlice";
@@ -28,6 +29,7 @@ export const store = configureStore({
         address: addressReducer,
         order: orderReducer,
         gokwik: gokwikReducer,
+        contact: contactReducer,
 
         adminAuth: adminAuthReducer,
         adminDashboard: adminDashboardReducer,

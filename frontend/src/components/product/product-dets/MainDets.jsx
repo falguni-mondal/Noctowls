@@ -2,9 +2,11 @@ import { Icon } from '@iconify/react/dist/iconify.js';
 import { useEffect } from 'react';
 import { useState } from 'react'
 import { Link } from 'react-router-dom';
+import { toast } from "react-toastify";
+import toastControls from "../../../utils/global/toastControls";
 
-const MainDets = ({selectedSize, setselectedSize, dets}) => {
-  const {name, description, sizes, reviewCount} = dets;
+const MainDets = ({ selectedSize, setselectedSize, dets }) => {
+  const { name, description, sizes, reviewCount } = dets;
   const [price, setPrice] = useState({
     original: "",
     discounted: "",
@@ -13,7 +15,7 @@ const MainDets = ({selectedSize, setselectedSize, dets}) => {
   useEffect(() => {
     if (sizes && sizes.length > 0) {
       const selectedSizeData = sizes.find(size => size.value === selectedSize);
-      
+
       if (selectedSizeData) {
         setPrice({
           original: selectedSizeData.formattedOriginalPrice || selectedSizeData.originalPrice,
@@ -23,101 +25,132 @@ const MainDets = ({selectedSize, setselectedSize, dets}) => {
     }
   }, [selectedSize, sizes])
 
-
-  // Helper function to check if size is in stock
   const isSizeInStock = (sizeValue) => {
     const sizeData = sizes?.find(s => s.value === sizeValue);
     return sizeData && sizeData.stock > 0;
   }
 
-  // Helper function to handle size click
   const handleSizeClick = (sizeValue) => {
     if (isSizeInStock(sizeValue)) {
       setselectedSize(sizeValue);
     }
   }
 
+  const handleShare = async () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Check this Noctowls ${name}`,
+          text: "Have a look at this product!",
+          url: url,
+        });
+      } catch (err) {
+        console.log("Share cancelled: ", err);
+      }
+    } else {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copied!", toastControls);
+    }
+  };
+
   return (
-    <div className="product-main-dets mt-10 px-3">
-      <p className="brand-name uppercase text-sm font-medium tracking-wide">
-        noctowls
-      </p>
-      <h1 className="product-name text-2xl uppercase font-semibold leading-none mt-2">
+    <div className="product-main-dets mt-5 md:mt-0 px-3 md:px-0">
+
+      {/* SHARE & BRAND */}
+      <div className="flex justify-between items-center mb-1">
+        <div className="flex flex-col gap-4">
+          <div
+            onClick={handleShare}
+            className="share-icon text-white hover:text-white cursor-pointer transition-colors hidden lg:flex items-center gap-1 text-xs tracking-wide"
+          >
+            <Icon icon="ic:baseline-share" />
+            <span>Share</span>
+          </div>
+          <p className="brand-name uppercase text-sm font-bold tracking-wide text-zinc-500">
+            Noctowls
+          </p>
+          {/* SHARE BUTTON: Hidden on Mobile/Tablet (lg:hidden), Visible on Desktop (lg:flex) */}
+        </div>
+      </div>
+
+      {/* PRODUCT NAME */}
+      <h1 className="product-name text-2xl md:text-4xl uppercase font-bold tracking-wide leading-tight text-white mt-1">
         {name}
       </h1>
-      <div className="product-rating-container flex text-xl gap-3 mt-3">
-        <div className="rating-stars flex">
+
+      {/* REVIEWS */}
+      <div className="product-rating-container flex items-center text-lg gap-2 mt-2">
+        <div className="rating-stars flex text-amber-400 text-sm">
           {
             ["1", "2", "3", "4", "5"].map((item, index) => (
               <Icon key={`${index}`} icon="material-symbols:star-rounded" />
             ))
           }
         </div>
-        <div className="reviews-count text-sm font-medium">
-          <span className="mr-1">({`${reviewCount}`})</span>
-          <span>Reviews</span>
+        <div className="reviews-count text-xs font-medium text-zinc-400 underline decoration-zinc-600 underline-offset-2">
+          {`${reviewCount}`} reviews
         </div>
       </div>
 
-      <div className="price-container flex items-end gap-3 mt-3">
-        <div className="original-price relative w-fit">
-          <span>Rs. {price.original}.00</span>
-          <span className="h-px absolute w-full top-1/2 left-0 -translate-y-1/2 bg-zinc-100"></span>
+      {/* PRICE SECTION */}
+      <div className="price-container flex flex-col mt-6 border-b border-zinc-800 pb-6">
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-zinc-500 line-through">Rs. {price.original}.00</span>
+          <span className="sale-badge text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-red-600 text-white rounded-xs">
+            Sale
+          </span>
         </div>
-        <div className="price-container">
-          <span className="text-3xl font-medium">Rs. {price.discounted}.00</span>
+        <div className="price-val mt-1">
+          <span className="text-3xl md:text-4xl font-bold text-white">Rs. {price.discounted}.00</span>
         </div>
-        <span className="sale-badge text-xs font-medium px-4 py-1 bg-red-600 text-white rounded-full self-start">
-          Sale
-        </span>
+        <div className="tax-text-container text-[10px] text-zinc-500 mt-1 uppercase tracking-wide">
+          Tax included. <Link to="/shipping-policy" className="underline hover:text-zinc-300">Free shipping</Link> available.
+        </div>
       </div>
 
-      <div className="tax-text-container text-[0.6rem] flex items-center gap-1 mt-3">
-        <p className="text-zinc-200">Tax Included.</p>
-        <Link to="/shipping-policy" className="underline font-medium">Free Shipping.</Link>
-      </div>
+      {/* SIZE SELECTOR */}
+      <div className="size-switcher mt-6">
+        <div className="flex justify-between items-end mb-3">
+          <h3 className="size-selection-heading text-xs font-bold text-zinc-300 uppercase tracking-widest">
+            Size
+          </h3>
+        </div>
 
-      <div className="size-switcher mt-3">
-        <h3 className="size-selection-heading text-sm font-medium text-zinc-300">
-          Size
-        </h3>
-        <div className="product-sizes grid grid-cols-3 w-[60%] text-sm font-medium gap-2 mt-2">
+        <div className="product-sizes flex flex-wrap gap-3">
           {
             sizes?.map(sizeObj => {
               const isInStock = sizeObj.stock > 0;
               const isSelected = selectedSize === sizeObj.value;
-              
+
               return (
-                <span 
-                  onClick={() => handleSizeClick(sizeObj.value)} 
-                  key={`${sizeObj.value}-size-key`} 
+                <button
+                  onClick={() => handleSizeClick(sizeObj.value)}
+                  key={`${sizeObj.value}-size-key`}
+                  disabled={!isInStock}
                   className={`
-                    py-1.5 border-[0.5px] rounded-full flex justify-center uppercase
-                    ${isInStock 
-                      ? `cursor-pointer ${isSelected ? "bg-white text-black" : "border-zinc-500 hover:border-zinc-300"}` 
-                      : "border-zinc-700 text-zinc-600 cursor-not-allowed opacity-50 line-through"
+                            px-6 py-2 rounded-full text-xs font-bold uppercase tracking-wider border transition-all duration-200 min-w-[60px]
+                            ${isInStock
+                      ? `cursor-pointer ${isSelected ? "bg-white text-black border-white" : "bg-transparent border-zinc-700 text-zinc-300 hover:border-zinc-500"}`
+                      : "bg-zinc-900 border-zinc-800 text-zinc-700 cursor-not-allowed"
                     }
-                    ${sizeObj.value === "onesize" && "px-10"}
-                  `}
+                        `}
                 >
                   {sizeObj.label || sizeObj.value}
-                </span>
+                </button>
               )
             })
           }
         </div>
-        
-        {/* Show out of stock message */}
+
         {!isSizeInStock(selectedSize) && (
-          <p className="text-red-500 text-xs mt-2">Selected size is out of stock</p>
+          <p className="text-red-500 text-xs mt-3 font-bold uppercase tracking-wide flex items-center gap-1">
+            <Icon icon="mdi:close-circle" /> Out of stock
+          </p>
         )}
       </div>
-
-      <p className="product-description font-medium text-zinc-300 mt-5 leading-tight">
-        {description}
-      </p>
     </div>
   )
 }
 
-export default MainDets
+export default MainDets;

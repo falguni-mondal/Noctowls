@@ -15,6 +15,7 @@ import addressRouter from "./routes/user/order/address-routes.js";
 import orderRouter from "./routes/user/order/order-routes.js";
 import gokwikRouter from "./routes/user/payment/gokwik-routes.js";
 import reviewRouter from "./routes/user/review/review-routes.js";
+import contactRoutes from "./routes/user/contact/contact-routes.js";
 
 import adminAuthRouter from "./routes/admin/auth/admin-auth-routes.js";
 import adminDashboardRouter from "./routes/admin/dashboard/admin-dashboard-routes.js";
@@ -62,6 +63,7 @@ app.use("/api/address", addressRouter);
 app.use("/api/order", orderRouter);
 app.use("/api/gokwik", gokwikRouter);
 app.use("/api/reviews", reviewRouter);
+app.use("/api/contact", contactRoutes);
 
 app.use("/api/admin/auth", adminAuthRouter);
 app.use("/api/admin/dashboard", adminDashboardRouter);

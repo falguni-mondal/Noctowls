@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
-import { Thumbs } from "swiper/modules";
+import { Thumbs, Zoom } from "swiper/modules";
 
 import "swiper/css";
 import "swiper/css/thumbs";
+import "swiper/css/zoom";
 
 const ImageSlider = ({ images }) => {
     const [thumbsSwiper, setThumbsSwiper] = useState(null);
@@ -12,44 +13,51 @@ const ImageSlider = ({ images }) => {
     return (
         <div className="w-full">
             {/* MAIN SLIDER */}
-            <Swiper
-                modules={[Thumbs]}
-                thumbs={{ swiper: thumbsSwiper }}
-                onSlideChange={(swiper) => setActiveIndex(swiper.activeIndex)}
-                spaceBetween={10}
-                slidesPerView={1.05}
-                className="main-swiper overflow-hidden"
-            >
-                {images.map((img, idx) => (
-                    <SwiperSlide key={idx}>
-                        <img
-                            src={img.url}
-                            alt="slide"
-                            className="w-full object-cover"
-                        />
-                    </SwiperSlide>
-                ))}
-            </Swiper>
-
-            {/* THUMBNAILS */}
-            <div className="thumbnail-container px-3">
+            <div className="w-full bg-zinc-950 aspect-square relative">
                 <Swiper
-                    onSwiper={setThumbsSwiper}
-                    modules={[Thumbs]}
-                    slidesPerView={4}
-                    spaceBetween={12}
-                    watchSlidesProgress
-                    className="thumb-swiper mt-4"
+                    modules={[Thumbs, Zoom]}
+                    thumbs={{ swiper: thumbsSwiper }}
+                    onSlideChange={(swiper) => setActiveIndex(swiper.activeIndex)}
+                    spaceBetween={0}
+                    slidesPerView={1}
+                    zoom={true}
+                    className="main-swiper h-full w-full"
                 >
                     {images.map((img, idx) => (
                         <SwiperSlide key={idx}>
-                            <img
-                                src={img.url}
-                                alt="thumbnail"
-                                className={`w-full h-18 object-cover border 
-                ${idx === activeIndex ? "border-white" : "border-transparent"}
-              `}
-                            />
+                            <div className="swiper-zoom-container w-full h-full flex items-center justify-center">
+                                <img
+                                    src={img.url}
+                                    alt="product-main"
+                                    className="w-full h-full object-cover"
+                                />
+                            </div>
+                        </SwiperSlide>
+                    ))}
+                </Swiper>
+            </div>
+
+            {/* THUMBNAILS */}
+            <div className="thumbnail-container px-3 mt-4">
+                <Swiper
+                    onSwiper={setThumbsSwiper}
+                    modules={[Thumbs]}
+                    slidesPerView={5}
+                    spaceBetween={10}
+                    watchSlidesProgress
+                    className="thumb-swiper"
+                >
+                    {images.map((img, idx) => (
+                        <SwiperSlide key={idx} className="cursor-pointer">
+                            <div className={`w-full aspect-square rounded-sm overflow-hidden border-2 transition-all ${
+                                idx === activeIndex ? "border-white opacity-100" : "border-transparent opacity-50 hover:opacity-80"
+                            }`}>
+                                <img
+                                    src={img.url}
+                                    alt="thumbnail"
+                                    className="w-full h-full object-cover"
+                                />
+                            </div>
                         </SwiperSlide>
                     ))}
                 </Swiper>

@@ -17,6 +17,21 @@ export const getAllProducts = createAsyncThunk(
   }
 );
 
+// New Thunk for Best Sellers
+export const getBestSellingProducts = createAsyncThunk(
+  "product/getBestSellingProducts",
+  async (limit = 4, { rejectWithValue }) => {
+    try {
+      const response = await userApi.get(`/products/best-selling?limit=${limit}`);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch best selling products"
+      );
+    }
+  }
+);
+
 export const getOneProduct = createAsyncThunk(
   "product/getOneProduct",
   async (productId, { rejectWithValue }) => {
@@ -58,6 +73,11 @@ const initialState = {
   productsLoading: false,
   productsError: null,
 
+  // Best Selling Products
+  bestSellingProducts: [],
+  bestSellingLoading: false,
+  bestSellingError: null,
+
   // Single Product
   product: null,
   productReviews: [],
@@ -98,6 +118,7 @@ const productSlice = createSlice({
     clearErrors: (state) => {
       state.productsError = null;
       state.productError = null;
+      state.bestSellingError = null;
     },
 
     // Clear stock validation
@@ -126,6 +147,23 @@ const productSlice = createSlice({
         state.productsLoading = false;
         state.productsError = action.payload;
         state.products = [];
+      });
+
+    // ===== GET BEST SELLING PRODUCTS =====
+    builder
+      .addCase(getBestSellingProducts.pending, (state) => {
+        state.bestSellingLoading = true;
+        state.bestSellingError = null;
+      })
+      .addCase(getBestSellingProducts.fulfilled, (state, action) => {
+        state.bestSellingLoading = false;
+        state.bestSellingProducts = action.payload.products;
+        state.bestSellingError = null;
+      })
+      .addCase(getBestSellingProducts.rejected, (state, action) => {
+        state.bestSellingLoading = false;
+        state.bestSellingError = action.payload;
+        state.bestSellingProducts = [];
       });
 
     // ===== GET ONE PRODUCT =====
@@ -171,6 +209,10 @@ const productSlice = createSlice({
 // Actions
 export const { clearProduct, clearProducts, clearErrors, clearStockValidation } =
   productSlice.actions;
+
+// Selectors
+export const selectBestSellingProducts = (state) => state.products.bestSellingProducts;
+export const selectBestSellingLoading = (state) => state.products.bestSellingLoading;
 
 // Reducer
 export default productSlice.reducer;

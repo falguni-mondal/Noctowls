@@ -8,11 +8,18 @@ const HomeMarquee = () => {
         "🎉*buy 3 and get a free anime-style katana (worth ₹600)*",
     ]
     return (
-        <div className='w-full overflow-x-hidden uppercase font-semibold text-[0.9rem] lg:text-[1.4rem] bg-red-600 text-zinc-100 relative' id='home-marquee'>
+        <div className='w-full overflow-x-hidden uppercase font-semibold text-sm bg-red-600 text-zinc-100 relative' id='home-marquee'>
             <Marquee speed={60} pauseOnHover gradient={false}>
                 {
-                    titles.map(title => (
-                        <div className='flex items-center mr-5 py-3'><span className='ml-5'></span>{title}<span className='mr-5'></span></div>
+                    titles.map((title, index) => (
+                        // Increased margins for tablet/desktop to utilize screen width better (md:mr-10 lg:mr-16)
+                        // Increased vertical padding slightly for larger touch targets/visual balance (md:py-4)
+                        <div key={`marquee-item-${index}`} className='flex items-center mr-5 md:mr-10 lg:mr-16 py-3 md:py-4'>
+                            {/* Spacers adjusted for consistency */}
+                            <span className='ml-5 md:ml-2'></span>
+                            {title}
+                            <span className='mr-5 md:mr-2'></span>
+                        </div>
                     ))
                 }
             </Marquee>
@@ -20,4 +27,4 @@ const HomeMarquee = () => {
     )
 }
 
-export default HomeMarquee
+export default HomeMarquee;

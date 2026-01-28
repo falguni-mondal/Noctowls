@@ -11,6 +11,8 @@ import NoReview from "../components/product/product-review/NoReview";
 import ReviewCard from "../components/product/product-review/ReviewCard";
 import ReviewModal from "../components/product/product-review/ReviewModal";
 import ProductSpecs from "../components/product/product-specs/ProductSpecs";
+import BestSelling from "../components/product/best-selling/BestSelling";
+
 import { useDispatch, useSelector } from "react-redux";
 import { getOneProduct, validateProductStock, clearStockValidation } from "../store/features/user/productSlice";
 import { addToCart, selectActionLoading, selectCart } from "../store/features/user/cartSlice";
@@ -20,7 +22,6 @@ import {
     selectWishlistActionLoading
 } from "../store/features/user/wishlistSlice";
 
-// Import Review Actions/Selectors
 import {
     fetchProductReviews,
     checkReviewEligibility,
@@ -36,48 +37,52 @@ import toastControls from "../utils/global/toastControls";
 const Productpage = () => {
     const [selectedSize, setselectedSize] = useState("l");
     const [quantity, setQuantity] = useState(1);
-    const [isReviewModalOpen, setIsReviewModalOpen] = useState(false); // Modal State
+    const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+    const [isSortOpen, setIsSortOpen] = useState(false);
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { productId } = useParams();
 
-    // Product state
     const { product, productLoading, productError, stockValidation } = useSelector(state => state.products);
-
-    // Cart state
     const cartActionLoading = useSelector(selectActionLoading);
     const cart = useSelector(selectCart);
-
-    // Review State
-    const reviews = useSelector(selectProductReviews); // Public Accepted Reviews
+    const reviews = useSelector(selectProductReviews);
     const reviewEligibility = useSelector(selectReviewEligibility);
-    
-    // ✅ EXTRACT USER'S REVIEW DATA
+
     const { existingReview, hasReviewed } = reviewEligibility;
 
-    // Wishlist state
     const isInWishlist = useSelector(selectIsProductInWishlist(productId));
     const wishlistActionLoading = useSelector(selectWishlistActionLoading);
 
-    // Auth state 
     const user = useSelector(state => state.auth.user);
     const isAdmin = useSelector(state => state.adminAuth.admin);
     const isLoggedInUser = user && !isAdmin;
 
     const validationTimerRef = useRef(null);
 
-    // --- INITIAL DATA FETCH ---
+    // --- Review Stats Calculation ---
+    const calculateDistribution = (reviews) => {
+        const dist = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+        if (!reviews) return dist;
+        reviews.forEach(r => {
+            const rating = Math.round(r.rating);
+            if (dist[rating] !== undefined) dist[rating]++;
+        });
+        return dist;
+    };
+
+    const distribution = calculateDistribution(reviews);
+    const allReviewImages = reviews?.flatMap(r => r.images || []) || [];
+
     useEffect(() => {
         dispatch(getOneProduct(productId));
-        // Fetch Reviews
         dispatch(fetchProductReviews({ productId }));
-        // Check if user can review
         dispatch(checkReviewEligibility(productId));
 
         return () => {
             dispatch(clearStockValidation());
-            dispatch(resetReviewState()); // Cleanup reviews on unmount
+            dispatch(resetReviewState());
         };
     }, [dispatch, productId])
 
@@ -140,7 +145,11 @@ const Productpage = () => {
     }, [cart, productId, selectedSize]);
 
     const isInCart = isProductInCart();
-    const canPurchase = stockValidation?.data?.isAvailable !== false && !stockValidation.loading && !isAdmin;
+
+    const currentSizeData = product?.sizes?.find(s => s.value === selectedSize);
+    const isSizeInStock = currentSizeData && currentSizeData.stock > 0;
+
+    const canPurchase = isSizeInStock && stockValidation?.data?.isAvailable !== false && !stockValidation.loading && !isAdmin;
 
     const addToCartHandler = async () => {
         if (isInCart) {
@@ -198,13 +207,13 @@ const Productpage = () => {
 
     if (productError || !product) {
         return (
-            <div className="w-full py-20 flex justify-center items-center">
+            <div className="w-full py-20 flex justify-center items-center bg-black text-white">
                 <p className="bg-red-950 border-red-700 border rounded px-5 py-2">Product not found.</p>
             </div>
         )
     }
 
-    const { name, description, category, images, highlightImages, sizes, inStock, salesCount, rating } = product;
+    const { name, category, images, highlightImages, sizes, rating, description } = product;
 
     const handleShare = async () => {
         const url = window.location.href;
@@ -224,15 +233,12 @@ const Productpage = () => {
         }
     };
 
-    // ✅ Filter Public Reviews: Don't show my review in the public list if it's already there
-    // This avoids duplication since we show "Your Review" at the top separately.
     const publicReviews = reviews
         ? reviews.filter(r => r._id !== existingReview?._id)
         : [];
 
     return (
-        <div className="product-page-wrapper pb-10">
-            {/* Modal */}
+        <div className="product-page-wrapper pb-10 bg-black min-h-screen text-zinc-100 font-sans">
             {isReviewModalOpen && (
                 <ReviewModal
                     productId={productId}
@@ -241,179 +247,170 @@ const Productpage = () => {
                 />
             )}
 
-            <div className="product-image-slider w-full pt-5 relative">
-                <ImageSlider images={images} />
-                <div onClick={handleShare} className="product-link-share-btn absolute top-7 right-3 z-99 w-10 aspect-square rounded-full bg-indigo-200 flex justify-center items-center text-black text-[1.5rem] cursor-pointer hover:bg-indigo-300 transition">
-                    <Icon icon="ic:baseline-share" />
-                </div>
-                <div
-                    onClick={handleWishlistToggle}
-                    className={`product-wishlist-btn absolute top-7 left-3 z-99 w-10 aspect-square rounded-full flex justify-center items-center text-[1.5rem] cursor-pointer transition ${isInWishlist ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-white/90 text-red-600 hover:bg-white'
-                        } ${!isLoggedInUser ? 'opacity-70' : ''} ${wishlistActionLoading ? 'pointer-events-none' : ''}`}
-                >
-                    {wishlistActionLoading ? (
-                        <Icon icon="eos-icons:loading" className="text-2xl" />
-                    ) : (
-                        <Icon icon={isInWishlist ? "mdi:heart" : "mdi:heart-outline"} className={`text-2xl ${isInWishlist ? 'animate-pulse' : ''}`} />
-                    )}
-                </div>
-            </div>
-
-            <div className="product-dets-container">
-                <MainDets
-                    selectedSize={selectedSize}
-                    setselectedSize={setselectedSize}
-                    dets={{ name, description, category, sizes, reviewCount: rating?.count || 0 }}
-                />
-                <ProductQuantity
-                    quantitySetter={quantitySetter}
-                    quantity={quantity}
-                    stockValidation={stockValidation}
-                    isValidating={stockValidation.loading}
-                />
-
-                <div className="product-page-btns px-3 mt-5 space-y-2">
-                    <button
-                        onClick={addToCartHandler}
-                        disabled={!canPurchase || cartActionLoading || isInCart}
-                        className={`product-add-to-cart-btn w-full py-3 text-center rounded-[3px] uppercase text-xs font-semibold transition-all relative ${isInCart ? 'bg-red-400 text-white cursor-default' : canPurchase && !cartActionLoading ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-red-400 text-zinc-100 cursor-not-allowed'
-                            }`}
-                    >
-                        {cartActionLoading ? (
-                            <span className="flex items-center justify-center gap-2"><Icon icon="eos-icons:loading" className="text-lg" /> Adding...</span>
-                        ) : isInCart ? (
-                            <span className="flex items-center justify-center gap-2"><Icon icon="mdi:check-circle" className="text-lg" /> Added to cart</span>
-                        ) : ('Add to cart')}
-                    </button>
-
-                    <button
-                        onClick={buyNowHandler}
-                        disabled={!canPurchase || cartActionLoading}
-                        className={`product-buy-btn w-full py-3 text-center rounded-[3px] uppercase text-xs font-semibold transition-all ${canPurchase && !cartActionLoading ? 'bg-zinc-100 text-black hover:bg-zinc-300' : 'bg-gray-500 text-zinc-800 cursor-not-allowed'
-                            }`}
-                    >
-                        {cartActionLoading ? 'Processing...' : 'Buy now'}
-                    </button>
-
-                    <button
-                        onClick={handleWishlistToggle}
-                        disabled={wishlistActionLoading || !isLoggedInUser}
-                        className={`w-full py-3 text-center rounded-[3px] uppercase text-xs font-semibold transition-all border ${isInWishlist ? 'bg-indigo-400 text-black hover:bg-indigo-500' : 'bg-indigo-600 border-indigo-700 text-zinc-300 hover:border-indigo-500'
-                            } ${!isLoggedInUser ? 'opacity-50 cursor-not-allowed' : ''} flex items-center justify-center gap-2`}
-                    >
-                        {wishlistActionLoading ? (
-                            <><Icon icon="eos-icons:loading" className="text-lg" /> {isInWishlist ? 'Removing...' : 'Adding...'}</>
-                        ) : (
-                            <><Icon icon={isInWishlist ? "mdi:heart" : "mdi:heart-outline"} className="text-lg" /> {isInWishlist ? 'Remove from Wishlist' : 'Add to Wishlist'}</>
-                        )}
-                    </button>
-
-                    {!isLoggedInUser && (
-                        <p className="text-xs text-center text-zinc-500">
-                            <Link to="/account/signin" className="text-indigo-400 hover:text-indigo-300 underline">Login</Link> to save items to your wishlist
-                        </p>
-                    )}
-                </div>
-
-                <div className="product-extra-dets">
-                    <DeliveryTimeline />
-                    <div className="offer-banner px-3 mt-5">
-                        <img className="w-full aspect-auto" src={offerImg} alt="Offers.png" />
+            {/* MAIN CONTENT SECTION */}
+            <div className="lg:flex lg:gap-10 xl:gap-14 relative max-w-[1600px] mx-auto md:px-8 lg:px-12 xl:px-16 md:py-10">
+                {/* LEFT: IMAGES */}
+                <div className="product-left-col w-full lg:w-[60%]">
+                    <div className="lg:hidden relative">
+                        <ImageSlider images={images} />
+                        <div onClick={handleShare} className="product-link-share-btn absolute top-4 right-4 z-20 w-10 aspect-square rounded-full bg-black/50 backdrop-blur-sm border border-zinc-700 flex justify-center items-center text-white text-lg cursor-pointer">
+                            <Icon icon="ic:baseline-share" />
+                        </div>
+                        <div onClick={handleWishlistToggle} className={`absolute top-4 left-4 z-20 w-10 aspect-square rounded-full flex justify-center items-center text-lg cursor-pointer border border-zinc-700 backdrop-blur-sm ${isInWishlist ? 'bg-red-600 text-white border-red-600' : 'bg-black/50 text-white'}`}>
+                            <Icon icon={isInWishlist ? "mdi:heart" : "mdi:heart-outline"} />
+                        </div>
                     </div>
-                </div>
-            </div>
-
-            {/* ========== REVIEWS SECTION ========== */}
-            <div className="product-review-container px-3 mt-8 py-10 border-y border-zinc-700">
-                <div className="product-review-header flex flex-col gap-3">
-                    <h2 className="product-review-header uppercase text-center font-semibold text-xl">
-                        customer reviews
-                    </h2>
-
-                    {/* Rating Summary Header */}
-                    <div className="flex flex-col items-center justify-center mb-2">
-                        <div className="flex items-center gap-2">
-                            <span className="text-3xl font-bold">{rating?.average || 0}</span>
-                            <Icon icon="material-symbols:star-rounded" className="text-3xl text-amber-500" />
-                        </div>
-                        <span className="text-sm text-zinc-400">Based on {rating?.count || 0} reviews</span>
-                    </div>
-
-                    {/* Write Review Button (Condition Logic) */}
-                    {reviewEligibility.canReview ? (
-                        <div
-                            onClick={() => setIsReviewModalOpen(true)}
-                            className={`add-review-btn w-full py-3 text-center text-sm font-medium border rounded cursor-pointer transition ${reviewEligibility.hasReviewed
-                                    ? "bg-zinc-800 border-zinc-600 hover:bg-zinc-700 text-zinc-200" // Edit Style
-                                    : "bg-red-600 border-red-600 hover:bg-red-700 text-white"       // Write Style
-                                }`}
-                        >
-                            {reviewEligibility.hasReviewed ? "Edit your review" : "Write a review"}
-                        </div>
-                    ) : reviewEligibility.hasReviewed ? (
-                        <div className="w-full py-2 text-center text-xs text-green-500 bg-green-500/10 rounded border border-green-500/20">
-                            You have reviewed.
-                        </div>
-                    ) : (
-                        <div className="w-full py-2 text-center text-xs text-zinc-500 bg-zinc-900 rounded border border-zinc-800">
-                            Purchase to review.
-                        </div>
-                    )}
-
-                </div>
-
-                <div className="reviews mt-6 max-h-[700px] overflow-y-scroll">
-                    
-                    {/* SHOW USER'S OWN REVIEW (Pinned at Top) */}
-                    {hasReviewed && existingReview && (
-                        <div className="mb-6 animate-in fade-in slide-in-from-top-2">
-                             <div className="flex items-center justify-between mb-2 px-1">
-                                <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest">Your Review</h4>
-                            </div>
-                            
-                            <ReviewCard 
-                                review={existingReview} 
-                                isOwner={true} 
-                                onEdit={() => setIsReviewModalOpen(true)}
-                            />
-                        </div>
-                    )}
-
-                    {/* SHOW PUBLIC REVIEWS (Filtered) */}
-                    {(publicReviews && publicReviews.length > 0) || (hasReviewed && existingReview) ? (
-                        <div className="space-y-4">
-                            {publicReviews.map((review) => (
-                                <ReviewCard key={review._id} review={review} />
+                    <div className="hidden lg:flex flex-col gap-4">
+                        {images.map((img, idx) => {
+                            if (idx === 0) {
+                                return (
+                                    <div key={`prod-img-${idx}`} className="w-full relative group overflow-hidden rounded-lg border border-zinc-900">
+                                        <img src={img.url} alt={`${name}-${idx}`} className="w-full h-auto object-cover hover:scale-105 transition-transform duration-700 cursor-zoom-in" />
+                                        <div onClick={handleWishlistToggle} className={`absolute top-6 left-6 z-20 w-12 aspect-square rounded-full flex justify-center items-center text-2xl cursor-pointer transition border border-zinc-700 backdrop-blur-sm ${isInWishlist ? 'bg-red-600 text-white border-red-600' : 'bg-black/60 text-white hover:bg-zinc-800'}`}>
+                                            <Icon icon={isInWishlist ? "mdi:heart" : "mdi:heart-outline"} />
+                                        </div>
+                                    </div>
+                                );
+                            }
+                            return null;
+                        })}
+                        <div className="grid grid-cols-2 gap-4">
+                            {images.slice(1).map((img, idx) => (
+                                <div key={`prod-img-grid-${idx}`} className="w-full overflow-hidden rounded-lg border border-zinc-900 bg-zinc-950">
+                                    <img src={img.url} alt={`detail-${idx}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-700 cursor-zoom-in" />
+                                </div>
                             ))}
                         </div>
-                    ) : (
-                        <NoReview />
-                    )}
+                    </div>
                 </div>
 
-                <ProductFeature />
-            </div>
+                {/* RIGHT: DETAILS */}
+                <div className="product-right-col w-full lg:w-[40%] md:pt-0 relative">
+                    <div className="sticky top-24 h-fit pb-10">
+                        <div className="product-dets-container">
+                            <MainDets selectedSize={selectedSize} setselectedSize={setselectedSize} dets={{ name, description, category, sizes, reviewCount: rating?.count || 0 }} />
+                            <ProductQuantity quantitySetter={quantitySetter} quantity={quantity} stockValidation={stockValidation} isValidating={stockValidation.loading} />
 
-            <div className="product-highlights px-3 py-10 border-b-[0.5px] border-zinc-700">
-                <div className="product-highlights-header">
-                    <h2 className="product-highlights-heading uppercase font-semibold mb-2">highlights</h2>
-                    <p className="font-medium text-sm leading-tight">Performance wrapped in art, built for modern warriors of precision.</p>
-                </div>
-                <div className="product-hightlights-image-container mt-10">
-                    {highlightImages.map(highlight => (
-                        <div key={`${highlight.url}-highlight-img-key`} className="highlight-img-container w-full bg-zinc-950 rounded mt-3">
-                            <img className="w-full aspect-auto" src={highlight.url} alt="" />
-                        </div>
-                    ))}
-                    <div className="highlight-last-img mt-10">
-                        <p className="font-medium text-sm leading-tight">Designed to endure daily use, delivering consistent quality and control — day after day.</p>
-                        <div className="highlight-img-container w-full bg-zinc-950 rounded mt-5">
-                            <img className="w-full aspect-auto" src="https://noctowls.com/cdn/shop/files/13_22ada8d0-273a-499c-aac2-b65bb05f72be.png?v=1764082344&width=823" alt="" />
+                            <div className="product-page-btns px-3 md:px-0 mt-6 space-y-3">
+                                <button onClick={addToCartHandler} disabled={!canPurchase || cartActionLoading || isInCart} className={`product-add-to-cart-btn w-full py-4 text-center rounded-sm uppercase text-sm font-bold tracking-widest transition-all relative ${isInCart ? 'bg-zinc-800 text-white border border-zinc-700 cursor-pointer' : canPurchase && !cartActionLoading ? 'bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-900/20' : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'}`}>
+                                    {cartActionLoading ? <span className="flex items-center justify-center gap-2"><Icon icon="eos-icons:loading" className="text-lg" /> Adding...</span> : isInCart ? <span className="flex items-center justify-center gap-2"><Icon icon="mdi:check-circle" className="text-lg" /> Added to Cart</span> : 'Add to Cart'}
+                                </button>
+
+                                <button onClick={buyNowHandler} disabled={!canPurchase || cartActionLoading} className={`product-buy-btn w-full py-4 text-center rounded-sm uppercase text-sm font-bold tracking-widest transition-all ${canPurchase && !cartActionLoading ? 'bg-white text-black hover:bg-zinc-200 shadow-lg shadow-white/10 cursor-pointer' : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'}`}>
+                                    {cartActionLoading ? 'Processing...' : 'Buy Now'}
+                                </button>
+
+                                <button
+                                    onClick={handleWishlistToggle}
+                                    disabled={wishlistActionLoading || !isLoggedInUser}
+                                    className={`w-full py-4 text-center rounded-[3px] uppercase text-sm font-semibold transition-all border ${isInWishlist ? 'bg-purple-500 text-black hover:bg-purple-600' : 'bg-purple-700 border-purple-800 text-white hover:bg-purple-800'
+                                        } ${!isLoggedInUser ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} flex items-center justify-center gap-2`}
+                                >
+                                    {wishlistActionLoading ? (
+                                        <><Icon icon="eos-icons:loading" className="text-lg" /> {isInWishlist ? 'Removing...' : 'Adding...'}</>
+                                    ) : (
+                                        <><Icon icon={isInWishlist ? "mdi:heart" : "mdi:heart-outline"} className="text-lg" /> {isInWishlist ? 'Remove from Wishlist' : 'Add to Wishlist'}</>
+                                    )}
+                                </button>
+
+                                {!isLoggedInUser && <p className="text-xs text-center text-zinc-500 mt-2"><Link to="/account/signin" className="text-zinc-300 hover:text-white underline">Login</Link> to save items to your wishlist</p>}
+                            </div>
+
+                            <div className="product-extra-dets md:mt-8">
+                                <DeliveryTimeline />
+                                <div className="offer-banner px-3 md:px-0 mt-6"><img className="w-full aspect-auto rounded-md" src={offerImg} alt="Offers.png" /></div>
+                                <div className="size-warning-banner mt-5 mx-3 md:mx-0 p-4 bg-amber-400 rounded-md text-black text-sm font-bold leading-snug shadow-md border border-amber-500">
+                                    please choose the size carefully as our return policy does <Link to="/return-policy" className="text-blue-700 underline decoration-blue-700 underline-offset-2 font-black hover:text-blue-900 uppercase transition-colors">NOT COVER SIZE EXCHANGES.</Link>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <ProductSpecs />
+
+            {/* REVIEWS SECTION */}
+            <div className="product-review-container bg-black w-full py-12 border-t border-zinc-900 mt-4">
+                <div className="max-w-[1440px] mx-auto px-4 md:px-8">
+                    <h2 className="uppercase font-bold text-xl md:text-3xl text-white mb-8">Customer Reviews</h2>
+                    <div className="flex flex-col items-center md:flex-row md:items-start gap-10 mb-10 pb-10 border-b border-zinc-800 flex-wrap">
+                        <div className="flex flex-col items-center justify-center min-w-[120px]">
+                            <span className="text-6xl font-bold text-white tracking-tighter">{rating?.average?.toFixed(1) || "0.0"}</span>
+                            <div className="flex text-red-600 text-lg my-1">
+                                {[...Array(5)].map((_, i) => (
+                                    <Icon key={i} icon={i < Math.round(rating?.average || 0) ? "material-symbols:star-rounded" : "material-symbols:star-rounded"} className={i >= Math.round(rating?.average || 0) ? "text-zinc-800" : ""} />
+                                ))}
+                            </div>
+                            <span className="text-sm font-bold text-zinc-400">{rating?.count || 0} reviews</span>
+                        </div>
+                        <div className="flex-1 w-full max-w-md space-y-2">
+                            {[5, 4, 3, 2, 1].map((star) => (
+                                <div key={star} className="flex items-center gap-3 text-xs font-bold text-zinc-400">
+                                    <span className="w-12">{star} Star</span>
+                                    <div className="flex-1 h-2 bg-zinc-800 rounded-full overflow-hidden">
+                                        <div className="h-full bg-red-600" style={{ width: `${rating?.count ? (distribution[star] / rating.count) * 100 : 0}%` }}></div>
+                                    </div>
+                                    <span className="w-4 text-right">{distribution[star]}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="md:ml-auto flex gap-2 h-fit relative">
+                            {reviewEligibility.canReview && (
+                                <button onClick={() => setIsReviewModalOpen(true)} className="px-14 sm:px-20 md:px-6 py-2 bg-red-600 text-white text-sm font-bold uppercase tracking-wide rounded-xs hover:bg-red-700 transition-colors">
+                                    {reviewEligibility.hasReviewed ? "Edit Review" : "Write a review"}
+                                </button>
+                            )}
+                            <div className="relative pr-4 lg:pr-0">
+                                <button onClick={() => setIsSortOpen(!isSortOpen)} className="h-full aspect-square bg-red-600 text-white flex items-center justify-center rounded-xs hover:bg-red-700 transition-colors">
+                                    <Icon icon="mi:filter" className="text-xl" />
+                                </button>
+                                {isSortOpen && (
+                                    <div className="absolute top-full right-0 mt-2 w-48 bg-white text-black rounded shadow-xl z-50 py-2 animate-in fade-in zoom-in-95 duration-200">
+                                        <div className="px-4 py-2 text-xs font-bold text-zinc-500 uppercase tracking-wide">Sort by</div>
+                                        {["Featured", "Photo priority", "Newest", "Highest Ratings", "Lowest Ratings"].map(opt => (
+                                            <div key={opt} className="px-4 py-2 hover:bg-zinc-100 cursor-pointer text-sm font-medium flex justify-between items-center">
+                                                {opt}
+                                                {opt === "Featured" && <Icon icon="mdi:check" />}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="reviews space-y-6">
+                        {(publicReviews && publicReviews.length > 0) || (hasReviewed && existingReview) ? (
+                            <>
+                                {hasReviewed && existingReview && <ReviewCard review={existingReview} isOwner={true} onEdit={() => setIsReviewModalOpen(true)} />}
+                                {publicReviews.map((review) => <ReviewCard key={review._id} review={review} />)}
+                            </>
+                        ) : <NoReview />}
+                    </div>
+                </div>
+            </div>
+
+            {/* FEATURES & HIGHLIGHTS & SPECS */}
+            <div className="max-w-6xl mx-auto px-4 mt-8"><ProductFeature /></div>
+            <div className="product-highlights bg-black w-full mt-12 py-12 border-t border-zinc-900">
+                <div className="max-w-6xl mx-auto px-4 flex flex-col lg:flex-row">
+                    <div className="product-highlights-header lg:w-1/3 text-left mb-8">
+                        <h2 className="product-highlights-heading uppercase font-bold text-2xl md:text-3xl text-white mb-2 border-l-4 border-red-600 pl-4">Highlights</h2>
+                        <p className="font-medium text-sm md:text-base text-zinc-400 pl-5">Precision meets aesthetics.</p>
+                    </div>
+                    <div className="product-hightlights-image-container lg:w-2/3 grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {highlightImages.map((highlight, idx) => (
+                            <div key={`${highlight.url}-highlight-${idx}`} className={`${idx === 0 && "lg:col-span-2"} highlight-img-container w-full bg-zinc-900 rounded-lg overflow-hidden border border-zinc-800`}>
+                                <img className="w-full h-full object-cover opacity-90 hover:opacity-100 transition-opacity duration-500" src={highlight.url} alt="Highlight" />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+            <div className="max-w-6xl mx-auto px-4 mt-12 pb-20"><ProductSpecs /></div>
+
+            {/* BEST SELLING SECTION (ADDED HERE) */}
+            <div className="max-w-[1440px] mx-auto px-4 md:px-8 pb-20">
+                <BestSelling />
+            </div>
         </div>
     )
 }

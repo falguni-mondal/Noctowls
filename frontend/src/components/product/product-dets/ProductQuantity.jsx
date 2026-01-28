@@ -7,53 +7,45 @@ const ProductQuantity = ({
   isValidating 
 }) => {
   
-  // Show stock error if validation failed
   const showStockError = stockValidation?.data && !stockValidation.data.isAvailable;
 
   return (
-    <div className="product-quantity-container mt-10 px-3">
-      <h3 className="product-quantity-heading text-sm font-medium text-zinc-300">
+    <div className="product-quantity-container mt-6 px-3 md:px-0">
+      <h3 className="product-quantity-heading text-xs font-bold text-zinc-300 uppercase tracking-widest mb-3">
         Quantity
       </h3>
       
-      <div className={`quantity-selector w-fit flex items-center gap-2 mt-2 text-sm font-medium border-[0.5px] border-zinc-500 rounded-full transition-all duration-300 ${
+      <div className={`quantity-selector w-[140px] flex items-center justify-between border border-zinc-700 bg-black rounded p-1 ${
         isValidating ? 'opacity-50 pointer-events-none' : 'opacity-100'
       }`}>
-        <span 
+        <button 
           onClick={() => quantitySetter("decrement")} 
-          className={`product-quantity-decrement-btn w-10 aspect-square flex items-center justify-center hover:bg-indigo-300 hover:text-black rounded-full transition-all duration-300 ${
-            quantity <= 1 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+          className={`w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 rounded transition-colors ${
+            quantity <= 1 ? 'opacity-30 cursor-not-allowed' : ''
           }`}
         >
           <Icon icon="ic:baseline-minus" />
-        </span>
+        </button>
         
-        <span className="product-quantity-preview w-[3ch] text-center">
+        <span className="text-white font-bold text-lg">
           {quantity}
         </span>
         
-        <span 
+        <button 
           onClick={() => quantitySetter("increment")} 
-          className="product-quantity-increment-btn w-10 aspect-square flex items-center justify-center hover:bg-indigo-300 hover:text-black rounded-full transition-all duration-300 cursor-pointer"
+          className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 rounded transition-colors"
         >
           <Icon icon="material-symbols:add" />
-        </span>
+        </button>
       </div>
 
-      {/* Stock validation feedback */}
       {showStockError && (
-        <p className="text-xs text-red-400 mt-2 font-medium">
-          No more in stock
-        </p>
-      )}
-
-      {stockValidation?.error && (
-        <p className="text-xs text-red-400 mt-2">
-          {stockValidation.error}
+        <p className="text-xs text-red-500 mt-2 font-bold uppercase tracking-wide">
+          Limit Reached
         </p>
       )}
     </div>
   )
 }
 
-export default ProductQuantity
+export default ProductQuantity;
