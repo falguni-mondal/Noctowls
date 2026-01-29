@@ -29,6 +29,7 @@ import OrderDetailsPage from '../pages/OrderDetailsPage';
 import AdminUserDetails from '../pages/admin/services/user/AdminUserDetails';
 import AdminBags from '../pages/admin/panel/AdminBags';
 import Contact from '../pages/Contact';
+import AllReviews from '../pages/AllReviews';
 
 
 const PageRouter = () => {
@@ -38,6 +39,7 @@ const PageRouter = () => {
       <Route path='/catalog' element={<Catalog />} />
       <Route path='/contact' element={<Contact />} />
       <Route path='/products/:productId' element={<Productpage />} />
+      <Route path="/products/:productId/reviews" element={<AllReviews />} />
 
       <Route element={<PublicOnly />}>
         <Route path='/account/*' element={<Account />} />

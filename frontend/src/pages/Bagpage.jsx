@@ -37,7 +37,7 @@ const Bagpage = () => {
 
   if (loading) {
     return (
-      <div className="w-full min-h-screen flex justify-center items-center">
+      <div className="w-full min-h-screen flex justify-center items-center bg-black">
         <Loader />
       </div>
     );
@@ -47,161 +47,192 @@ const Bagpage = () => {
   const isCartEmpty = !cart || purchasedItems.length === 0;
 
   return (
-    <div className='py-10 min-h-[80vh]' id='bag-page'>
-      <div className="page-header px-3 mb-10">
-        <h1 className="page-heading text-2xl font-medium">
-          Your Bag
-        </h1>
-        {cart && !isCartEmpty && (
-          <p className="text-sm text-zinc-400 mt-1">
-            {cart.summary.itemsCount} {cart.summary.itemsCount === 1 ? 'item' : 'items'}
-            {' '}({cart.summary.totalQuantity} total)
-            {freeGiftItems.length > 0 && (
-              <span className="text-green-400 ml-2">
-                + {freeGiftItems.reduce((sum, gift) => sum + gift.quantity, 0)} free gift{freeGiftItems.reduce((sum, gift) => sum + gift.quantity, 0) > 1 ? 's' : ''}
-              </span>
-            )}
-          </p>
+    <div className='py-10 min-h-[80vh] bg-black text-zinc-100' id='bag-page'>
+      
+      {/* Main Container */}
+      <div className="max-w-7xl mx-auto px-4 md:px-8">
+        
+        {/* Header */}
+        <div className="page-header mb-8 lg:mb-10 border-b border-zinc-800 pb-4">
+          <h1 className="page-heading text-2xl md:text-3xl font-bold uppercase tracking-wide">
+            Your Bag
+          </h1>
+          {cart && !isCartEmpty && (
+            <p className="text-sm text-zinc-400 mt-2">
+              <span className="font-semibold text-zinc-300">{cart.summary.itemsCount} {cart.summary.itemsCount === 1 ? 'item' : 'items'}</span>
+              {' '} <span className="text-zinc-500 mx-1">|</span> Total Qty: {cart.summary.totalQuantity}
+              {freeGiftItems.length > 0 && (
+                <span className="text-green-400 ml-3 font-medium flex-inline items-center gap-1">
+                  <Icon icon="solar:gift-bold" className="inline text-lg -mt-0.5" />
+                  + {freeGiftItems.reduce((sum, gift) => sum + gift.quantity, 0)} Free Gift{freeGiftItems.reduce((sum, gift) => sum + gift.quantity, 0) > 1 ? 's' : ''}
+                </span>
+              )}
+            </p>
+          )}
+        </div>
+
+        {/* Empty Cart State */}
+        {isCartEmpty ? (
+          <div className="empty-bag py-20 flex flex-col items-center justify-center text-center">
+            <div className="w-32 h-32 bg-zinc-900 rounded-full flex items-center justify-center mb-6">
+                <Icon icon="solar:bag-4-broken" className="text-zinc-600 text-6xl" />
+            </div>
+
+            <h2 className="text-2xl md:text-3xl font-bold mb-3 text-white">Your bag is empty</h2>
+            <p className="text-zinc-400 mb-8 max-w-md text-sm md:text-base">
+              Looks like you haven't added anything to your cart yet.
+            </p>
+
+            <Link
+              to="/catalog"
+              className="bg-red-600 text-white px-10 py-3.5 rounded font-bold uppercase tracking-wider hover:bg-red-700 transition-all shadow-lg shadow-red-900/20"
+            >
+              Start Shopping
+            </Link>
+          </div>
+        ) : (
+          <div className="flex flex-col lg:flex-row gap-8 xl:gap-12 relative">
+            
+            {/* --- LEFT COLUMN: ITEMS --- */}
+            <div className="w-full lg:w-2/3 space-y-8">
+              
+              {/* Purchased Items */}
+              <section id="bag-items-collection-container">
+                <ul className="bag-items-collection space-y-6">
+                  {purchasedItems.map((item) => (
+                    <BagItem key={item._id} item={item} />
+                  ))}
+                </ul>
+              </section>
+
+              {/* Free Gifts Section */}
+              {freeGiftItems.length > 0 && (
+                <section className='pt-6 border-t border-zinc-800'>
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="p-1.5 bg-green-500/10 rounded-full">
+                        <Icon icon="solar:gift-bold" className="text-green-400 text-xl" />
+                    </div>
+                    <h2 className="text-lg font-semibold text-white">Free Gifts</h2>
+                    {cart?.freeGifts?.highestTier && (
+                        <span className="text-xs font-medium bg-zinc-950 text-zinc-500 px-2 py-0.5 rounded uppercase tracking-wider border border-zinc-900">
+                            Tier {cart.freeGifts.highestTier}
+                        </span>
+                    )}
+                  </div>
+
+                  <ul className="bag-items-collection space-y-4">
+                    {freeGiftItems.map((gift) => (
+                      <BagGiftItem key={gift._id} gift={gift} />
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              {/* Next Tier Info */}
+              {cart?.freeGifts?.eligible && cart?.nextTierInfo && cart.nextTierInfo.itemsNeeded > 0 && (
+                <div className="bg-indigo-950/30 border border-indigo-500/30 rounded-lg p-5">
+                  <div className="flex items-start gap-4">
+                    <Icon icon="solar:star-bold-duotone" className="text-indigo-400 text-2xl mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-indigo-200 font-bold mb-1 uppercase text-sm tracking-wider">
+                        Unlock More Free Gifts!
+                      </p>
+                      <p className="text-indigo-300 text-sm leading-relaxed">
+                        {cart.nextTierInfo.message}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* No free gifts yet */}
+              {!cart?.freeGifts?.eligible && (
+                <div className="bg-amber-950/20 border border-amber-600/30 rounded-lg p-5">
+                  <div className="flex items-start gap-4">
+                    <Icon icon="solar:gift-linear" className="text-amber-400 text-2xl mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-amber-200 font-bold mb-1 uppercase text-sm tracking-wider">
+                        Get Free Gifts!
+                      </p>
+                      <p className="text-amber-300 text-sm leading-relaxed">
+                        Add items to your cart to unlock amazing free gifts!
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* --- RIGHT COLUMN: SUMMARY (Sticky) --- */}
+            <div className="w-full lg:w-1/3 h-fit lg:sticky lg:top-28">
+              <section className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4 shadow-xl">
+                <h3 className="text-lg font-bold uppercase tracking-wider text-white mb-6 border-b border-zinc-800 pb-4">
+                    Order Summary
+                </h3>
+                
+                <div className="space-y-4 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-zinc-400 font-medium">Subtotal</span>
+                    <span className="font-bold text-white">₹{cart.summary.subtotal.toLocaleString('en-IN')}</span>
+                  </div>
+
+                  {cart?.coupon?.isApplied && (
+                    <div className="flex justify-between items-center text-green-400">
+                      <span className="flex items-center gap-1">
+                          <Icon icon="mdi:ticket-percent" /> Coupon ({cart.coupon.code})
+                      </span>
+                      <span className="font-bold">-₹{cart.summary.couponDiscount.toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+
+                  {freeGiftItems.length > 0 && (
+                    <div className="flex justify-between items-center text-green-400">
+                      <span className="flex items-center gap-1">
+                        <Icon icon="solar:gift-bold" />
+                        Free Gifts ({freeGiftItems.reduce((sum, gift) => sum + gift.quantity, 0)})
+                      </span>
+                      <span className="font-medium uppercase text-xs bg-green-900/30 px-2 py-0.5 rounded border border-green-800">Free</span>
+                    </div>
+                  )}
+
+                  <div className="border-t border-dashed border-zinc-700 pt-4 mt-2">
+                    <div className="flex justify-between items-end">
+                        <span className="text-zinc-200 font-semibold text-base">Total</span>
+                        <span className="text-xl font-semibold text-white">₹{cart.summary.total.toLocaleString('en-IN')}</span>
+                    </div>
+                    <p className="text-xs text-zinc-400 text-right mt-1">Including all taxes</p>
+                  </div>
+
+                  {cart.summary.couponDiscount > 0 && (
+                    <div className="bg-green-900/20 border border-green-800/50 rounded p-2.5 text-center mt-2">
+                        <p className="text-xs font-bold text-green-400 flex items-center justify-center gap-1">
+                        <Icon icon="mdi:party-popper" />
+                        You saved ₹{cart.summary.couponDiscount.toLocaleString('en-IN')} on this order!
+                        </p>
+                    </div>
+                  )}
+                </div>
+
+                <button 
+                    onClick={() => navigate("/checkout")} 
+                    className="w-full bg-red-600 text-white py-3 rounded font-semibold uppercase mt-8 hover:bg-red-700 transition-all shadow-lg shadow-red-900/20 flex items-center justify-center gap-2 group lg:text-sm"
+                >
+                  Checkout
+                  <Icon icon="solar:arrow-right-linear" className="text-lg group-hover:translate-x-1 transition-transform" />
+                </button>
+                
+                <div className="mt-6 flex justify-center gap-5 text-zinc-500">
+                    <Icon icon="logos:visa" className="text-lg opacity-50 grayscale hover:grayscale-0 transition-all" />
+                    <Icon icon="logos:mastercard" className="text-lg opacity-50 grayscale hover:grayscale-0 transition-all" />
+                    <Icon icon="logos:google-pay" className="text-lg opacity-50 grayscale hover:grayscale-0 transition-all" />
+                    <Icon icon="logos:phonepe" className="text-lg opacity-50 grayscale hover:grayscale-0 transition-all" />
+                </div>
+              </section>
+            </div>
+
+          </div>
         )}
       </div>
-
-      {/* Empty Cart */}
-      {isCartEmpty ? (
-        <div className="empty-bag px-3 pt-5 pb-20 text-center flex flex-col items-center justify-center">
-          <Icon
-            icon="solar:bag-4-broken"
-            className="text-zinc-600 text-8xl mb-6"
-          />
-
-          <h2 className="text-2xl font-semibold mb-3">Your bag is empty</h2>
-          <p className="text-zinc-400 mb-8 max-w-md">
-            There are no products in your cart. Start shopping now!
-          </p>
-
-          <Link
-            to="/catalog"
-            className="inline-block bg-red-600 text-white px-8 py-3 rounded font-medium hover:bg-red-700 transition"
-          >
-            Shop Now
-          </Link>
-        </div>
-      ) : (
-        <>
-          {/* Purchased Items */}
-          <section className='px-3' id="bag-items-collection-container">
-            <h2 className="text-lg font-medium mb-4">Your Items</h2>
-            <ul className="bag-items-collection space-y-8">
-              {purchasedItems.map((item) => (
-                <BagItem key={item._id} item={item} />
-              ))}
-            </ul>
-          </section>
-
-          {/* Free Gifts Section */}
-          {freeGiftItems.length > 0 && (
-            <section className='px-3 mt-10'>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-medium flex items-center gap-2">
-                  <Icon icon="solar:gift-bold" className="text-green-400 text-xl" />
-                  <span>Free Gifts</span>
-                  {cart?.freeGifts?.highestTier && (
-                    <span className="text-sm text-zinc-400 font-normal">
-                      (Tier {cart.freeGifts.highestTier})
-                    </span>
-                  )}
-                </h2>
-              </div>
-
-              <ul className="bag-items-collection space-y-5">
-                {freeGiftItems.map((gift) => (
-                  <BagGiftItem key={gift._id} gift={gift} />
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {/* Next Tier Info */}
-          {cart?.freeGifts?.eligible && cart?.nextTierInfo && cart.nextTierInfo.itemsNeeded > 0 && (
-            <div className="px-3 mt-5">
-              <div className="bg-indigo-900/30 border border-indigo-700 rounded p-4">
-                <div className="flex items-start gap-3">
-                  <Icon icon="solar:star-bold" className="text-indigo-400 text-xl mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-indigo-200 font-medium mb-1">
-                      Unlock More Free Gifts!
-                    </p>
-                    <p className="text-indigo-300 text-sm">
-                      {cart.nextTierInfo.message}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* No free gifts yet */}
-          {!cart?.freeGifts?.eligible && (
-            <div className="px-3 mt-5">
-              <div className="bg-amber-900/30 border border-amber-700 rounded p-4">
-                <div className="flex items-start gap-3">
-                  <Icon icon="solar:gift-linear" className="text-amber-400 text-xl mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-amber-200 font-medium mb-1">
-                      Get Free Gifts!
-                    </p>
-                    <p className="text-amber-300 text-sm">
-                      Add items to your cart to unlock amazing free gifts!
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Cart Summary */}
-          <section className="px-3 mt-10">
-            <div className="bg-zinc-900 rounded p-5 space-y-3">
-              <div className="flex justify-between">
-                <span className="text-zinc-400">Subtotal</span>
-                <span className="font-medium">₹{cart.summary.subtotal.toLocaleString('en-IN')}</span>
-              </div>
-
-              {cart?.coupon?.isApplied && (
-                <div className="flex justify-between text-green-400">
-                  <span>Coupon Discount ({cart.coupon.code})</span>
-                  <span>-₹{cart.summary.couponDiscount.toLocaleString('en-IN')}</span>
-                </div>
-              )}
-
-              {freeGiftItems.length > 0 && (
-                <div className="flex justify-between text-green-400 text-sm">
-                  <span className="flex items-center gap-1">
-                    <Icon icon="solar:gift-bold" className="text-base" />
-                    Free Gifts ({freeGiftItems.reduce((sum, gift) => sum + gift.quantity, 0)})
-                  </span>
-                  <span className="font-semibold">FREE</span>
-                </div>
-              )}
-
-              <div className="border-t border-zinc-700 pt-3 flex justify-between text-lg font-semibold">
-                <span>Total</span>
-                <span>₹{cart.summary.total.toLocaleString('en-IN')}</span>
-              </div>
-
-              {cart.summary.couponDiscount > 0 && (
-                <p className="text-sm text-green-400 flex items-center gap-1">
-                  <Icon icon="mdi:tag" />
-                  <span>You saved ₹{cart.summary.couponDiscount.toLocaleString('en-IN')}!</span>
-                </p>
-              )}
-            </div>
-
-            <button onClick={() => navigate("/checkout")} className="w-full bg-red-600 text-white py-3 rounded-[3px] font-semibold mt-5 hover:bg-red-700 transition-all">
-              Proceed to Checkout
-            </button>
-          </section>
-        </>
-      )}
     </div>
   );
 };

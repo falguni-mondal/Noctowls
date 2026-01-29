@@ -1,4 +1,3 @@
-import StarRating from "./StarRating";
 import { Icon } from "@iconify/react";
 
 const ReviewCard = ({ review, isOwner = false, onEdit }) => {
@@ -15,7 +14,7 @@ const ReviewCard = ({ review, isOwner = false, onEdit }) => {
             </div>
 
             {/* 2. Content (Right Column) */}
-            <div className="flex-1">
+            <div className="flex-1 overflow-hidden">
 
                 {/* Name & Badge Row */}
                 <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -50,9 +49,9 @@ const ReviewCard = ({ review, isOwner = false, onEdit }) => {
 
                 {/* Images */}
                 {review.images && review.images.length > 0 && (
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 w-full overflow-x-auto">
                         {review.images.map((img, idx) => (
-                            <div key={idx} className="w-16 h-16 rounded overflow-hidden border border-zinc-800 bg-zinc-900 cursor-zoom-in">
+                            <div key={idx} className="w-16 h-16 rounded overflow-hidden border border-zinc-800 bg-zinc-900 cursor-zoom-in shrink-0">
                                 <img
                                     src={img.url}
                                     alt="review-img"

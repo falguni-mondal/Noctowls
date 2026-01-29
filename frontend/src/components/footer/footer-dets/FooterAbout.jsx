@@ -5,7 +5,7 @@ const FooterAbout = () => {
         <div className="about-company font-medium">
             <div className="company">
                 <h2 className='footer-heading uppercase font-semibold tracking-wider text-white'>noctowls</h2>
-                <p className="footer-paragraph">
+                <p className="footer-paragraph max-w-72">
                     Noctowls is a creator-first brand crafting premium deskmats and workspace gear.
                 </p>
             </div>

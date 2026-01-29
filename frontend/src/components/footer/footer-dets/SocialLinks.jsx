@@ -21,7 +21,7 @@ const SocialLinks = () => {
         },
     ]
     return (
-        <ul className='social-links-container w-full flex justify-center items-center gap-6 mt-5'>
+        <ul className='social-links-container w-full flex justify-center items-center gap-6 mt-5 py-10'>
             {
                 links.map(({ title, icon, link }) => (
                     <li key={`${title}-social-link-key`} className='w-fit text-xl text-white'>

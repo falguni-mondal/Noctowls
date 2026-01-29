@@ -6,7 +6,7 @@ const desktop_video = mobile_video;
 
 const Hero = () => {
   return (
-    <section className='w-full h-[95vh]' id='hero-section'>
+    <section className='w-full h-[95vh] overflow-hidden' id='hero-section'>
         
         {/* --- MOBILE VIDEO (0px - 767px) --- */}
         {/* Keeps original mobile design. Hidden on tablets and up. */}

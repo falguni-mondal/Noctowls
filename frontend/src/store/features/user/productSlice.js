@@ -32,6 +32,21 @@ export const getBestSellingProducts = createAsyncThunk(
   }
 );
 
+// New Thunk for Search
+export const searchProducts = createAsyncThunk(
+  "product/searchProducts",
+  async (query, { rejectWithValue }) => {
+    try {
+      const response = await userApi.get(`/products/search?q=${query}`);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to search products"
+      );
+    }
+  }
+);
+
 export const getOneProduct = createAsyncThunk(
   "product/getOneProduct",
   async (productId, { rejectWithValue }) => {
@@ -78,6 +93,11 @@ const initialState = {
   bestSellingLoading: false,
   bestSellingError: null,
 
+  // Search Results (NEW)
+  searchResults: [],
+  searchLoading: false,
+  searchError: null,
+
   // Single Product
   product: null,
   productReviews: [],
@@ -114,11 +134,19 @@ const productSlice = createSlice({
       state.productsError = null;
     },
 
+    // NEW: Clear Search Results
+    clearSearchResults: (state) => {
+      state.searchResults = [];
+      state.searchError = null;
+      state.searchLoading = false;
+    },
+
     // Clear all errors
     clearErrors: (state) => {
       state.productsError = null;
       state.productError = null;
       state.bestSellingError = null;
+      state.searchError = null;
     },
 
     // Clear stock validation
@@ -140,7 +168,7 @@ const productSlice = createSlice({
       .addCase(getAllProducts.fulfilled, (state, action) => {
         state.productsLoading = false;
         state.products = action.payload.productGroups;
-        state.totalProducts = action.payload.count;
+        state.totalProducts = action.payload.totalProducts || action.payload.count; // Ensure fallback
         state.productsError = null;
       })
       .addCase(getAllProducts.rejected, (state, action) => {
@@ -164,6 +192,23 @@ const productSlice = createSlice({
         state.bestSellingLoading = false;
         state.bestSellingError = action.payload;
         state.bestSellingProducts = [];
+      });
+
+    // ===== SEARCH PRODUCTS (NEW) =====
+    builder
+      .addCase(searchProducts.pending, (state) => {
+        state.searchLoading = true;
+        state.searchError = null;
+      })
+      .addCase(searchProducts.fulfilled, (state, action) => {
+        state.searchLoading = false;
+        state.searchResults = action.payload.products;
+        state.searchError = null;
+      })
+      .addCase(searchProducts.rejected, (state, action) => {
+        state.searchLoading = false;
+        state.searchError = action.payload;
+        state.searchResults = [];
       });
 
     // ===== GET ONE PRODUCT =====
@@ -207,12 +252,19 @@ const productSlice = createSlice({
 // ==================== EXPORTS ====================
 
 // Actions
-export const { clearProduct, clearProducts, clearErrors, clearStockValidation } =
-  productSlice.actions;
+export const { 
+  clearProduct, 
+  clearProducts, 
+  clearSearchResults, 
+  clearErrors, 
+  clearStockValidation 
+} = productSlice.actions;
 
 // Selectors
 export const selectBestSellingProducts = (state) => state.products.bestSellingProducts;
 export const selectBestSellingLoading = (state) => state.products.bestSellingLoading;
+export const selectSearchResults = (state) => state.products.searchResults;
+export const selectSearchLoading = (state) => state.products.searchLoading;
 
 // Reducer
 export default productSlice.reducer;

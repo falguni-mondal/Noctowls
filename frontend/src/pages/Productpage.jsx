@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Icon } from "@iconify/react/dist/iconify.js"
 import ImageSlider from "../components/product/ImageSlider"
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -12,6 +12,9 @@ import ReviewCard from "../components/product/product-review/ReviewCard";
 import ReviewModal from "../components/product/product-review/ReviewModal";
 import ProductSpecs from "../components/product/product-specs/ProductSpecs";
 import BestSelling from "../components/product/best-selling/BestSelling";
+// NEW IMPORTS
+import RecentlyViewed from "../components/product/recently-viewed/RecentlyViewed";
+import { addToRecentlyViewed } from "../utils/helpers/recentlyViewedHelper";
 
 import { useDispatch, useSelector } from "react-redux";
 import { getOneProduct, validateProductStock, clearStockValidation } from "../store/features/user/productSlice";
@@ -23,7 +26,7 @@ import {
 } from "../store/features/user/wishlistSlice";
 
 import {
-    fetchProductReviews,
+    fetchRecentReviews,
     checkReviewEligibility,
     selectProductReviews,
     selectReviewEligibility,
@@ -39,6 +42,8 @@ const Productpage = () => {
     const [quantity, setQuantity] = useState(1);
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
     const [isSortOpen, setIsSortOpen] = useState(false);
+    
+    const [sortBy, setSortBy] = useState("Featured");
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -47,9 +52,13 @@ const Productpage = () => {
     const { product, productLoading, productError, stockValidation } = useSelector(state => state.products);
     const cartActionLoading = useSelector(selectActionLoading);
     const cart = useSelector(selectCart);
+    
+    // Reviews State
     const reviews = useSelector(selectProductReviews);
+    const fetchLoading = useSelector(state => state.reviews.fetchLoading);
+    const reviewStats = useSelector(state => state.reviews.stats);
+    
     const reviewEligibility = useSelector(selectReviewEligibility);
-
     const { existingReview, hasReviewed } = reviewEligibility;
 
     const isInWishlist = useSelector(selectIsProductInWishlist(productId));
@@ -60,10 +69,15 @@ const Productpage = () => {
     const isLoggedInUser = user && !isAdmin;
 
     const validationTimerRef = useRef(null);
+    const sortRef = useRef(null);
 
     // --- Review Stats Calculation ---
     const calculateDistribution = (reviews) => {
         const dist = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+        // Use stats from backend if available for accurate total distribution
+        if (reviewStats) return reviewStats.distribution;
+        
+        // Fallback for visual display if stats not yet loaded
         if (!reviews) return dist;
         reviews.forEach(r => {
             const rating = Math.round(r.rating);
@@ -73,18 +87,38 @@ const Productpage = () => {
     };
 
     const distribution = calculateDistribution(reviews);
-    const allReviewImages = reviews?.flatMap(r => r.images || []) || [];
+    
+    const publicReviews = useMemo(() => {
+        return reviews ? reviews.filter(r => r._id !== existingReview?._id) : [];
+    }, [reviews, existingReview]);
 
+    const handleSortChange = (option) => {
+        setSortBy(option);
+        setIsSortOpen(false);
+    };
+
+    // Effect 1: Initial Data
     useEffect(() => {
         dispatch(getOneProduct(productId));
-        dispatch(fetchProductReviews({ productId }));
         dispatch(checkReviewEligibility(productId));
 
         return () => {
             dispatch(clearStockValidation());
             dispatch(resetReviewState());
         };
-    }, [dispatch, productId])
+    }, [dispatch, productId]);
+
+    // NEW EFFECT: Add to Recently Viewed when product loads
+    useEffect(() => {
+        if (product && !productLoading && !productError) {
+            addToRecentlyViewed(product);
+        }
+    }, [product, productLoading, productError]);
+
+    // Effect 2: Fetch RECENT Reviews
+    useEffect(() => {
+        dispatch(fetchRecentReviews({ productId, sortBy }));
+    }, [dispatch, productId, sortBy]);
 
     useEffect(() => {
         if (product?.sizes) {
@@ -99,6 +133,16 @@ const Productpage = () => {
         dispatch(clearStockValidation());
         setQuantity(1);
     }, [selectedSize, dispatch]);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (sortRef.current && !sortRef.current.contains(event.target)) {
+                setIsSortOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     const validateStock = useCallback((newQuantity, size) => {
         if (validationTimerRef.current) {
@@ -233,10 +277,6 @@ const Productpage = () => {
         }
     };
 
-    const publicReviews = reviews
-        ? reviews.filter(r => r._id !== existingReview?._id)
-        : [];
-
     return (
         <div className="product-page-wrapper pb-10 bg-black min-h-screen text-zinc-100 font-sans">
             {isReviewModalOpen && (
@@ -329,9 +369,11 @@ const Productpage = () => {
             </div>
 
             {/* REVIEWS SECTION */}
-            <div className="product-review-container bg-black w-full py-12 border-t border-zinc-900 mt-4">
+            <div className="product-review-container bg-black w-full py-12 border-t border-zinc-900 mt-4 relative">
                 <div className="max-w-[1440px] mx-auto px-4 md:px-8">
-                    <h2 className="uppercase font-bold text-xl md:text-3xl text-white mb-8">Customer Reviews</h2>
+                    <h2 id="reviews-title" className="uppercase font-bold text-xl md:text-3xl text-white mb-8">Customer Reviews</h2>
+                    
+                    {/* Review Distribution Header */}
                     <div className="flex flex-col items-center md:flex-row md:items-start gap-10 mb-10 pb-10 border-b border-zinc-800 flex-wrap">
                         <div className="flex flex-col items-center justify-center min-w-[120px]">
                             <span className="text-6xl font-bold text-white tracking-tighter">{rating?.average?.toFixed(1) || "0.0"}</span>
@@ -359,7 +401,9 @@ const Productpage = () => {
                                     {reviewEligibility.hasReviewed ? "Edit Review" : "Write a review"}
                                 </button>
                             )}
-                            <div className="relative pr-4 lg:pr-0">
+                            
+                            {/* Sorting Filter */}
+                            <div className="relative pr-4 lg:pr-0" ref={sortRef}>
                                 <button onClick={() => setIsSortOpen(!isSortOpen)} className="h-full aspect-square bg-red-600 text-white flex items-center justify-center rounded-xs hover:bg-red-700 transition-colors">
                                     <Icon icon="mi:filter" className="text-xl" />
                                 </button>
@@ -367,9 +411,13 @@ const Productpage = () => {
                                     <div className="absolute top-full right-0 mt-2 w-48 bg-white text-black rounded shadow-xl z-50 py-2 animate-in fade-in zoom-in-95 duration-200">
                                         <div className="px-4 py-2 text-xs font-bold text-zinc-500 uppercase tracking-wide">Sort by</div>
                                         {["Featured", "Photo priority", "Newest", "Highest Ratings", "Lowest Ratings"].map(opt => (
-                                            <div key={opt} className="px-4 py-2 hover:bg-zinc-100 cursor-pointer text-sm font-medium flex justify-between items-center">
+                                            <div 
+                                                key={opt} 
+                                                onClick={() => handleSortChange(opt)} 
+                                                className={`px-4 py-2 hover:bg-zinc-100 cursor-pointer text-sm font-medium flex justify-between items-center ${sortBy === opt ? "text-red-600 font-bold" : ""}`}
+                                            >
                                                 {opt}
-                                                {opt === "Featured" && <Icon icon="mdi:check" />}
+                                                {sortBy === opt && <Icon icon="mdi:check" />}
                                             </div>
                                         ))}
                                     </div>
@@ -377,14 +425,35 @@ const Productpage = () => {
                             </div>
                         </div>
                     </div>
-                    <div className="reviews space-y-6">
+
+                    {/* Review List (Limit 5) */}
+                    <div className="reviews space-y-6 pb-10">
                         {(publicReviews && publicReviews.length > 0) || (hasReviewed && existingReview) ? (
                             <>
                                 {hasReviewed && existingReview && <ReviewCard review={existingReview} isOwner={true} onEdit={() => setIsReviewModalOpen(true)} />}
                                 {publicReviews.map((review) => <ReviewCard key={review._id} review={review} />)}
                             </>
                         ) : <NoReview />}
+                        
+                        {fetchLoading && (
+                            <div className="py-4 text-center">
+                                <Icon icon="eos-icons:loading" className="text-3xl text-red-600 inline-block" />
+                            </div>
+                        )}
                     </div>
+
+                    {/* SEE ALL REVIEWS BUTTON */}
+                    {(rating?.count > 5 || (reviewStats && reviewStats.totalReviews > 5)) && (
+                        <div className="flex justify-center pb-10">
+                            <Link 
+                                to={`/products/${productId}/reviews`}
+                                className="bg-zinc-900 border border-zinc-700 text-white px-10 py-3 rounded-full uppercase text-xs font-bold tracking-widest hover:bg-zinc-800 hover:border-red-600 transition-all flex items-center gap-2 group"
+                            >
+                                See All Reviews 
+                                <Icon icon="solar:arrow-right-linear" className="text-lg group-hover:translate-x-1 transition-transform" />
+                            </Link>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -407,9 +476,14 @@ const Productpage = () => {
             </div>
             <div className="max-w-6xl mx-auto px-4 mt-12 pb-20"><ProductSpecs /></div>
 
-            {/* BEST SELLING SECTION (ADDED HERE) */}
-            <div className="max-w-[1440px] mx-auto px-4 md:px-8 pb-20">
+            {/* BEST SELLING SECTION */}
+            <div className="max-w-[1440px] mx-auto px-4 md:px-8 pb-10">
                 <BestSelling />
+            </div>
+
+            {/* NEW: RECENTLY VIEWED SECTION */}
+            <div className="max-w-[1440px] mx-auto px-4 md:px-8 pb-10">
+                <RecentlyViewed />
             </div>
         </div>
     )

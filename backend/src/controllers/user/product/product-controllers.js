@@ -184,7 +184,7 @@ export const validateStock = async (req, res) => {
 
 export const getBestSellingProducts = async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 4; // Default to 4 items
+    const limit = parseInt(req.query.limit) || 5;
 
     // 1. Fetch real best sellers (salesCount > 0)
     let products = await Product.find({
@@ -230,6 +230,52 @@ export const getBestSellingProducts = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to fetch best selling products",
+      error: process.env.NODE_ENV === "development" ? err.message : undefined,
+    });
+  }
+};
+
+export const searchProducts = async (req, res) => {
+  try {
+    const { q } = req.query;
+
+    if (!q || q.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "Search query is required",
+      });
+    }
+
+    // Create a case-insensitive regex
+    const searchRegex = new RegExp(q, "i");
+
+    // Search in Name, Category, or Description
+    const products = await Product.find({
+      status: "published",
+      $or: [
+        { name: searchRegex },
+        { category: searchRegex },
+        { description: searchRegex },
+      ],
+    })
+      .select("-__v")
+      .lean();
+
+    // Format the results using the helper
+    const formattedProducts = products.map((product) =>
+      productForList(product)
+    );
+
+    return res.status(200).json({
+      success: true,
+      count: formattedProducts.length,
+      products: formattedProducts,
+    });
+  } catch (err) {
+    console.error("Search products error:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to search products",
       error: process.env.NODE_ENV === "development" ? err.message : undefined,
     });
   }

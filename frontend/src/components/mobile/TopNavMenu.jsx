@@ -1,5 +1,4 @@
 import { Icon } from '@iconify/react/dist/iconify.js';
-import React from 'react'
 import { NavLink, useLoaderData, useLocation } from 'react-router-dom'
 
 const TopNavMenu = ({showNav, setShowNav}) => {

@@ -1,38 +1,38 @@
-import { useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getBestSellingProducts } from "../../../store/features/user/productSlice";
 import { Icon } from "@iconify/react";
+import { getRecentlyViewed } from "../../../utils/helpers/recentlyViewedHelper";
 
 // Swiper Imports
 import { Swiper, SwiperSlide } from "swiper/react";
 import "swiper/css";
-import "swiper/css/free-mode";
 
-const BestSelling = () => {
-  const dispatch = useDispatch();
-  const { bestSellingProducts, bestSellingLoading } = useSelector(
-    (state) => state.products
-  );
+const RecentlyViewed = () => {
+  const [recentProducts, setRecentProducts] = useState([]);
+
+  const loadProducts = () => {
+    const products = getRecentlyViewed();
+    setRecentProducts(products);
+  };
 
   useEffect(() => {
-    dispatch(getBestSellingProducts(4));
-  }, [dispatch]);
+    // Load initially
+    loadProducts();
 
-  if (bestSellingLoading) {
-    return (
-      <div className="w-full h-40 flex items-center justify-center text-zinc-500">
-        <Icon icon="eos-icons:loading" className="text-3xl" />
-      </div>
-    );
-  }
+    // Listen for storage updates
+    window.addEventListener("recentlyViewedUpdated", loadProducts);
 
-  if (!bestSellingProducts || bestSellingProducts.length === 0) return null;
+    return () => {
+      window.removeEventListener("recentlyViewedUpdated", loadProducts);
+    };
+  }, []);
+
+  if (!recentProducts || recentProducts.length === 0) return null;
 
   return (
-    <section className="best-selling-section mt-10 pt-10 border-t border-zinc-900 w-full">
+    <section className="recently-viewed-section mt-10 pt-10 border-t border-zinc-900 w-full">
       <h2 className="text-white text-xl md:text-2xl font-black uppercase mb-8 tracking-wide pl-2 border-l-4 border-red-600 flex items-center gap-3">
-        Best Selling <Icon icon="mdi:fire" className="text-red-600 animate-pulse" />
+        Recently Viewed <Icon icon="mdi:eye-outline" className="text-red-600" />
       </h2>
 
       {/* ==================== MOBILE / TABLET (SWIPER) ==================== */}
@@ -46,7 +46,7 @@ const BestSelling = () => {
           }}
           className="pb-4 px-1" // Padding for shadow visibility
         >
-          {bestSellingProducts.map((product) => (
+          {recentProducts.map((product) => (
             <SwiperSlide key={product.id}>
               <ProductCard product={product} />
             </SwiperSlide>
@@ -55,8 +55,8 @@ const BestSelling = () => {
       </div>
 
       {/* ==================== DESKTOP (GRID) ==================== */}
-      <div className="hidden lg:grid lg:grid-cols-4 gap-6">
-        {bestSellingProducts.map((product) => (
+      <div className="hidden lg:grid lg:grid-cols-4 xl:grid-cols-5 gap-6">
+        {recentProducts.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
       </div>
@@ -66,7 +66,13 @@ const BestSelling = () => {
 
 // ==================== REUSABLE PRODUCT CARD COMPONENT ====================
 const ProductCard = ({ product }) => {
+  // Handle image safety (helper saves strictly defined structure)
   const mainImage = product.images && product.images.length > 0 ? product.images[0].url : "";
+  
+  // Calculate discount on the fly if not saved
+  const discount = product.originalPrice && product.price && product.originalPrice > product.price
+    ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
+    : 0;
 
   return (
     <Link
@@ -85,21 +91,21 @@ const ProductCard = ({ product }) => {
         {/* Gradient Overlay on Hover (Desktop) */}
         <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-end pb-6">
           <span className="bg-white/10 backdrop-blur-md border border-white/20 text-white text-[10px] font-bold uppercase px-4 py-2 rounded-full tracking-widest transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 hover:bg-white hover:text-black hover:border-white">
-            View Product
+            View Again
           </span>
         </div>
 
-        {/* Best Selling Badge */}
+        {/* Recently Viewed Badge */}
         <div className="absolute top-0 left-0 z-10">
-          <div className="bg-linear-to-r from-red-600 to-red-800 text-white text-[9px] font-bold uppercase px-3 py-1 rounded-br-lg shadow-lg">
-            Best Selling
+          <div className="bg-linear-to-r from-zinc-700 to-zinc-900 text-zinc-300 text-[9px] font-bold uppercase px-3 py-1 rounded-br-lg shadow-lg border-b border-r border-zinc-700">
+            Recent
           </div>
         </div>
 
         {/* Discount Badge */}
-        {product.discount > 0 && (
+        {discount > 0 && (
           <div className="absolute top-2 right-2 bg-green-700/50 backdrop-blur-sm border border-white/10 text-white text-[10px] font-bold px-2 py-0.5 rounded">
-            -{product.discount}%
+            -{discount}%
           </div>
         )}
       </div>
@@ -139,4 +145,4 @@ const ProductCard = ({ product }) => {
   );
 };
 
-export default BestSelling;
+export default RecentlyViewed;

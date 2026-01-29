@@ -10,7 +10,6 @@ const fileFilter = (req, file, cb) => {
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    // ✅ Use multer.MulterError for better error handling
     cb(
       new multer.MulterError(
         'LIMIT_UNEXPECTED_FILE',
@@ -75,9 +74,7 @@ export const handleMulterError = (err, req, res, next) => {
     return res.status(400).json({
       success: false,
       message: 'File upload error',
-      errors: {
-        images: [err.message]
-      }
+      errors: err.message,
     });
   }
 
