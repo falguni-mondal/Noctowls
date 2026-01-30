@@ -4,6 +4,7 @@ import Hero from '../components/home/hero/Hero';
 import HomeMarquee from '../components/home/marquee/HomeMarquee';
 import HomeProductSection from '../components/home/products/HomeProductSection';
 import { getAllProducts } from '../store/features/user/productSlice';
+import HomeReels from '../components/home/reels/HomeReels';
 
 const Homepage = () => {
   const dispatch = useDispatch();
@@ -17,6 +18,7 @@ const Homepage = () => {
         <Hero />
         <HomeMarquee/>
         <HomeProductSection />
+        <HomeReels/>
     </div>
   )
 }

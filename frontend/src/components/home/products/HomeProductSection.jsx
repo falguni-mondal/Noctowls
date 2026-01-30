@@ -13,10 +13,10 @@ const HomeProductSection = () => {
         products &&
         products.map((group, index) => (
           // Increased vertical padding for tablets/desktops (md:py-14)
-          <section key={`user-${group.category}-product-list-key`} className={`w-full py-10 md:py-14 ${index < products.length-1 && "border-b border-zinc-800"}`} id={`user-${group.category}-product-list-section`}>
+          <section key={`user-${group.category}-product-list-key`} className={`w-full py-10 pb-28 md:py-14 md:pb-28 ${index < products.length-1 && "border-b border-zinc-900/50"}`} id={`user-${group.category}-product-list-section`}>
             
             {/* Scaled up font size for section headers on larger screens (md:text-xl lg:text-2xl) */}
-            <h2 className='uppercase font-semibold tracking-wide w-full mb-4 md:mb-8 md:text-xl lg:text-2xl'>{group.category}s</h2>
+            <h2 className='uppercase font-bold tracking-wide w-full mb-4 md:mb-8 text-xl md:text-2xl border-l-4 border-l-red-600 pl-2'>{group.category}s</h2>
             
             {/* Responsive Grid System:
                 - Mobile: grid-cols-2 (Unchanged)
