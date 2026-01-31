@@ -5,27 +5,27 @@ const FooterLinks = () => {
   const quickLinks = [
     {
       title: "shipping policy",
-      path: "/shipping policy",
+      path: "/policies/shipping-policy",
     },
     {
       title: "refund policy",
-      path: "/refund policy",
+      path: "/policies/refund-policy",
     },
     {
       title: "terms of services",
-      path: "/terms of services",
+      path: "/policies/terms-of-service",
     },
     {
       title: "privacy policy",
-      path: "/privacy policy",
+      path: "/policies/privacy-policy",
     },
     {
       title: "cookie policy",
-      path: "/cookie policy",
+      path: "/policies/cookie-policy",
     },
     {
       title: "disclaimer",
-      path: "/disclaimer",
+      path: "/policies/disclaimer",
     },
   ]
   return (

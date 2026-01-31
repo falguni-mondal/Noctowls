@@ -31,6 +31,14 @@ import AdminBags from '../pages/admin/panel/AdminBags';
 import Contact from '../pages/Contact';
 import AllReviews from '../pages/AllReviews';
 
+// --- POLICY PAGE IMPORTS ---
+import ShippingPolicy from '../pages/policies/ShippingPolicy';
+import RefundPolicy from '../pages/policies/RefundPolicy';
+import TermsOfService from '../pages/policies/TermsOfService';
+import PrivacyPolicy from '../pages/policies/PrivacyPolicy';
+import CookiePolicy from '../pages/policies/CookiePolicy';
+import Disclaimer from '../pages/policies/Disclaimer';
+
 
 const PageRouter = () => {
   return (
@@ -40,6 +48,14 @@ const PageRouter = () => {
       <Route path='/contact' element={<Contact />} />
       <Route path='/products/:productId' element={<Productpage />} />
       <Route path="/products/:productId/reviews" element={<AllReviews />} />
+
+      {/* --- POLICY ROUTES --- */}
+      <Route path="/policies/shipping-policy" element={<ShippingPolicy />} />
+      <Route path="/policies/refund-policy" element={<RefundPolicy />} />
+      <Route path="/policies/terms-of-service" element={<TermsOfService />} />
+      <Route path="/policies/privacy-policy" element={<PrivacyPolicy />} />
+      <Route path="/policies/cookie-policy" element={<CookiePolicy />} />
+      <Route path="/policies/disclaimer" element={<Disclaimer />} />
 
       <Route element={<PublicOnly />}>
         <Route path='/account/*' element={<Account />} />

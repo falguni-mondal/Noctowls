@@ -507,7 +507,7 @@ const CheckoutPage = () => {
   // Loading state
   if (summaryLoading || addressLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-950">
+      <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
           <p className="text-zinc-400 text-lg">
@@ -521,7 +521,7 @@ const CheckoutPage = () => {
   // Empty cart state
   if (!orderSummary || orderSummary.totalItems === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-950">
+      <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-center max-w-md mx-auto px-2.5">
           <div className="text-6xl mb-4">🛒</div>
           <h2 className="text-3xl font-bold text-zinc-100 mb-4">Your cart is empty</h2>
@@ -538,7 +538,7 @@ const CheckoutPage = () => {
   }
 
   return (
-    <div className="min-h-screen py-4 md:py-8 bg-zinc-950">
+    <div className="min-h-screen pt-4 pb-28 md:pt-8 bg-black">
       <div className="max-w-7xl mx-auto px-3 md:px-6">
         <h1 className="text-2xl md:text-4xl font-semibold text-zinc-100 mb-6 md:mb-8">
           Checkout
@@ -550,7 +550,7 @@ const CheckoutPage = () => {
 
             {/* Guest Info Section */}
             {isGuest && (
-              <div className="bg-zinc-900 rounded-lg shadow-sm p-4 border border-zinc-800">
+              <div className="bg-zinc-950 rounded-lg shadow-sm p-4 border border-zinc-900">
                 <h2 className="text-lg md:text-xl font-semibold text-zinc-100 mb-4">
                   Contact Information
                 </h2>
@@ -566,7 +566,7 @@ const CheckoutPage = () => {
                       onChange={(e) =>
                         setGuestInfo({ ...guestInfo, name: e.target.value })
                       }
-                      className="w-full px-2.5 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
+                      className="w-full px-2.5 py-2.5 bg-zinc-900 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
                     />
                   </div>
                   <div>
@@ -580,7 +580,7 @@ const CheckoutPage = () => {
                       onChange={(e) =>
                         setGuestInfo({ ...guestInfo, email: e.target.value })
                       }
-                      className="w-full px-2.5 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
+                      className="w-full px-2.5 py-2.5 bg-zinc-900 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
                     />
                     <small className="text-zinc-400 text-xs mt-2 block">
                       We'll send order confirmation to this email
@@ -591,7 +591,7 @@ const CheckoutPage = () => {
             )}
 
             {/* Shipping Address Section */}
-            <div className="bg-zinc-900 rounded-lg shadow-sm p-4 border border-zinc-800">
+            <div className="bg-zinc-950 rounded-lg shadow-sm p-4 border border-zinc-900">
               <h2 className="text-lg md:text-xl font-semibold text-zinc-100 mb-4">
                 Shipping Address
               </h2>
@@ -630,7 +630,7 @@ const CheckoutPage = () => {
                           key={address._id}
                           onClick={() => setSelectedAddressId(address._id)}
                           className={`border-2 rounded p-4 cursor-pointer transition-all ${selectedAddressId === address._id
-                            ? 'border-blue-500 bg-zinc-800'
+                            ? 'border-blue-500 bg-zinc-900'
                             : 'border-zinc-700 hover:border-zinc-600'
                             }`}
                         >
@@ -694,7 +694,7 @@ const CheckoutPage = () => {
                             fullName: e.target.value,
                           })
                         }
-                        className="w-full px-2.5 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
+                        className="w-full px-2.5 py-2.5 bg-zinc-900 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
                       />
                     </div>
                     <div>
@@ -712,7 +712,7 @@ const CheckoutPage = () => {
                             phone: e.target.value.replace(/\D/g, ''),
                           })
                         }
-                        className="w-full px-2.5 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
+                        className="w-full px-2.5 py-2.5 bg-zinc-900 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
                       />
                     </div>
                   </div>
@@ -731,7 +731,7 @@ const CheckoutPage = () => {
                           address: e.target.value,
                         })
                       }
-                      className="w-full px-2.5 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none resize-none"
+                      className="w-full px-2.5 py-2.5 bg-zinc-900 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none resize-none"
                     ></textarea>
                   </div>
 
@@ -749,7 +749,7 @@ const CheckoutPage = () => {
                           landmark: e.target.value,
                         })
                       }
-                      className="w-full px-2.5 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
+                      className="w-full px-2.5 py-2.5 bg-zinc-900 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
                     />
                   </div>
 
@@ -768,7 +768,7 @@ const CheckoutPage = () => {
                             city: e.target.value,
                           })
                         }
-                        className="w-full px-2.5 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
+                        className="w-full px-2.5 py-2.5 bg-zinc-900 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
                       />
                     </div>
                     <div>
@@ -784,7 +784,7 @@ const CheckoutPage = () => {
                             state: e.target.value,
                           })
                         }
-                        className="w-full p-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 transition-all outline-none"
+                        className="w-full p-2.5 bg-zinc-900 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 transition-all outline-none"
                       >
                         <option value="">Select State</option>
                         {INDIAN_STATES.map((state) => (
@@ -809,7 +809,7 @@ const CheckoutPage = () => {
                             pincode: e.target.value.replace(/\D/g, ''),
                           })
                         }
-                        className="w-full px-2.5 py-2.5 bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
+                        className="w-full px-2.5 py-2.5 bg-zinc-900 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 transition-all outline-none"
                       />
                     </div>
                   </div>
@@ -829,14 +829,14 @@ const CheckoutPage = () => {
             </div>
 
             {/* Payment Method Section */}
-            <div className="bg-zinc-900 rounded-lg shadow-sm p-4 border border-zinc-800">
+            <div className="bg-zinc-950 rounded-lg shadow-sm p-4 border border-zinc-900">
               <h2 className="text-lg md:text-xl font-semibold text-zinc-100 mb-4">
                 Payment Method
               </h2>
               <div className="space-y-3">
                 <label
                   className={`border rounded p-4 cursor-pointer transition-all flex items-start ${paymentMethod === 'ONLINE'
-                    ? 'border-blue-500 bg-zinc-800'
+                    ? 'border-blue-500 bg-zinc-900'
                     : 'border-zinc-700 hover:border-zinc-600'
                     }`}
                 >
@@ -857,7 +857,7 @@ const CheckoutPage = () => {
 
                 <label
                   className={`border rounded p-4 cursor-pointer transition-all flex items-start ${paymentMethod === 'COD'
-                    ? 'border-blue-500 bg-zinc-800'
+                    ? 'border-blue-500 bg-zinc-900'
                     : 'border-zinc-700 hover:border-zinc-600'
                     }`}
                 >
@@ -881,7 +881,7 @@ const CheckoutPage = () => {
 
           {/* ========== RIGHT: ORDER SUMMARY ========== */}
           <div className="lg:col-span-1">
-            <div className="bg-zinc-900 rounded-lg shadow-sm p-4 border border-zinc-800 lg:sticky lg:top-4">
+            <div className="bg-zinc-950 rounded-lg shadow-sm p-4 border border-zinc-900 lg:sticky lg:top-4">
               <h2 className="text-lg md:text-xl font-semibold text-zinc-100 mb-5">
                 Order Summary
               </h2>
@@ -891,7 +891,7 @@ const CheckoutPage = () => {
                 {orderSummary.items.map((item) => (
                   <div
                     key={item._id}
-                    className="flex gap-3 pb-3 border-b border-zinc-800 last:border-0"
+                    className="flex gap-3 pb-3 border-b border-zinc-900 last:border-0"
                   >
                     <img
                       src={item.product.image}
@@ -950,7 +950,7 @@ const CheckoutPage = () => {
                           handleApplyCoupon();
                         }
                       }}
-                      className="flex-1 px-3 py-2 text-sm bg-zinc-800 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 outline-none"
+                      className="flex-1 px-3 py-2 text-sm bg-zinc-900 border border-zinc-700 rounded focus:ring focus:ring-blue-500 focus:border-transparent text-zinc-100 placeholder-zinc-500 outline-none"
                     />
                     <button
                       onClick={handleApplyCoupon}
@@ -1002,7 +1002,7 @@ const CheckoutPage = () => {
               </div>
 
               {/* Price Breakdown */}
-              <div className="border-t border-zinc-800 pt-4 space-y-2">
+              <div className="border-t border-zinc-900 pt-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-zinc-400">Products Subtotal</span>
                   <span className="font-semibold text-zinc-100">
@@ -1028,7 +1028,7 @@ const CheckoutPage = () => {
                   </div>
                 )}
 
-                <div className="flex justify-between text-base font-semibold pt-2 border-t border-zinc-800">
+                <div className="flex justify-between text-base font-semibold pt-2 border-t border-zinc-900">
                   <span className="text-zinc-100">Total Amount</span>
                   <span className="text-zinc-100">₹{totals.finalTotal}</span>
                 </div>

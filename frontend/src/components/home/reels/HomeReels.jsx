@@ -141,7 +141,7 @@ const ReelCard = ({ reel, isCurrent, onPlay, onPause }) => {
 
       <div 
         className={`absolute inset-0 flex items-center justify-center transition-all duration-300 cursor-pointer z-10
-          ${isPlaying ? "opacity-0 hover:opacity-100 bg-black/10 backdrop-blur-[1px]" : "opacity-100"}
+          ${isPlaying ? "opacity-0 hover:opacity-100 bg-black/10" : "opacity-100"}
         `}
         onClick={togglePlay}
       >

@@ -105,7 +105,7 @@ const MainDets = ({ selectedSize, setselectedSize, dets }) => {
           <span className="text-3xl md:text-4xl font-bold text-white">Rs. {price.discounted}.00</span>
         </div>
         <div className="tax-text-container text-[10px] text-zinc-500 mt-1 uppercase tracking-wide">
-          Tax included. <Link to="/shipping-policy" className="underline hover:text-zinc-300">Free shipping</Link> available.
+          Tax included. <Link to="/policies/shipping-policy" className="underline hover:text-zinc-300">Free shipping</Link> available.
         </div>
       </div>
 
