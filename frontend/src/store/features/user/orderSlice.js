@@ -86,6 +86,21 @@ export const cancelOrder = createAsyncThunk(
   }
 );
 
+// Request Return
+export const requestReturn = createAsyncThunk(
+  "order/requestReturn",
+  async ({ orderId, returnData }, { rejectWithValue }) => {
+    try {
+      const response = await userApi.post(`/order/${orderId}/return`, returnData);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to submit return request"
+      );
+    }
+  }
+);
+
 // Track guest order
 export const trackGuestOrder = createAsyncThunk(
   "order/trackGuestOrder",
@@ -216,6 +231,7 @@ const initialState = {
   createOrderLoading: false,
   verifyPaymentLoading: false,
   cancelOrderLoading: false,
+  returnRequestLoading: false, // [!code ++] New loading state for returns
   summaryLoading: false,
   trackGuestOrderLoading: false,
 
@@ -271,24 +287,7 @@ const orderSlice = createSlice({
 
     // Reset order state (on logout)
     resetOrders: (state) => {
-      state.orders = [];
-      state.ordersCount = 0;
-      state.currentOrder = null;
-      state.orderSummary = null;
-      state.checkoutOrder = null;
-      state.razorpayDetails = null;
-      state.trackedGuestOrder = null;
-      state.invoice = null;
-      state.customerType = null;
-      state.error = null;
-      state.successMessage = null;
-      state.couponValidation = {
-        loading: false,
-        error: null,
-        isValid: false,
-        coupon: null,
-        discount: null,
-      };
+      Object.assign(state, initialState);
     },
   },
   extraReducers: (builder) => {
@@ -382,7 +381,6 @@ const orderSlice = createSlice({
           (order) => order._id === action.payload.order.orderId
         );
         if (orderIndex !== -1) {
-          // Update the entire order, not just status
           state.orders[orderIndex] = {
             ...state.orders[orderIndex],
             orderStatus: action.payload.order.status,
@@ -398,6 +396,27 @@ const orderSlice = createSlice({
       })
       .addCase(cancelOrder.rejected, (state, action) => {
         state.cancelOrderLoading = false;
+        state.error = action.payload;
+      });
+
+    // ===== [!code ++] NEW: REQUEST RETURN =====
+    builder
+      .addCase(requestReturn.pending, (state) => {
+        state.returnRequestLoading = true;
+        state.error = null;
+        state.successMessage = null;
+      })
+      .addCase(requestReturn.fulfilled, (state, action) => {
+        state.returnRequestLoading = false;
+        // Update current order with new return info
+        if (state.currentOrder && state.currentOrder._id === action.payload.order._id) {
+            state.currentOrder = action.payload.order;
+        }
+        state.successMessage = action.payload.message;
+        state.error = null;
+      })
+      .addCase(requestReturn.rejected, (state, action) => {
+        state.returnRequestLoading = false;
         state.error = action.payload;
       });
 
@@ -539,6 +558,8 @@ export const selectVerifyPaymentLoading = (state) =>
   state.order.verifyPaymentLoading;
 export const selectCancelOrderLoading = (state) =>
   state.order.cancelOrderLoading;
+export const selectReturnRequestLoading = (state) => // [!code ++] Export selector
+  state.order.returnRequestLoading;
 export const selectSummaryLoading = (state) => state.order.summaryLoading;
 export const selectTrackGuestOrderLoading = (state) =>
   state.order.trackGuestOrderLoading;

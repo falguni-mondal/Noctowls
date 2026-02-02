@@ -7,6 +7,7 @@ import Logo from '../../../../utils/logo/Logo';
 import {
     getAdminOrderById,
     updateAdminOrderStatus,
+    processReturnRequest, // [!code ++]
     clearCurrentAdminOrder,
     selectAdminCurrentOrder,
     selectAdminOrderDetailsLoading,
@@ -25,6 +26,7 @@ const AdminOrderDetails = () => {
 
     const [statusToUpdate, setStatusToUpdate] = useState('');
     const [trackingId, setTrackingId] = useState('');
+    const [returnNote, setReturnNote] = useState(''); // [!code ++]
 
     useEffect(() => {
         dispatch(getAdminOrderById(id));
@@ -59,6 +61,22 @@ const AdminOrderDetails = () => {
         }
     };
 
+    // [!code ++] Handle Return Actions
+    const handleReturnAction = async (status) => {
+        const result = await dispatch(processReturnRequest({
+            orderId: id,
+            status,
+            note: returnNote
+        }));
+
+        if (processReturnRequest.fulfilled.match(result)) {
+            toast.success(`Return request ${status}`);
+            setReturnNote('');
+        } else {
+            toast.error(result.payload || "Action failed");
+        }
+    };
+
     const copyToClipboard = (text, label) => {
         if (!text) return;
         navigator.clipboard.writeText(text);
@@ -78,9 +96,12 @@ const AdminOrderDetails = () => {
             case 'delivered': return 'bg-green-500/10 text-green-500 border-green-500/20';
             case 'cancelled': return 'bg-red-500/10 text-red-500 border-red-500/20';
             case 'shipped': return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+            case 'returned': return 'bg-purple-500/10 text-purple-500 border-purple-500/20';
             default: return 'bg-amber-500/10 text-amber-500 border-amber-500/20';
         }
     };
+
+    const isReturnActive = order.returnInfo?.status && order.returnInfo.status !== 'none';
 
     return (
         <>
@@ -133,6 +154,71 @@ const AdminOrderDetails = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* LEFT COLUMN */}
                     <div className="lg:col-span-2 space-y-6">
+                        
+                        {/* [!code ++] RETURN REQUEST PANEL */}
+                        {isReturnActive && (
+                            <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden animate-in fade-in slide-in-from-top-4">
+                                <div className="p-4 border-b border-zinc-800 bg-amber-950/10 flex justify-between items-center">
+                                    <h3 className="font-bold text-amber-500 flex items-center gap-2">
+                                        <Icon icon="solar:history-bold" /> Return Request ({order.returnInfo.status})
+                                    </h3>
+                                </div>
+                                <div className="p-6 space-y-4">
+                                    <div className="bg-zinc-950 p-4 rounded border border-zinc-800">
+                                        <p className="text-xs text-zinc-500 uppercase font-bold mb-1">Reason provided by user</p>
+                                        <p className="text-zinc-200 text-sm leading-relaxed">
+                                            {order.returnInfo.reason}
+                                        </p>
+                                    </div>
+
+                                    {/* Actions */}
+                                    {order.returnInfo.status === 'requested' && (
+                                        <div className="space-y-4 pt-2">
+                                            <textarea 
+                                                placeholder="Add an admin note (optional)..."
+                                                value={returnNote}
+                                                onChange={(e) => setReturnNote(e.target.value)}
+                                                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm focus:border-blue-500 outline-none"
+                                            />
+                                            <div className="flex gap-3">
+                                                <button 
+                                                    onClick={() => handleReturnAction('approved')}
+                                                    disabled={actionLoading}
+                                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg text-sm font-medium transition disabled:opacity-50"
+                                                >
+                                                    Approve Return
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleReturnAction('rejected')}
+                                                    disabled={actionLoading}
+                                                    className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg text-sm font-medium transition disabled:opacity-50"
+                                                >
+                                                    Reject Request
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {order.returnInfo.status === 'approved' && (
+                                        <div className="pt-2">
+                                            <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded mb-4 text-sm text-blue-400">
+                                                <p>User has been notified to ship the item back. Once received and verified, mark as completed.</p>
+                                            </div>
+                                            <button 
+                                                onClick={() => handleReturnAction('completed')}
+                                                disabled={actionLoading}
+                                                className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-lg text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2"
+                                            >
+                                                <Icon icon="solar:check-circle-bold" />
+                                                Refund Processed & Complete
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Order Items */}
                         <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
                             <div className="p-4 border-b border-zinc-800 font-medium text-zinc-300">
                                 Order Items ({order.items.length})
@@ -263,7 +349,7 @@ const AdminOrderDetails = () => {
                                     value={statusToUpdate}
                                     onChange={(e) => setStatusToUpdate(e.target.value)}
                                     className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm focus:border-blue-500 outline-none text-zinc-200"
-                                    disabled={order.orderStatus === 'cancelled' || order.orderStatus === 'delivered'}
+                                    disabled={order.orderStatus === 'cancelled' || order.orderStatus === 'delivered' || order.orderStatus === 'returned'}
                                 >
                                     <option value="pending">Pending</option>
                                     <option value="confirmed">Confirmed</option>

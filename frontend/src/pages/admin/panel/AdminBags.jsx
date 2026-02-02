@@ -4,7 +4,7 @@ import { Icon } from "@iconify/react";
 import Loader from "../../../utils/loader/Loader";
 import { 
     getAllBags, 
-    deleteBag, // Imported delete action
+    deleteBag, 
     setBagFilter, 
     selectAdminBags, 
     selectAdminBagPagination, 
@@ -50,10 +50,13 @@ const AdminBags = () => {
     // --- EFFECT: Close Popover on Click Outside ---
     useEffect(() => {
         const handleClickOutside = (event) => {
+            // Close if clicking outside the popover content
             if (popoverRef.current && !popoverRef.current.contains(event.target)) {
                 setActivePopover(null);
             }
         };
+        
+        // Close on scroll to prevent floating element detachment
         const handleScroll = () => setActivePopover(null);
 
         if (activePopover) {
@@ -82,8 +85,9 @@ const AdminBags = () => {
     };
 
     const handleTogglePopover = (e, bag) => {
-        e.stopPropagation();
+        e.stopPropagation(); // Stop click from bubbling to document
         
+        // If clicking the same bag's button, toggle it off
         if (activePopover?.id === bag._id) {
             setActivePopover(null);
             return;
@@ -105,10 +109,9 @@ const AdminBags = () => {
         });
     };
 
-    // ✅ DELETE HANDLER
     const handleDelete = async (e, bagId) => {
         e.stopPropagation();
-        setActivePopover(null); // Close popover if open
+        setActivePopover(null);
 
         if(!window.confirm("Are you sure you want to delete this bag? This cannot be undone.")) return;
 
@@ -182,14 +185,15 @@ const AdminBags = () => {
                         />
                     </div>
                     {searchTerm && (
-                        <button 
-                            onClick={handleClearFilters}
-                            className="px-3 py-2.5 bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 border border-transparent rounded-xl transition-all flex items-center justify-center gap-2 text-sm font-medium"
-                            title="Clear Search"
-                        >
-                            <Icon icon="solar:restart-bold" className="text-lg" />
-                            <span className="hidden sm:inline">Clear</span>
-                        </button>
+                        <div className="relative group/clear">
+                            <button 
+                                className="px-3 py-2.5 bg-zinc-800 text-zinc-400 group-hover/clear:text-white group-hover/clear:bg-zinc-700 border border-transparent rounded-xl transition-all flex items-center justify-center gap-2 text-sm font-medium pointer-events-none"
+                            >
+                                <Icon icon="solar:restart-bold" className="text-lg" />
+                                <span className="hidden sm:inline">Clear</span>
+                            </button>
+                            <span onClick={handleClearFilters} className="absolute inset-0 z-10 cursor-pointer rounded-xl" title="Clear Search" />
+                        </div>
                     )}
                 </div>
             </div>
@@ -228,7 +232,7 @@ const AdminBags = () => {
                                 </tr>
                             ) : (
                                 bags.map((bag) => (
-                                    <tr key={bag._id} className="group hover:bg-zinc-800/30 transition-colors border-b border-zinc-800/50 last:border-0">
+                                    <tr key={bag._id} className="group hover:bg-zinc-800/30 transition-colors border-b border-zinc-800/50 last:border-0 relative">
                                         {/* Customer */}
                                         <td className="p-5 pl-6">
                                             <div className="flex items-center gap-4">
@@ -268,31 +272,39 @@ const AdminBags = () => {
                                             </div>
                                         </td>
 
-                                        {/* Action Buttons */}
+                                        {/* Action Buttons with Interaction Fix */}
                                         <td className="p-5 pr-6 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                {/* View Button */}
-                                                <button 
-                                                    onClick={(e) => handleTogglePopover(e, bag)}
-                                                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all border ${
+                                            <div className="flex items-center justify-end gap-2 relative z-20">
+                                                
+                                                {/* View Button (Popover Toggle) */}
+                                                <div className="relative group/btn">
+                                                    <div className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all border pointer-events-none ${
                                                         activePopover?.id === bag._id
                                                         ? "bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-500/20" 
-                                                        : "bg-zinc-800 text-zinc-400 border-zinc-700 hover:text-white hover:bg-zinc-700 hover:border-zinc-600"
-                                                    }`}
-                                                    title="View Items"
-                                                >
-                                                    <Icon icon={activePopover?.id === bag._id ? "solar:eye-bold" : "solar:eye-linear"} className="text-lg" />
-                                                </button>
+                                                        : "bg-zinc-800 text-zinc-400 border-zinc-700 group-hover/btn:text-white group-hover/btn:bg-zinc-700 group-hover/btn:border-zinc-600"
+                                                    }`}>
+                                                        <Icon icon={activePopover?.id === bag._id ? "solar:eye-bold" : "solar:eye-linear"} className="text-lg" />
+                                                    </div>
+                                                    
+                                                    {/* FIX: stopPropagation on mousedown ensures global listener doesn't fire first */}
+                                                    <span 
+                                                        onMouseDown={(e) => e.stopPropagation()} 
+                                                        onClick={(e) => handleTogglePopover(e, bag)} 
+                                                        className="absolute inset-0 z-10 cursor-pointer rounded-lg" 
+                                                        title="View Items" 
+                                                    />
+                                                </div>
 
                                                 {/* Delete Button */}
-                                                <button 
-                                                    onClick={(e) => handleDelete(e, bag._id)}
-                                                    disabled={actionLoading}
-                                                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 border border-zinc-700 hover:text-red-400 hover:bg-red-900/10 hover:border-red-900/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    title="Delete Bag"
-                                                >
-                                                    <Icon icon="solar:trash-bin-trash-bold" className="text-lg" />
-                                                </button>
+                                                <div className="relative group/btn">
+                                                    <button 
+                                                        disabled={actionLoading}
+                                                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 border border-zinc-700 group-hover/btn:text-red-400 group-hover/btn:bg-red-900/10 group-hover/btn:border-red-900/30 transition-all disabled:opacity-50 pointer-events-none"
+                                                    >
+                                                        <Icon icon="solar:trash-bin-trash-bold" className="text-lg" />
+                                                    </button>
+                                                    <span onClick={(e) => handleDelete(e, bag._id)} className="absolute inset-0 z-10 cursor-pointer rounded-lg" title="Delete Bag" />
+                                                </div>
                                             </div>
                                         </td>
                                     </tr>
@@ -309,22 +321,31 @@ const AdminBags = () => {
                             Page <span className="text-white font-semibold">{pagination.currentPage}</span> of {pagination.totalPages}
                         </span>
                         <div className="flex gap-2">
-                            <button
-                                onClick={() => handlePageChange(pagination.currentPage - 1)}
-                                disabled={pagination.currentPage === 1}
-                                className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 text-xs hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1"
-                            >
-                                <Icon icon="solar:alt-arrow-left-linear" />
-                                Previous
-                            </button>
-                            <button
-                                onClick={() => handlePageChange(pagination.currentPage + 1)}
-                                disabled={pagination.currentPage === pagination.totalPages}
-                                className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 text-xs hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1"
-                            >
-                                Next
-                                <Icon icon="solar:alt-arrow-right-linear" />
-                            </button>
+                            <div className="relative">
+                                <button
+                                    disabled={pagination.currentPage === 1}
+                                    className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 text-xs disabled:opacity-50 transition flex items-center gap-1 pointer-events-none"
+                                >
+                                    <Icon icon="solar:alt-arrow-left-linear" />
+                                    Previous
+                                </button>
+                                {pagination.currentPage !== 1 && (
+                                    <span onClick={() => handlePageChange(pagination.currentPage - 1)} className="absolute inset-0 z-10 cursor-pointer rounded-lg" />
+                                )}
+                            </div>
+
+                            <div className="relative">
+                                <button
+                                    disabled={pagination.currentPage === pagination.totalPages}
+                                    className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 text-xs disabled:opacity-50 transition flex items-center gap-1 pointer-events-none"
+                                >
+                                    Next
+                                    <Icon icon="solar:alt-arrow-right-linear" />
+                                </button>
+                                {pagination.currentPage !== pagination.totalPages && (
+                                    <span onClick={() => handlePageChange(pagination.currentPage + 1)} className="absolute inset-0 z-10 cursor-pointer rounded-lg" />
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}

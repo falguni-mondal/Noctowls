@@ -4,7 +4,7 @@ import { Icon } from "@iconify/react";
 import { 
     fetchAllReviews, 
     updateReviewStatus, 
-    deleteReview, // [!code ++]
+    deleteReview, 
     setReviewFilter,
     selectAdminReviews,
     selectAdminReviewPagination,
@@ -15,6 +15,41 @@ import {
 import Loader from "../../../utils/loader/Loader";
 import { toast } from "react-toastify";
 import toastControls from "../../../utils/global/toastControls";
+
+// --- SUB-COMPONENTS ---
+
+const StatusBadge = ({ status }) => {
+    const configs = {
+        pending: { color: "text-amber-400", bg: "bg-amber-400/10", border: "border-amber-400/20", icon: "mdi:clock-outline" },
+        accepted: { color: "text-emerald-400", bg: "bg-emerald-400/10", border: "border-emerald-400/20", icon: "mdi:check-circle-outline" },
+        rejected: { color: "text-rose-400", bg: "bg-rose-400/10", border: "border-rose-400/20", icon: "mdi:close-circle-outline" }
+    };
+    const config = configs[status] || configs.pending;
+
+    return (
+        <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border ${config.border} ${config.bg} ${config.color} whitespace-nowrap`}>
+            <Icon icon={config.icon} className="text-base" />
+            <span className="text-[10px] md:text-xs font-semibold uppercase tracking-wide">{status}</span>
+        </div>
+    );
+};
+
+// ✅ FIXED: FilterTab with Interaction Overlay
+const FilterTab = ({ label, active, onClick }) => (
+    <div className="relative group">
+        <button
+            type="button"
+            className={`px-4 md:px-6 py-2 md:py-2.5 text-xs md:text-sm font-medium transition-all duration-200 rounded-full whitespace-nowrap snap-center border pointer-events-none ${
+                active 
+                    ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/25" 
+                    : "bg-transparent text-zinc-400 border-transparent group-hover:text-zinc-200 group-hover:bg-zinc-800"
+            }`}
+        >
+            {label.charAt(0).toUpperCase() + label.slice(1)}
+        </button>
+        <span onClick={onClick} className="absolute inset-0 z-10 cursor-pointer rounded-full" />
+    </div>
+);
 
 const AdminReviews = () => {
     const dispatch = useDispatch();
@@ -57,7 +92,6 @@ const AdminReviews = () => {
         }
     };
 
-    // [!code ++]
     const handleDelete = async (reviewId) => {
         if (actionLoading) return;
         if (!window.confirm("Are you sure you want to delete this review? This will also delete any attached images.")) return;
@@ -69,38 +103,6 @@ const AdminReviews = () => {
             toast.error(error || "Deletion failed", toastControls);
         }
     };
-    // [!code --]
-
-    // --- SUB-COMPONENTS ---
-
-    const StatusBadge = ({ status }) => {
-        const configs = {
-            pending: { color: "text-amber-400", bg: "bg-amber-400/10", border: "border-amber-400/20", icon: "mdi:clock-outline" },
-            accepted: { color: "text-emerald-400", bg: "bg-emerald-400/10", border: "border-emerald-400/20", icon: "mdi:check-circle-outline" },
-            rejected: { color: "text-rose-400", bg: "bg-rose-400/10", border: "border-rose-400/20", icon: "mdi:close-circle-outline" }
-        };
-        const config = configs[status] || configs.pending;
-
-        return (
-            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border ${config.border} ${config.bg} ${config.color} whitespace-nowrap`}>
-                <Icon icon={config.icon} className="text-base" />
-                <span className="text-[10px] md:text-xs font-semibold uppercase tracking-wide">{status}</span>
-            </div>
-        );
-    };
-
-    const FilterTab = ({ label, active, onClick }) => (
-        <button
-            onClick={onClick}
-            className={`relative px-4 md:px-6 py-2 md:py-2.5 text-xs md:text-sm font-medium transition-all duration-300 rounded-full whitespace-nowrap snap-center ${
-                active 
-                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/25" 
-                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
-            }`}
-        >
-            {label.charAt(0).toUpperCase() + label.slice(1)}
-        </button>
-    );
 
     return (
         <div className="admin-reviews-page p-4 md:p-8 w-full min-h-screen bg-zinc-950 text-zinc-100 font-sans overflow-x-hidden">
@@ -116,7 +118,7 @@ const AdminReviews = () => {
 
                 {/* Filter Tabs - Horizontal Scroll on Mobile */}
                 <div className="w-full lg:w-auto overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
-                    <div className="flex p-1 bg-zinc-900/80 backdrop-blur-sm rounded-full border border-zinc-800 min-w-max">
+                    <div className="flex p-1 bg-zinc-900/80 backdrop-blur-sm rounded-full border border-zinc-800 min-w-max gap-1">
                         {["all", "pending", "accepted", "rejected"].map((filter) => (
                             <FilterTab 
                                 key={filter} 
@@ -198,16 +200,17 @@ const AdminReviews = () => {
                                         <span className="relative z-10 wrap-break-words">{review.comment}</span>
                                     </div>
 
-                                    {/* Images */}
+                                    {/* Images (Clickable with Overlay Fix) */}
                                     {review.images?.length > 0 && (
                                         <div className="flex gap-2 pt-2 border-t border-zinc-800/50 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
                                             {review.images.map((img, idx) => (
                                                 <div 
                                                     key={idx} 
-                                                    className="w-14 h-14 md:w-16 md:h-16 shrink-0 rounded-lg border border-zinc-700 overflow-hidden cursor-zoom-in active:scale-95 transition-all"
-                                                    onClick={() => setSelectedImage(img.url)}
+                                                    className="w-14 h-14 md:w-16 md:h-16 shrink-0 rounded-lg border border-zinc-700 overflow-hidden cursor-zoom-in active:scale-95 transition-all relative group/img"
                                                 >
-                                                    <img src={img.url} alt="Review attachment" className="w-full h-full object-cover" />
+                                                    <img src={img.url} alt="Review attachment" className="w-full h-full object-cover pointer-events-none" />
+                                                    {/* Interaction Fix */}
+                                                    <span onClick={() => setSelectedImage(img.url)} className="absolute inset-0 z-10 cursor-pointer bg-white/0 group-hover/img:bg-white/10 transition-colors" />
                                                 </div>
                                             ))}
                                         </div>
@@ -219,55 +222,68 @@ const AdminReviews = () => {
                                     <div className="flex flex-row lg:flex-col gap-3">
                                         {review.status === "pending" && (
                                             <>
-                                                <button 
-                                                    onClick={() => handleStatusUpdate(review._id, "accepted")}
-                                                    disabled={actionLoading}
-                                                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 px-4 rounded-lg text-sm font-semibold shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 active:scale-95"
-                                                >
-                                                    <Icon icon="solar:check-circle-bold" className="text-lg" />
-                                                    <span className="lg:hidden xl:inline">Approve</span>
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleStatusUpdate(review._id, "rejected")}
-                                                    disabled={actionLoading}
-                                                    className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 hover:border-zinc-600 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 active:scale-95"
-                                                >
-                                                    <Icon icon="solar:close-circle-bold" className="text-lg" />
-                                                    <span className="lg:hidden xl:inline">Reject</span>
-                                                </button>
+                                                <div className="relative flex-1 group/btn">
+                                                    <button 
+                                                        disabled={actionLoading}
+                                                        className="w-full bg-emerald-600 text-white py-2.5 px-4 rounded-lg text-sm font-semibold shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 pointer-events-none group-hover/btn:bg-emerald-500"
+                                                    >
+                                                        <Icon icon="solar:check-circle-bold" className="text-lg" />
+                                                        <span className="lg:hidden xl:inline">Approve</span>
+                                                    </button>
+                                                    <span onClick={() => handleStatusUpdate(review._id, "accepted")} className="absolute inset-0 z-10 cursor-pointer rounded-lg" />
+                                                </div>
+
+                                                <div className="relative flex-1 group/btn">
+                                                    <button 
+                                                        disabled={actionLoading}
+                                                        className="w-full bg-zinc-800 text-zinc-300 border border-zinc-700 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 pointer-events-none group-hover/btn:bg-zinc-700 group-hover/btn:text-white group-hover/btn:border-zinc-600"
+                                                    >
+                                                        <Icon icon="solar:close-circle-bold" className="text-lg" />
+                                                        <span className="lg:hidden xl:inline">Reject</span>
+                                                    </button>
+                                                    <span onClick={() => handleStatusUpdate(review._id, "rejected")} className="absolute inset-0 z-10 cursor-pointer rounded-lg" />
+                                                </div>
                                             </>
                                         )}
                                         
                                         {review.status === "accepted" && (
-                                            <button 
-                                                onClick={() => handleStatusUpdate(review._id, "rejected")}
-                                                className="w-full py-2 px-3 rounded-lg text-rose-400 hover:text-white hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 text-sm font-medium transition-all flex items-center justify-center gap-2 group/btn"
-                                            >
-                                                <Icon icon="solar:close-circle-bold" className="text-lg group-hover/btn:scale-110 transition-transform" />
-                                                Revoke
-                                            </button>
+                                            <div className="relative w-full group/btn">
+                                                <button 
+                                                    disabled={actionLoading}
+                                                    className="w-full py-2 px-3 rounded-lg text-rose-400 border border-transparent text-sm font-medium transition-all flex items-center justify-center gap-2 pointer-events-none group-hover/btn:text-white group-hover/btn:bg-rose-500/10 group-hover/btn:border-rose-500/20"
+                                                >
+                                                    <Icon icon="solar:close-circle-bold" className="text-lg group-hover/btn:scale-110 transition-transform" />
+                                                    Revoke
+                                                </button>
+                                                <span onClick={() => handleStatusUpdate(review._id, "rejected")} className="absolute inset-0 z-10 cursor-pointer rounded-lg" />
+                                            </div>
                                         )}
 
                                         {review.status === "rejected" && (
-                                            <button 
-                                                onClick={() => handleStatusUpdate(review._id, "accepted")}
-                                                className="w-full py-2 px-3 rounded-lg text-emerald-400 hover:text-white hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/20 text-sm font-medium transition-all flex items-center justify-center gap-2 group/btn"
-                                            >
-                                                <Icon icon="solar:restart-bold" className="text-lg group-hover/btn:spin-slow transition-transform" />
-                                                Restore
-                                            </button>
+                                            <div className="relative w-full group/btn">
+                                                <button 
+                                                    disabled={actionLoading}
+                                                    className="w-full py-2 px-3 rounded-lg text-emerald-400 border border-transparent text-sm font-medium transition-all flex items-center justify-center gap-2 pointer-events-none group-hover/btn:text-white group-hover/btn:bg-emerald-500/10 group-hover/btn:border-emerald-500/20"
+                                                >
+                                                    <Icon icon="solar:restart-bold" className="text-lg group-hover/btn:spin-slow transition-transform" />
+                                                    Restore
+                                                </button>
+                                                <span onClick={() => handleStatusUpdate(review._id, "accepted")} className="absolute inset-0 z-10 cursor-pointer rounded-lg" />
+                                            </div>
                                         )}
                                     </div>
 
-                                    {/* Delete Button (Added at bottom) */}
-                                    <button 
-                                        onClick={() => handleDelete(review._id)} // [!code ++]
-                                        disabled={actionLoading}
-                                        className="w-full mt-3 py-2 px-3 rounded-lg text-red-600 hover:text-red-500 hover:bg-red-500/5 border border-transparent hover:border-red-500/20 text-sm font-medium transition-all flex items-center justify-center gap-2 group/del"
-                                    >
-                                        <Icon icon="solar:trash-bin-trash-linear" className="text-lg group-hover/del:scale-110 transition-transform" />
-                                        Delete
-                                    </button>
+                                    {/* Delete Button */}
+                                    <div className="relative w-full mt-3 group/btn">
+                                        <button 
+                                            disabled={actionLoading}
+                                            className="w-full py-2 px-3 rounded-lg text-red-600 border border-transparent text-sm font-medium transition-all flex items-center justify-center gap-2 pointer-events-none group-hover/btn:text-red-500 group-hover/btn:bg-red-500/5 group-hover/btn:border-red-500/20"
+                                        >
+                                            <Icon icon="solar:trash-bin-trash-linear" className="text-lg group-hover/btn:scale-110 transition-transform" />
+                                            Delete
+                                        </button>
+                                        <span onClick={() => handleDelete(review._id)} className="absolute inset-0 z-10 cursor-pointer rounded-lg" />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -275,44 +291,57 @@ const AdminReviews = () => {
                 </div>
             )}
 
-            {/* Pagination */}
+            {/* Pagination with Interaction Fix */}
             {pagination.pages > 1 && (
                 <div className="flex justify-center items-center gap-4 mt-8 pb-10">
-                    <button
-                        onClick={() => handlePageChange(pagination.current - 1)}
-                        disabled={pagination.current === 1}
-                        className="w-10 h-10 rounded-lg flex items-center justify-center bg-zinc-900 text-zinc-400 border border-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-zinc-800 hover:text-white transition-colors"
-                    >
-                        <Icon icon="solar:alt-arrow-left-linear" className="text-xl" />
-                    </button>
+                    <div className="relative w-10 h-10">
+                        <button
+                            disabled={pagination.current === 1}
+                            className="w-full h-full rounded-lg flex items-center justify-center bg-zinc-900 text-zinc-400 border border-zinc-800 disabled:opacity-50 transition-colors pointer-events-none"
+                        >
+                            <Icon icon="solar:alt-arrow-left-linear" className="text-xl" />
+                        </button>
+                        {pagination.current > 1 && (
+                            <span onClick={() => handlePageChange(pagination.current - 1)} className="absolute inset-0 z-10 cursor-pointer rounded-lg" />
+                        )}
+                    </div>
+
                     <div className="px-4 py-2 bg-zinc-900 rounded-lg border border-zinc-800 text-sm text-zinc-400">
                         Page <span className="text-indigo-400 font-bold">{pagination.current}</span> of {pagination.pages}
                     </div>
-                    <button
-                        onClick={() => handlePageChange(pagination.current + 1)}
-                        disabled={pagination.current === pagination.pages}
-                        className="w-10 h-10 rounded-lg flex items-center justify-center bg-zinc-900 text-zinc-400 border border-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-zinc-800 hover:text-white transition-colors"
-                    >
-                        <Icon icon="solar:alt-arrow-right-linear" className="text-xl" />
-                    </button>
+
+                    <div className="relative w-10 h-10">
+                        <button
+                            disabled={pagination.current === pagination.pages}
+                            className="w-full h-full rounded-lg flex items-center justify-center bg-zinc-900 text-zinc-400 border border-zinc-800 disabled:opacity-50 transition-colors pointer-events-none"
+                        >
+                            <Icon icon="solar:alt-arrow-right-linear" className="text-xl" />
+                        </button>
+                        {pagination.current < pagination.pages && (
+                            <span onClick={() => handlePageChange(pagination.current + 1)} className="absolute inset-0 z-10 cursor-pointer rounded-lg" />
+                        )}
+                    </div>
                 </div>
             )}
 
-            {/* Image Modal */}
+            {/* Image Modal with Interaction Fix */}
             {selectedImage && (
                 <div 
                     className="fixed inset-0 z-999 bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
-                    onClick={() => setSelectedImage(null)}
                 >
-                    <div className="relative w-full max-w-5xl flex flex-col items-center">
+                    <span onClick={() => setSelectedImage(null)} className="absolute inset-0 z-0 cursor-pointer" />
+                    <div className="relative w-full max-w-5xl flex flex-col items-center z-10 pointer-events-none">
                         <img 
                             src={selectedImage} 
                             alt="Full size" 
-                            className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                            className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl pointer-events-auto"
                         />
-                        <button className="absolute -top-12 right-0 md:top-4 md:right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full backdrop-blur-md transition-all">
-                            <Icon icon="solar:close-circle-bold" className="text-3xl" />
-                        </button>
+                        <div className="absolute -top-12 right-0 md:top-4 md:right-4 pointer-events-auto">
+                            <div className="relative p-2 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all">
+                                <Icon icon="solar:close-circle-bold" className="text-3xl text-white/70 hover:text-white pointer-events-none" />
+                                <span onClick={() => setSelectedImage(null)} className="absolute inset-0 z-10 cursor-pointer rounded-full" />
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

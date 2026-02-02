@@ -344,14 +344,12 @@ const CheckoutPage = () => {
           ).unwrap();
 
           toast.success('Payment successful! Order confirmed.', toastControls);
+          // ✅ REDIRECT HERE: Only on successful verification
           navigate(`/orders/${verifyResult.order.orderId}`);
         } catch (error) {
           console.error('❌ Payment verification failed:', error);
           toast.error(error || 'Payment verification failed', toastControls);
-
-          setTimeout(() => {
-            navigate(`/orders/${orderData.orderId}?payment=failed`);
-          }, 2000);
+          // Stay on page on error (or redirect to error page if you prefer)
         }
       },
 
@@ -374,11 +372,11 @@ const CheckoutPage = () => {
       modal: {
         ondismiss: function () {
           console.log('⚠️ Payment modal dismissed');
+          // 🛑 NO REDIRECT HERE. User stays on checkout page.
           toast.warning(
-            'Payment cancelled. You can retry from order details.',
+            'Payment cancelled. You can retry placing the order.',
             toastControls
           );
-          navigate(`/orders/${orderData.orderId}?payment=cancelled`);
         },
       },
     };
@@ -392,9 +390,7 @@ const CheckoutPage = () => {
           'Payment failed: ' + (response.error.description || 'Unknown error'),
           toastControls
         );
-        setTimeout(() => {
-          navigate(`/orders/${orderData.orderId}?payment=failed`);
-        }, 2000);
+        // 🛑 NO REDIRECT HERE. User stays on checkout page.
       });
 
       razorpay.open();
@@ -462,6 +458,7 @@ const CheckoutPage = () => {
 
     try {
       const result = await dispatch(createOrder(orderData)).unwrap();
+      // Handle the payment (Open modal)
       handleRazorpayPayment(result.razorpay, result.order);
     } catch (error) {
       toast.error(error || 'Failed to create order', toastControls);
@@ -1063,7 +1060,7 @@ const CheckoutPage = () => {
                   <span className="ml-2 text-xs text-zinc-400">
                     I agree to the{' '}
                     <a
-                      href="/terms"
+                      href="/policies/terms-of-service"
                       target="_blank"
                       className="text-blue-500 hover:underline"
                     >

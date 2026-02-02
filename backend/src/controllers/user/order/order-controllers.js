@@ -244,7 +244,7 @@ export const createOrder = async (req, res) => {
     // Calculate Subtotal After Coupon
     const subtotalAfterCoupon = Math.round(productsSubtotal - couponDiscount);
 
-    // Set COD Fee to 49 (was 50)
+    // Set COD Fee to 49
     const codFee = paymentMethod === "COD" ? 49 : 0;
 
     // --- GST LOGIC START ---
@@ -376,7 +376,7 @@ export const createOrder = async (req, res) => {
     // Generate Order Number & Save Address
     const orderNumber = await generateUniqueOrderNumber(session);
 
-    // [!code ++] Start of User Name Update Logic
+    // Update User Name Logic
     if (userId) {
       try {
         const user = await User.findById(userId).session(session);
@@ -399,7 +399,6 @@ export const createOrder = async (req, res) => {
         // Don't abort transaction for this non-critical error
       }
     }
-    // [!code ++] End of User Name Update Logic
 
     if (userId && shippingAddress) {
       try {
@@ -481,38 +480,6 @@ export const createOrder = async (req, res) => {
       ],
       { session }
     );
-
-    // Atomic Inventory Update
-    for (const item of cart.items) {
-      if (item.isFreeGift) continue;
-
-      const updatedProduct = await Product.findOneAndUpdate(
-        {
-          _id: item.product._id,
-          sizes: {
-            $elemMatch: {
-              value: item.size.value,
-              stock: { $gte: item.quantity }, // Guard
-            },
-          },
-        },
-        {
-          $inc: {
-            "sizes.$.stock": -item.quantity,
-            "sizes.$.salesCount": item.quantity,
-            totalStock: -item.quantity,
-            totalSales: item.quantity,
-          },
-        },
-        { session, new: true }
-      );
-
-      if (!updatedProduct) {
-        throw new Error(
-          `Insufficient stock for ${item.name} (Size: ${item.size.label})`
-        );
-      }
-    }
 
     await session.commitTransaction();
 
@@ -603,7 +570,6 @@ export const handleRazorpayWebhook = async (req, res) => {
       }
 
       // Security Check:
-      // Compare against 'amountPaidOnline' (which now includes totalGST from createOrder)
       const expectedAmountPaise = Math.round(
         order.payment.amountPaidOnline * 100
       );
@@ -622,6 +588,33 @@ export const handleRazorpayWebhook = async (req, res) => {
         razorpayPaymentId,
         razorpaySignature: "webhook_verified_signature",
       });
+
+      // [!code ++] DEDUCT STOCK HERE (Fallback Mechanism)
+      // This ensures stock is deducted if the frontend verifyPayment call failed or wasn't made.
+      // Product.findOneAndUpdate is atomic, so race conditions with verifyPayment are minimized.
+      for (const item of order.items) {
+        await Product.findOneAndUpdate(
+          {
+            _id: item.product,
+            sizes: {
+              $elemMatch: {
+                value: item.size.value,
+                stock: { $gte: item.quantity }
+                // Optional: You can add 'stock: { $gte: item.quantity }' check here if strict.
+                // However, since payment is already captured, we usually force deduction even if negative to reflect overselling for manual fix.
+              },
+            },
+          },
+          {
+            $inc: {
+              "sizes.$.stock": -item.quantity,
+              "sizes.$.salesCount": item.quantity,
+              totalStock: -item.quantity,
+              totalSales: item.quantity,
+            },
+          }
+        );
+      }
 
       // Increment Coupon Usage
       if (order.coupon && order.coupon.code) {
@@ -756,6 +749,31 @@ export const verifyPayment = async (req, res) => {
     // Complete Payment
     await order.completePayment({ razorpayPaymentId, razorpaySignature });
 
+    // [MODIFICATION]: Deduct Stock Here (Primary)
+    // Only happens when payment is successfully verified
+    for (const item of order.items) {
+      await Product.findOneAndUpdate(
+        {
+          _id: item.product,
+          sizes: {
+            $elemMatch: {
+              value: item.size.value,
+              // Optional: 'stock: { $gte: item.quantity }' if you want strict checking.
+              // Usually we force deduction here since payment is already captured.
+            },
+          },
+        },
+        {
+          $inc: {
+            "sizes.$.stock": -item.quantity,
+            "sizes.$.salesCount": item.quantity,
+            totalStock: -item.quantity,
+            totalSales: item.quantity,
+          },
+        }
+      );
+    }
+
     // Increment Coupon Usage
     if (order.coupon && order.coupon.code) {
       const coupon = await Coupon.findOne({ code: order.coupon.code });
@@ -807,18 +825,30 @@ export const getOrders = async (req, res) => {
       });
     }
 
-    const orders = await Order.getOrders(
-      { userId, deviceId },
-      { page: parseInt(page), limit: parseInt(limit), status }
-    );
-
     const query = {};
     if (userId) {
       query.user = userId;
     } else {
       query.deviceId = deviceId;
     }
-    if (status) query.orderStatus = status;
+
+    // [MODIFICATION]: Smart Filter for "Ghost Orders".
+    // We want to hide ONLINE orders that are abandoned (payment pending).
+    // Logic: Show order IF Payment Status is NOT pending.
+    query.$or = [
+      { "payment.status": { $ne: "pending" } }
+    ];
+
+    // If a specific status is requested (e.g. "delivered"), add it to the query
+    if (status) {
+        query.orderStatus = status;
+    }
+
+    // [NOTE]: Removed .lean() to allow virtuals (e.g. canBeReturned) to work
+    const orders = await Order.find(query)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
 
     const totalOrders = await Order.countDocuments(query);
 
@@ -862,7 +892,8 @@ export const getOrderById = async (req, res) => {
       });
     }
 
-    const order = await Order.findOne(query).lean();
+    // [MODIFIED] Removed .lean() so virtuals work correctly
+    const order = await Order.findOne(query);
 
     if (!order) {
       return res.status(404).json({
@@ -998,11 +1029,12 @@ export const trackGuestOrder = async (req, res) => {
       });
     }
 
+    // [MODIFIED] Removed .lean()
     const order = await Order.findOne({
       orderNumber: orderNumber.toUpperCase().trim(),
       "guestInfo.email": email.toLowerCase().trim(),
       user: null,
-    }).lean();
+    });
 
     if (!order) {
       return res.status(404).json({
@@ -1029,6 +1061,10 @@ export const trackGuestOrder = async (req, res) => {
         statusTimestamps: order.statusTimestamps,
         canBeCancelled: order.canBeCancelled,
         cancellation: order.cancellation,
+        // Include virtuals implicitly if backend supports toJSON({virtuals:true})
+        // OR explicitly return fields if needed
+        returnInfo: order.returnInfo,
+        canBeReturned: order.canBeReturned, // Explicitly return virtual if needed
       },
     });
   } catch (error) {
@@ -1371,5 +1407,79 @@ export const downloadInvoice = async (req, res) => {
       message: "Failed to download invoice",
       error: error.message,
     });
+  }
+};
+
+// ==================== NEW: REQUEST RETURN ====================
+export const requestReturn = async (req, res) => {
+  try {
+    const userId = req.user;
+    const deviceId = req.cookies.device_id;
+    const { orderId } = req.params;
+    const { reason, type, bankDetails } = req.body; // type: 'refund' or 'exchange'
+
+    if (!reason || reason.trim().length < 5) {
+      return res.status(400).json({ message: "A valid reason is required" });
+    }
+
+    const query = { _id: orderId };
+    if (userId) query.user = userId;
+    else query.deviceId = deviceId;
+
+    const order = await Order.findOne(query);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    // 1. Eligibility Check (Delivered Only)
+    if (order.orderStatus !== "delivered") {
+      return res.status(400).json({ message: "Order must be delivered to request a return" });
+    }
+
+    // 2. Active Return Check
+    if (order.returnInfo && order.returnInfo.isReturnActive) {
+      return res.status(400).json({ message: "A return request is already active for this order" });
+    }
+
+    // 3. Time Window Check (7 Days) - Optional Double Check
+    const deliveryDate = order.statusTimestamps.delivered;
+    if (deliveryDate) {
+      const daysDiff = (Date.now() - new Date(deliveryDate).getTime()) / (1000 * 60 * 60 * 24);
+      if (daysDiff > 7) return res.status(400).json({ message: "Return period has expired" });
+    }
+
+    // Format Reason with Bank Details if provided
+    let finalReason = reason;
+    if (bankDetails) {
+        finalReason += `\n\n[Bank Details for Refund]\nHolder: ${bankDetails.accountHolderName}\nAcc: ${bankDetails.accountNumber}\nIFSC: ${bankDetails.ifscCode}\nBank: ${bankDetails.bankName}`;
+    }
+
+    // Update Return Info
+    order.returnInfo = {
+      isReturnActive: true,
+      type: type || 'refund',
+      status: 'requested',
+      reason: finalReason,
+      timeline: [
+        {
+          status: 'Return Requested',
+          date: new Date(),
+          note: type === 'exchange' ? 'Exchange requested by user' : 'Refund requested by user'
+        }
+      ]
+    };
+
+    // If exchange, you might optionally set orderStatus to 'returned' right away OR wait for admin approval. 
+    // For now, let's keep orderStatus as 'delivered' until Admin approves.
+
+    await order.save();
+
+    return res.status(200).json({ 
+      success: true, 
+      message: "Return requested successfully", 
+      order 
+    });
+
+  } catch (error) {
+    console.error("Return Request Error:", error);
+    return res.status(500).json({ message: "Failed to submit return request" });
   }
 };

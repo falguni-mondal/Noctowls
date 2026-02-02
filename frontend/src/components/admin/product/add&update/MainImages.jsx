@@ -26,7 +26,7 @@ const MainImages = ({
 
       <ErrorDisplay errors={errors.images} />
 
-      <div className="prod-images-container grid grid-cols-4 gap-2 mt-4">
+      <div className="prod-images-container grid grid-cols-4 lg:grid-cols-6 gap-2 mt-4">
         {mainImageArray.map((num, index) => (
           <div key={`add-prod-img-${num}`} className="relative">
             <input
@@ -65,7 +65,7 @@ const MainImages = ({
               ) : (
                 <div className="flex flex-col items-center">
                   <Icon icon="material-symbols-light:add-photo-alternate-outline-rounded" />
-                  <span className="text-xs mt-1">{index + 1}</span>
+                  <span className="text-xs lg:text-base mt-1">{index + 1}</span>
                 </div>
               )}
             </label>

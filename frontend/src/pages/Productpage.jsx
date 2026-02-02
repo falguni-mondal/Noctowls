@@ -42,7 +42,7 @@ const Productpage = () => {
     const [quantity, setQuantity] = useState(1);
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
     const [isSortOpen, setIsSortOpen] = useState(false);
-    
+
     const [sortBy, setSortBy] = useState("Featured");
 
     const dispatch = useDispatch();
@@ -52,12 +52,12 @@ const Productpage = () => {
     const { product, productLoading, productError, stockValidation } = useSelector(state => state.products);
     const cartActionLoading = useSelector(selectActionLoading);
     const cart = useSelector(selectCart);
-    
+
     // Reviews State
     const reviews = useSelector(selectProductReviews);
     const fetchLoading = useSelector(state => state.reviews.fetchLoading);
     const reviewStats = useSelector(state => state.reviews.stats);
-    
+
     const reviewEligibility = useSelector(selectReviewEligibility);
     const { existingReview, hasReviewed } = reviewEligibility;
 
@@ -76,7 +76,7 @@ const Productpage = () => {
         const dist = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
         // Use stats from backend if available for accurate total distribution
         if (reviewStats) return reviewStats.distribution;
-        
+
         // Fallback for visual display if stats not yet loaded
         if (!reviews) return dist;
         reviews.forEach(r => {
@@ -87,7 +87,7 @@ const Productpage = () => {
     };
 
     const distribution = calculateDistribution(reviews);
-    
+
     const publicReviews = useMemo(() => {
         return reviews ? reviews.filter(r => r._id !== existingReview?._id) : [];
     }, [reviews, existingReview]);
@@ -372,7 +372,7 @@ const Productpage = () => {
             <div className="product-review-container bg-black w-full py-12 border-t border-zinc-900 mt-4 relative">
                 <div className="max-w-[1440px] mx-auto px-4 md:px-8">
                     <h2 id="reviews-title" className="uppercase font-bold text-xl md:text-3xl text-white mb-8">Customer Reviews</h2>
-                    
+
                     {/* Review Distribution Header */}
                     <div className="flex flex-col items-center md:flex-row md:items-start gap-10 mb-10 pb-10 border-b border-zinc-800 flex-wrap">
                         <div className="flex flex-col items-center justify-center min-w-[120px]">
@@ -396,12 +396,11 @@ const Productpage = () => {
                             ))}
                         </div>
                         <div className="md:ml-auto flex gap-2 h-fit relative">
-                            {reviewEligibility.canReview && (
-                                <button onClick={() => setIsReviewModalOpen(true)} className="px-14 sm:px-20 md:px-6 py-2 bg-red-600 text-white text-sm font-bold uppercase tracking-wide rounded-xs hover:bg-red-700 transition-colors">
-                                    {reviewEligibility.hasReviewed ? "Edit Review" : "Write a review"}
-                                </button>
-                            )}
-                            
+
+                            <button onClick={() => setIsReviewModalOpen(true)} className={`px-14 sm:px-20 md:px-6 py-2 ${reviewEligibility.canReview ? "bg-red-600" : "bg-zinc-600"} text-white text-sm font-bold uppercase tracking-wide rounded-xs hover:bg-red-700 transition-colors`} disabled={!reviewEligibility.canReview}>
+                                {reviewEligibility.hasReviewed ? "Edit Review" : "Write a review"}
+                            </button>
+
                             {/* Sorting Filter */}
                             <div className="relative pr-4 lg:pr-0" ref={sortRef}>
                                 <button onClick={() => setIsSortOpen(!isSortOpen)} className="h-full aspect-square bg-red-600 text-white flex items-center justify-center rounded-xs hover:bg-red-700 transition-colors">
@@ -411,9 +410,9 @@ const Productpage = () => {
                                     <div className="absolute top-full right-0 mt-2 w-48 bg-white text-black rounded shadow-xl z-50 py-2 animate-in fade-in zoom-in-95 duration-200">
                                         <div className="px-4 py-2 text-xs font-bold text-zinc-500 uppercase tracking-wide">Sort by</div>
                                         {["Featured", "Photo priority", "Newest", "Highest Ratings", "Lowest Ratings"].map(opt => (
-                                            <div 
-                                                key={opt} 
-                                                onClick={() => handleSortChange(opt)} 
+                                            <div
+                                                key={opt}
+                                                onClick={() => handleSortChange(opt)}
                                                 className={`px-4 py-2 hover:bg-zinc-100 cursor-pointer text-sm font-medium flex justify-between items-center ${sortBy === opt ? "text-red-600 font-bold" : ""}`}
                                             >
                                                 {opt}
@@ -434,7 +433,7 @@ const Productpage = () => {
                                 {publicReviews.map((review) => <ReviewCard key={review._id} review={review} />)}
                             </>
                         ) : <NoReview />}
-                        
+
                         {fetchLoading && (
                             <div className="py-4 text-center">
                                 <Icon icon="eos-icons:loading" className="text-3xl text-red-600 inline-block" />
@@ -445,11 +444,11 @@ const Productpage = () => {
                     {/* SEE ALL REVIEWS BUTTON */}
                     {(rating?.count > 5 || (reviewStats && reviewStats.totalReviews > 5)) && (
                         <div className="flex justify-center pb-10">
-                            <Link 
+                            <Link
                                 to={`/products/${productId}/reviews`}
                                 className="bg-zinc-900 border border-zinc-700 text-white px-10 py-3 rounded-full uppercase text-xs font-bold tracking-widest hover:bg-zinc-800 hover:border-red-600 transition-all flex items-center gap-2 group"
                             >
-                                See All Reviews 
+                                See All Reviews
                                 <Icon icon="solar:arrow-right-linear" className="text-lg group-hover:translate-x-1 transition-transform" />
                             </Link>
                         </div>

@@ -1,21 +1,26 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import adminApi from "../../../configs/adminAxiosConfig"; 
+import adminApi from "../../../configs/adminAxiosConfig";
 
 // ==================== ASYNC THUNKS ====================
 
-// 1. Get All Orders (Pagination + Filter + Search + Date Range)
+// 1. Get All Orders (Pagination + Filter + Search + Date Range + ReturnStatus)
 export const getAllAdminOrders = createAsyncThunk(
   "adminOrder/getAll",
-  async ({ page = 1, limit = 10, status = "", search = "", startDate = "", endDate = "" }, { rejectWithValue }) => {
+  async (
+    { page = 1, limit = 10, status = "", returnStatus = "", search = "", startDate = "", endDate = "" },
+    { rejectWithValue }
+  ) => {
     try {
       // Build query string
       const params = new URLSearchParams();
       params.append("page", page);
       params.append("limit", limit);
-      
+
       if (status) params.append("status", status);
+      // [!code ++] Add returnStatus to query params
+      if (returnStatus) params.append("returnStatus", returnStatus);
       if (search) params.append("search", search);
-      
+
       // Date Range Params
       if (startDate) params.append("startDate", startDate);
       if (endDate) params.append("endDate", endDate);
@@ -52,7 +57,7 @@ export const updateAdminOrderStatus = createAsyncThunk(
     try {
       const response = await adminApi.put(`/orders/${orderId}`, {
         status,
-        trackingId, 
+        trackingId,
       });
       return response.data;
     } catch (error) {
@@ -63,13 +68,31 @@ export const updateAdminOrderStatus = createAsyncThunk(
   }
 );
 
-// 4. Delete Order (Only cancelled)
+
+export const processReturnRequest = createAsyncThunk(
+  "adminOrder/processReturn",
+  async ({ orderId, status, note }, { rejectWithValue }) => {
+    try {
+      const response = await adminApi.put(`/orders/${orderId}/return`, {
+        status, // 'approved', 'rejected', 'completed'
+        note
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to process return request"
+      );
+    }
+  }
+);
+
+// 5. Delete Order (Only cancelled)
 export const deleteAdminOrder = createAsyncThunk(
   "adminOrder/delete",
   async (orderId, { rejectWithValue }) => {
     try {
       const response = await adminApi.delete(`/orders/${orderId}`);
-      return { ...response.data, orderId }; 
+      return { ...response.data, orderId };
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to delete order"
@@ -78,7 +101,7 @@ export const deleteAdminOrder = createAsyncThunk(
   }
 );
 
-// 5. Get Order Statistics
+// 6. Get Order Statistics
 export const getAdminOrderStats = createAsyncThunk(
   "adminOrder/getStats",
   async (_, { rejectWithValue }) => {
@@ -112,10 +135,10 @@ const initialState = {
   stats: null,
 
   // Loading States
-  loading: false, 
-  detailsLoading: false, 
-  actionLoading: false, 
-  statsLoading: false, 
+  loading: false,
+  detailsLoading: false,
+  actionLoading: false,
+  statsLoading: false,
 
   // Feedback
   error: null,
@@ -195,6 +218,35 @@ const adminOrderSlice = createSlice({
         }
       })
       .addCase(updateAdminOrderStatus.rejected, (state, action) => {
+        state.actionLoading = false;
+        state.error = action.payload;
+      });
+
+    // --- [!code ++] PROCESS RETURN REQUEST ---
+    builder
+      .addCase(processReturnRequest.pending, (state) => {
+        state.actionLoading = true;
+        state.error = null;
+        state.successMessage = null;
+      })
+      .addCase(processReturnRequest.fulfilled, (state, action) => {
+        state.actionLoading = false;
+        state.successMessage = action.payload.message;
+
+        // Update in list
+        const index = state.orders.findIndex(
+          (o) => o._id === action.payload.order._id
+        );
+        if (index !== -1) {
+          state.orders[index] = action.payload.order;
+        }
+
+        // Update in details view
+        if (state.currentOrder?._id === action.payload.order._id) {
+          state.currentOrder = action.payload.order;
+        }
+      })
+      .addCase(processReturnRequest.rejected, (state, action) => {
         state.actionLoading = false;
         state.error = action.payload;
       });

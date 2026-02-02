@@ -14,6 +14,57 @@ import {
 import { toast } from "react-toastify";
 import toastControls from "../../../../utils/global/toastControls";
 
+// --- SUB-COMPONENTS (With Interaction Fix) ---
+
+const StatCard = ({ icon, label, value, colorClass }) => (
+    <div className="bg-zinc-900 border border-zinc-800 p-2 rounded-xl flex items-center gap-4">
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${colorClass} shrink-0`}>
+            <Icon icon={icon} />
+        </div>
+        <div>
+            <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold">{label}</p>
+            <p className="font-bold text-white mt-0.5">{value}</p>
+        </div>
+    </div>
+);
+
+const TabButton = ({ id, label, icon, count, activeTab, setActiveTab }) => (
+    <div className="relative shrink-0">
+        <button
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all relative pointer-events-none ${
+                activeTab === id 
+                ? "text-white" 
+                : "text-zinc-500"
+            }`}
+        >
+            <Icon icon={icon} className="text-lg" />
+            {label}
+            {count > 0 && (
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === id ? 'bg-indigo-500/20 text-indigo-300' : 'bg-zinc-800 text-zinc-400'}`}>
+                    {count}
+                </span>
+            )}
+            {activeTab === id && (
+                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 rounded-t-full"></div>
+            )}
+        </button>
+        {/* Interaction Fix */}
+        <span 
+            onClick={() => setActiveTab(id)} 
+            className="absolute inset-0 z-10 cursor-pointer" 
+        />
+    </div>
+);
+
+const EmptyState = ({ icon, message }) => (
+    <div className="flex flex-col items-center justify-center h-64 text-zinc-500">
+        <div className="w-16 h-16 rounded-full bg-zinc-900 flex items-center justify-center mb-3">
+            <Icon icon={icon} className="text-3xl opacity-50" />
+        </div>
+        <p className="text-sm">{message}</p>
+    </div>
+);
+
 const AdminUserDetails = () => {
     const { userId } = useParams();
     const dispatch = useDispatch();
@@ -33,6 +84,7 @@ const AdminUserDetails = () => {
     }, [dispatch, userId]);
 
     const copyToClipboard = (text, label) => {
+        if (!text) return;
         navigator.clipboard.writeText(text);
         toast.success(`${label} copied!`, { ...toastControls, autoClose: 1000 });
     };
@@ -52,42 +104,6 @@ const AdminUserDetails = () => {
 
     const { profile, stats, orders, cart, wishlist, addresses } = userData;
 
-    // --- SUB-COMPONENTS ---
-
-    const StatCard = ({ icon, label, value, colorClass }) => (
-        <div className="bg-zinc-900 border border-zinc-800 p-2 rounded-xl flex items-center gap-4">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${colorClass} shrink-0`}>
-                <Icon icon={icon} />
-            </div>
-            <div>
-                <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold">{label}</p>
-                <p className="font-bold text-white mt-0.5">{value}</p>
-            </div>
-        </div>
-    );
-
-    const TabButton = ({ id, label, icon, count }) => (
-        <button
-            onClick={() => setActiveTab(id)}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all relative ${
-                activeTab === id 
-                ? "text-white" 
-                : "text-zinc-500 hover:text-zinc-300"
-            }`}
-        >
-            <Icon icon={icon} className="text-lg" />
-            {label}
-            {count > 0 && (
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === id ? 'bg-indigo-500/20 text-indigo-300' : 'bg-zinc-800 text-zinc-400'}`}>
-                    {count}
-                </span>
-            )}
-            {activeTab === id && (
-                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 rounded-t-full"></div>
-            )}
-        </button>
-    );
-
     const getStatusColor = (status) => {
         switch (status) {
             case 'delivered': return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
@@ -102,23 +118,27 @@ const AdminUserDetails = () => {
             {/* --- HEADER NAVIGATION --- */}
             <div className="bg-zinc-900 border-b border-zinc-800 sticky top-0 z-30 px-4 md:px-8 py-4 flex items-center justify-between shadow-sm">
                 <div className="flex items-center gap-4">
-                    <button 
-                        onClick={() => navigate("/admin/users")}
-                        className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
-                    >
-                        <Icon icon="solar:arrow-left-linear" className="text-xl" />
-                    </button>
+                    <div className="relative w-8 h-8">
+                        <button className="w-full h-full flex items-center justify-center rounded-full bg-zinc-800 text-zinc-400 pointer-events-none">
+                            <Icon icon="solar:arrow-left-linear" className="text-xl" />
+                        </button>
+                        {/* Interaction Fix */}
+                        <span onClick={() => navigate("/admin/users")} className="absolute inset-0 z-10 cursor-pointer rounded-full" />
+                    </div>
                     <h1 className="text-lg font-semibold text-zinc-200">User Profile</h1>
                 </div>
                 {profile.role !== 'admin' && (
-                    <button 
-                        onClick={handleDeleteUser}
-                        disabled={actionLoading}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-sm hover:bg-red-500/20 transition-colors font-medium"
-                    >
-                        <Icon icon="solar:trash-bin-trash-bold" />
-                        <span className="hidden sm:inline">Delete User</span>
-                    </button>
+                    <div className="relative">
+                        <button 
+                            disabled={actionLoading}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-sm transition-colors font-medium pointer-events-none"
+                        >
+                            <Icon icon="solar:trash-bin-trash-bold" />
+                            <span className="hidden sm:inline">Delete User</span>
+                        </button>
+                        {/* Interaction Fix */}
+                        <span onClick={handleDeleteUser} className="absolute inset-0 z-10 cursor-pointer" />
+                    </div>
                 )}
             </div>
 
@@ -147,6 +167,7 @@ const AdminUserDetails = () => {
                         </div>
 
                         <div className="w-full space-y-4">
+                            {/* Email Row */}
                             <div className="flex items-center justify-between p-3 bg-zinc-950/50 rounded-xl border border-zinc-800/50 group">
                                 <div className="flex items-center gap-3 overflow-hidden">
                                     <div className="w-8 h-8 rounded-lg bg-zinc-900 flex items-center justify-center text-zinc-500 shrink-0">
@@ -157,11 +178,16 @@ const AdminUserDetails = () => {
                                         <span className="text-sm text-zinc-300 truncate w-full" title={profile.email}>{profile.email}</span>
                                     </div>
                                 </div>
-                                <button onClick={() => copyToClipboard(profile.email, "Email")} className="text-zinc-600 hover:text-indigo-400 transition-colors p-1.5">
-                                    <Icon icon="solar:copy-bold-duotone" />
-                                </button>
+                                <div className="relative w-8 h-8">
+                                    <button className="w-full h-full flex items-center justify-center text-zinc-600 hover:text-indigo-400 pointer-events-none">
+                                        <Icon icon="solar:copy-bold-duotone" />
+                                    </button>
+                                    {/* Interaction Fix */}
+                                    <span onClick={() => copyToClipboard(profile.email, "Email")} className="absolute inset-0 z-10 cursor-pointer" />
+                                </div>
                             </div>
 
+                            {/* Phone Row */}
                             <div className="flex items-center justify-between p-3 bg-zinc-950/50 rounded-xl border border-zinc-800/50 group">
                                 <div className="flex items-center gap-3 overflow-hidden">
                                     <div className="w-8 h-8 rounded-lg bg-zinc-900 flex items-center justify-center text-zinc-500 shrink-0">
@@ -173,12 +199,17 @@ const AdminUserDetails = () => {
                                     </div>
                                 </div>
                                 {profile.phone && (
-                                    <button onClick={() => copyToClipboard(profile.phone, "Phone")} className="text-zinc-600 hover:text-indigo-400 transition-colors p-1.5">
-                                        <Icon icon="solar:copy-bold-duotone" />
-                                    </button>
+                                    <div className="relative w-8 h-8">
+                                        <button className="w-full h-full flex items-center justify-center text-zinc-600 hover:text-indigo-400 pointer-events-none">
+                                            <Icon icon="solar:copy-bold-duotone" />
+                                        </button>
+                                        {/* Interaction Fix */}
+                                        <span onClick={() => copyToClipboard(profile.phone, "Phone")} className="absolute inset-0 z-10 cursor-pointer" />
+                                    </div>
                                 )}
                             </div>
 
+                            {/* Joined Row (Non-interactive) */}
                             <div className="flex items-center justify-between p-3 bg-zinc-950/50 rounded-xl border border-zinc-800/50 group">
                                 <div className="flex items-center gap-3 overflow-hidden">
                                     <div className="w-8 h-8 rounded-lg bg-zinc-900 flex items-center justify-center text-zinc-500 shrink-0">
@@ -215,10 +246,10 @@ const AdminUserDetails = () => {
                     
                     {/* Tabs */}
                     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-1 flex overflow-x-auto scrollbar-hide">
-                        <TabButton id="orders" label="Orders" icon="solar:box-minimalistic-bold" count={stats.ordersCount} />
-                        <TabButton id="cart" label="Cart" icon="solar:cart-large-bold" count={cart?.length || 0} />
-                        <TabButton id="wishlist" label="Wishlist" icon="solar:heart-bold" count={wishlist?.length || 0} />
-                        <TabButton id="addresses" label="Addresses" icon="solar:map-point-bold" count={addresses?.length || 0} />
+                        <TabButton id="orders" label="Orders" icon="solar:box-minimalistic-bold" count={stats.ordersCount} activeTab={activeTab} setActiveTab={setActiveTab} />
+                        <TabButton id="cart" label="Cart" icon="solar:cart-large-bold" count={cart?.length || 0} activeTab={activeTab} setActiveTab={setActiveTab} />
+                        <TabButton id="wishlist" label="Wishlist" icon="solar:heart-bold" count={wishlist?.length || 0} activeTab={activeTab} setActiveTab={setActiveTab} />
+                        <TabButton id="addresses" label="Addresses" icon="solar:map-point-bold" count={addresses?.length || 0} activeTab={activeTab} setActiveTab={setActiveTab} />
                     </div>
 
                     {/* Tab Content */}
@@ -253,9 +284,13 @@ const AdminUserDetails = () => {
                                                             </span>
                                                         </td>
                                                         <td className="p-4 pr-6 text-right">
-                                                            <Link to={`/admin/orders/${order._id}`} className="text-indigo-400 hover:text-white transition-colors flex items-center justify-end gap-1">
-                                                                View <Icon icon="solar:arrow-right-linear" />
-                                                            </Link>
+                                                            <div className="relative inline-flex">
+                                                                <span className="text-indigo-400 group-hover:text-white transition-colors flex items-center justify-end gap-1 pointer-events-none">
+                                                                    View <Icon icon="solar:arrow-right-linear" />
+                                                                </span>
+                                                                {/* Interaction Fix */}
+                                                                <Link to={`/admin/orders/${order._id}`} className="absolute inset-0 z-10 cursor-pointer" />
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -359,15 +394,5 @@ const AdminUserDetails = () => {
         </div>
     );
 };
-
-// Helper Component for Empty States
-const EmptyState = ({ icon, message }) => (
-    <div className="flex flex-col items-center justify-center h-64 text-zinc-500">
-        <div className="w-16 h-16 rounded-full bg-zinc-900 flex items-center justify-center mb-3">
-            <Icon icon={icon} className="text-3xl opacity-50" />
-        </div>
-        <p className="text-sm">{message}</p>
-    </div>
-);
 
 export default AdminUserDetails;

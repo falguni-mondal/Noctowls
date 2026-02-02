@@ -11,6 +11,7 @@ import {
   getOrderSummary,
   downloadInvoice,
   handleRazorpayWebhook,
+  requestReturn,
 } from "../../../controllers/user/order/order-controllers.js";
 import {
   validateCreateOrder,
@@ -62,6 +63,9 @@ router.get("/:orderId", validateOrderId, getOrderById);
 
 // Cancel order
 router.post("/:orderId/cancel", validateCancelOrder, cancelOrder);
+
+// Request Return
+router.post("/:orderId/return", validateOrderId, requestReturn);
 
 // Download invoice
 router.get("/:orderId/invoice", validateOrderId, downloadInvoice);

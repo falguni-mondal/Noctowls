@@ -354,6 +354,56 @@ const invoiceSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// ---------- NEW: Return Timeline Schema (Simple) ----------
+const returnTimelineSchema = new mongoose.Schema(
+  {
+    status: { type: String, required: true }, // e.g. "Return Requested"
+    date: { type: Date, default: Date.now },
+    note: { type: String, default: "" }, // Optional details
+  },
+  { _id: false }
+);
+
+// ---------- NEW: Return Request Schema (Simple) ----------
+const returnSchema = new mongoose.Schema(
+  {
+    isReturnActive: {
+      type: Boolean,
+      default: false,
+    },
+    type: {
+      type: String,
+      enum: ["refund", "exchange"],
+      default: null,
+    },
+    status: {
+      type: String,
+      enum: [
+        "none",
+        "requested", // User requested
+        "approved",  // Admin approved
+        "rejected",  // Admin rejected
+        "completed", // Money refunded or exchange item sent
+      ],
+      default: "none",
+    },
+    reason: {
+      type: String,
+      default: "",
+    },
+    adminNote: {
+      type: String,
+      default: "",
+    },
+    // The timeline array for frontend tracking
+    timeline: {
+      type: [returnTimelineSchema],
+      default: [],
+    },
+  },
+  { _id: false }
+);
+
 // ---------- Main Order Schema ----------
 const orderSchema = new mongoose.Schema(
   {
@@ -520,6 +570,11 @@ const orderSchema = new mongoose.Schema(
     },
     cancellation: {
       type: cancellationSchema,
+      default: () => ({}),
+    },
+    // ---------- NEW FIELD: Return Info (Simple) ----------
+    returnInfo: {
+      type: returnSchema,
       default: () => ({}),
     },
     invoice: {
@@ -1137,9 +1192,15 @@ orderSchema.virtual("canBeCancelled").get(function () {
   return this.canBeCancelledByUser();
 });
 
+// ---------- MODIFIED: canBeReturned Virtual ----------
 orderSchema.virtual("canBeReturned").get(function () {
+  // 1. Must be delivered
   if (this.orderStatus !== "delivered") return false;
 
+  // 2. Must not have an active or completed return
+  if (this.returnInfo && this.returnInfo.status !== "none") return false;
+
+  // 3. Must be within 7 days
   const deliveryDate = this.statusTimestamps.delivered;
   if (!deliveryDate) return false;
 

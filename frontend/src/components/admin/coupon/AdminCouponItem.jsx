@@ -153,7 +153,7 @@ const AdminCouponItem = ({ coupon, status }) => {
 
   const usageLimitInfo = getUsageLimitDisplay();
 
-  // ✅ NEW: Get user/guest usage breakdown
+  // Get user/guest usage breakdown
   const getUsageBreakdown = () => {
     if (!coupon.userUsageHistory || coupon.userUsageHistory.length === 0) {
       return null;
@@ -194,8 +194,9 @@ const AdminCouponItem = ({ coupon, status }) => {
 
   const expiryWarning = getDaysUntilExpiry();
 
-  // ✅ UPDATED: Close menu on error too
+  // Close menu on error too
   const handleToggleStatus = async () => {
+    if (actionLoading) return;
     try {
       await dispatch(toggleCouponStatus(coupon._id)).unwrap();
       toast.success(
@@ -205,11 +206,12 @@ const AdminCouponItem = ({ coupon, status }) => {
       setShowActions(false);
     } catch (error) {
       toast.error(error.message || "Failed to toggle coupon status", toastControls);
-      setShowActions(false); // ✅ Close menu on error too
+      setShowActions(false);
     }
   };
 
   const handleDelete = async () => {
+    if (actionLoading) return;
     const confirmMessage = `Are you sure you want to delete coupon "${coupon.code}"?\n\n${
       coupon.totalUsedCount > 0 
         ? `⚠️ This coupon has been used ${coupon.totalUsedCount} time${coupon.totalUsedCount > 1 ? 's' : ''}.\n\n` 
@@ -223,10 +225,10 @@ const AdminCouponItem = ({ coupon, status }) => {
         setShowActions(false);
       } catch (error) {
         toast.error(error.message || "Failed to delete coupon", toastControls);
-        setShowActions(false); // ✅ Close menu on error
+        setShowActions(false);
       }
     } else {
-      setShowActions(false); // ✅ Close menu if cancelled
+      setShowActions(false);
     }
   };
 
@@ -366,17 +368,18 @@ const AdminCouponItem = ({ coupon, status }) => {
           )}
         </div>
 
-        {/* Actions Menu */}
+        {/* Actions Menu (Interaction Fixed) */}
         <div className="relative shrink-0">
-          <button
-            onClick={() => setShowActions(!showActions)}
-            disabled={actionLoading}
-            className="w-8 h-8 flex items-center justify-center rounded hover:bg-zinc-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-label="Coupon actions menu"
-            aria-expanded={showActions}
-          >
-            <Icon icon="mdi:dots-vertical" className="text-xl" />
-          </button>
+          <div className="relative w-8 h-8 group/menu">
+            <div className={`w-full h-full flex items-center justify-center rounded transition-colors pointer-events-none ${showActions ? 'bg-zinc-800' : 'group-hover/menu:bg-zinc-800'}`}>
+                <Icon icon="mdi:dots-vertical" className="text-xl" />
+            </div>
+            {/* Menu Trigger Overlay */}
+            <span 
+                onClick={() => !actionLoading && setShowActions(!showActions)} 
+                className={`absolute inset-0 z-10 cursor-pointer rounded ${actionLoading ? 'cursor-not-allowed' : ''}`} 
+            />
+          </div>
 
           {showActions && (
             <>
@@ -389,36 +392,51 @@ const AdminCouponItem = ({ coupon, status }) => {
 
               {/* Menu */}
               <div className="absolute right-0 top-full mt-1 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl z-20 min-w-[180px] overflow-hidden">
-                <Link
-                  to={`/admin/coupons/update/${coupon._id}`}
-                  className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-zinc-800 transition"
-                  onClick={() => setShowActions(false)}
-                  aria-label={`Edit ${coupon.code}`}
-                >
-                  <Icon icon="mdi:pencil" className="text-lg text-blue-400" />
-                  <span>Edit Coupon</span>
-                </Link>
-                <button
-                  onClick={handleToggleStatus}
-                  disabled={actionLoading} // ✅ Disable while loading
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-zinc-800 transition border-t border-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                  aria-label={`${coupon.isActive ? 'Deactivate' : 'Activate'} ${coupon.code}`}
-                >
-                  <Icon
-                    icon={coupon.isActive ? "mdi:pause-circle" : "mdi:play-circle"}
-                    className={`text-lg ${coupon.isActive ? 'text-orange-400' : 'text-green-400'}`}
-                  />
-                  <span>{coupon.isActive ? "Deactivate" : "Activate"}</span>
-                </button>
-                <button
-                  onClick={handleDelete}
-                  disabled={actionLoading}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-red-900/20 transition border-t border-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                  aria-label={`Delete ${coupon.code}`}
-                >
-                  <Icon icon="mdi:delete" className="text-lg" />
-                  <span>Delete Coupon</span>
-                </button>
+                
+                {/* Edit Item */}
+                <div className="relative group/item">
+                    <div className="flex items-center gap-3 px-4 py-2.5 text-sm group-hover/item:bg-zinc-800 transition pointer-events-none">
+                        <Icon icon="mdi:pencil" className="text-lg text-blue-400" />
+                        <span>Edit Coupon</span>
+                    </div>
+                    <Link 
+                        to={`/admin/coupons/update/${coupon._id}`} 
+                        className="absolute inset-0 z-20"
+                        onClick={() => setShowActions(false)}
+                    />
+                </div>
+
+                {/* Toggle Status Item */}
+                <div className="relative group/item border-t border-zinc-800">
+                    <div className="flex items-center gap-3 px-4 py-2.5 text-sm group-hover/item:bg-zinc-800 transition pointer-events-none">
+                        <Icon
+                            icon={coupon.isActive ? "mdi:pause-circle" : "mdi:play-circle"}
+                            className={`text-lg ${coupon.isActive ? 'text-orange-400' : 'text-green-400'}`}
+                        />
+                        <span>{coupon.isActive ? "Deactivate" : "Activate"}</span>
+                    </div>
+                    {!actionLoading && (
+                        <span 
+                            onClick={handleToggleStatus} 
+                            className="absolute inset-0 z-20 cursor-pointer" 
+                        />
+                    )}
+                </div>
+
+                {/* Delete Item */}
+                <div className="relative group/item border-t border-zinc-800">
+                    <div className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 group-hover/item:bg-red-900/20 transition pointer-events-none">
+                        <Icon icon="mdi:delete" className="text-lg" />
+                        <span>Delete Coupon</span>
+                    </div>
+                    {!actionLoading && (
+                        <span 
+                            onClick={handleDelete} 
+                            className="absolute inset-0 z-20 cursor-pointer" 
+                        />
+                    )}
+                </div>
+
               </div>
             </>
           )}

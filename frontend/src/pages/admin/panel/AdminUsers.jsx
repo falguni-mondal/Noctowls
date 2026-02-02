@@ -16,6 +16,31 @@ import {
 import { toast } from "react-toastify";
 import toastControls from "../../../utils/global/toastControls";
 
+// --- SUB-COMPONENTS (Moved Outside) ---
+
+const RoleBadge = ({ role }) => {
+  const isAdm = role === "admin";
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wider border ${isAdm
+      ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
+      : "bg-blue-500/10 text-blue-400 border-blue-500/20"
+      }`}>
+      <Icon icon={isAdm ? "solar:shield-bold" : "solar:user-bold"} />
+      {role}
+    </span>
+  );
+};
+
+const StatusBadge = ({ isVerified }) => (
+  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wider border ${isVerified
+    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+    : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+    }`}>
+    <div className={`w-1.5 h-1.5 rounded-full ${isVerified ? "bg-emerald-400" : "bg-amber-400"}`}></div>
+    {isVerified ? "Verified" : "Unverified"}
+  </span>
+);
+
 const AdminUsers = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -134,30 +159,6 @@ const AdminUsers = () => {
     }));
   };
 
-  // --- UI HELPERS ---
-  const RoleBadge = ({ role }) => {
-    const isAdm = role === "admin";
-    return (
-      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wider border ${isAdm
-        ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
-        : "bg-blue-500/10 text-blue-400 border-blue-500/20"
-        }`}>
-        <Icon icon={isAdm ? "solar:shield-bold" : "solar:user-bold"} />
-        {role}
-      </span>
-    );
-  };
-
-  const StatusBadge = ({ isVerified }) => (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wider border ${isVerified
-      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-      : "bg-amber-500/10 text-amber-400 border-amber-500/20"
-      }`}>
-      <div className={`w-1.5 h-1.5 rounded-full ${isVerified ? "bg-emerald-400" : "bg-amber-400"}`}></div>
-      {isVerified ? "Verified" : "Unverified"}
-    </span>
-  );
-
   return (
     <div className="p-4 md:p-8 min-h-screen bg-zinc-950 text-zinc-100 font-sans relative">
 
@@ -180,11 +181,11 @@ const AdminUsers = () => {
         </div>
       </div>
 
-      {/* --- FILTERS TOOLBAR (IMPROVED UI) --- */}
+      {/* --- FILTERS TOOLBAR --- */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-2 mb-6">
         <div className="flex flex-col xl:flex-row gap-2">
 
-          {/* SEARCH (Flexible Width) */}
+          {/* SEARCH */}
           <div className="relative flex-1 min-w-[200px] group">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Icon icon="mynaui:search" className="text-zinc-500 text-lg group-focus-within:text-indigo-400 transition-colors" />
@@ -238,7 +239,7 @@ const AdminUsers = () => {
               </div>
             </div>
 
-            {/* DIVIDER (Desktop Only) */}
+            {/* DIVIDER */}
             <div className="w-px h-auto bg-zinc-800 hidden xl:block mx-1"></div>
 
             {/* DATE RANGE FILTER */}
@@ -279,15 +280,17 @@ const AdminUsers = () => {
               </div>
             </div>
 
-            {/* CLEAR FILTERS BUTTON */}
+            {/* CLEAR FILTERS BUTTON (With Interaction Fix) */}
             {(searchTerm || filters.role !== "all" || filters.status !== "all" || filters.dateRange.start) && (
-              <button
-                onClick={handleClearFilters}
-                className="w-full sm:w-auto px-3 py-2.5 bg-zinc-800 text-zinc-400 hover:text-white hover:bg-red-500/20 hover:border-red-500/30 border border-transparent rounded-xl transition-all flex items-center justify-center"
-                title="Clear Filters"
-              >
-                <Icon icon="solar:restart-bold" className="text-lg" />
-              </button>
+              <div className="relative w-full sm:w-auto">
+                <button
+                  className="w-full h-full px-3 py-2.5 bg-zinc-800 text-zinc-400 hover:text-white hover:bg-red-500/20 hover:border-red-500/30 border border-transparent rounded-xl transition-all flex items-center justify-center pointer-events-none"
+                >
+                  <Icon icon="solar:restart-bold" className="text-lg" />
+                </button>
+                {/* Interaction Fix */}
+                <span onClick={handleClearFilters} className="absolute inset-0 z-10 cursor-pointer rounded-xl" title="Clear Filters" />
+              </div>
             )}
           </div>
         </div>
@@ -327,7 +330,7 @@ const AdminUsers = () => {
                 </tr>
               ) : (
                 users.map((user) => (
-                  <tr key={user._id} className="group hover:bg-zinc-800/30 transition-colors">
+                  <tr key={user._id} className="group hover:bg-zinc-800/30 transition-colors relative">
                     {/* User Info */}
                     <td className="p-5 pl-6 max-w-[250px] sm:max-w-[300px]">
                       <div className="flex items-center gap-4">
@@ -378,17 +381,20 @@ const AdminUsers = () => {
                       </div>
                     </td>
 
-                    {/* Actions (Button Only) */}
+                    {/* Actions (Menu Button with Interaction Fix) */}
                     <td className="p-5 pr-6 text-right">
-                      <button
-                        onClick={(e) => handleMenuClick(e, user._id)}
-                        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${activeMenu.id === user._id
-                          ? "bg-zinc-800 text-white"
-                          : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
-                          }`}
-                      >
-                        <Icon icon="solar:menu-dots-bold" className="text-lg" />
-                      </button>
+                      <div className="relative inline-block">
+                        <button
+                          className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all pointer-events-none ${activeMenu.id === user._id
+                            ? "bg-zinc-800 text-white"
+                            : "text-zinc-500 group-hover:bg-zinc-800 group-hover:text-zinc-300"
+                            }`}
+                        >
+                          <Icon icon="solar:menu-dots-bold" className="text-lg" />
+                        </button>
+                        {/* Interaction Fix */}
+                        <span onClick={(e) => handleMenuClick(e, user._id)} className="absolute inset-0 z-10 cursor-pointer rounded-lg" />
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -404,28 +410,49 @@ const AdminUsers = () => {
               Page <span className="text-white font-semibold">{pagination.currentPage}</span> of {pagination.totalPages}
             </span>
             <div className="flex gap-2">
-              <button
-                onClick={() => handlePageChange(pagination.currentPage - 1)}
-                disabled={pagination.currentPage === 1}
-                className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 text-xs hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1"
-              >
-                <Icon icon="solar:alt-arrow-left-linear" />
-                Previous
-              </button>
-              <button
-                onClick={() => handlePageChange(pagination.currentPage + 1)}
-                disabled={pagination.currentPage === pagination.totalPages}
-                className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 text-xs hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1"
-              >
-                Next
-                <Icon icon="solar:alt-arrow-right-linear" />
-              </button>
+              
+              {/* PREVIOUS BUTTON */}
+              <div className="relative">
+                <button
+                  disabled={pagination.currentPage === 1}
+                  className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 text-xs hover:bg-zinc-700 disabled:opacity-50 transition flex items-center gap-1 pointer-events-none"
+                >
+                  <Icon icon="solar:alt-arrow-left-linear" />
+                  Previous
+                </button>
+                {/* Interaction Fix */}
+                {pagination.currentPage !== 1 && (
+                    <span 
+                        onClick={() => handlePageChange(pagination.currentPage - 1)} 
+                        className="absolute inset-0 z-10 cursor-pointer rounded-lg" 
+                    />
+                )}
+              </div>
+
+              {/* NEXT BUTTON */}
+              <div className="relative">
+                <button
+                  disabled={pagination.currentPage === pagination.totalPages}
+                  className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 text-xs hover:bg-zinc-700 disabled:opacity-50 transition flex items-center gap-1 pointer-events-none"
+                >
+                  Next
+                  <Icon icon="solar:alt-arrow-right-linear" />
+                </button>
+                {/* Interaction Fix */}
+                {pagination.currentPage !== pagination.totalPages && (
+                    <span 
+                        onClick={() => handlePageChange(pagination.currentPage + 1)} 
+                        className="absolute inset-0 z-10 cursor-pointer rounded-lg" 
+                    />
+                )}
+              </div>
+
             </div>
           </div>
         )}
       </div>
 
-      {/* FIXED MENU */}
+      {/* FIXED MENU (Popup) */}
       {activeMenu.id && (
         <div
           ref={actionMenuRef}
@@ -435,27 +462,38 @@ const AdminUsers = () => {
             right: activeMenu.right
           }}
         >
-          <button
-            onClick={() => {
-              navigate(`/admin/users/${activeMenu.id}`);
-              closeMenu();
-            }}
-            className="w-full text-left px-4 py-3 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white flex items-center gap-2 transition-colors"
-          >
-            <Icon icon="solar:eye-linear" className="text-lg" />
-            View Details
-          </button>
+          {/* VIEW DETAILS ITEM */}
+          <div className="relative group/item">
+            <div className="w-full text-left px-4 py-3 text-sm text-zinc-300 group-hover/item:bg-zinc-800 group-hover/item:text-white flex items-center gap-2 transition-colors pointer-events-none">
+              <Icon icon="solar:eye-linear" className="text-lg" />
+              View Details
+            </div>
+            {/* Interaction Fix */}
+            <span 
+                onClick={() => {
+                    navigate(`/admin/users/${activeMenu.id}`);
+                    closeMenu();
+                }} 
+                className="absolute inset-0 z-10 cursor-pointer" 
+            />
+          </div>
 
-          {/* Retrieve role safely */}
+          {/* DELETE USER ITEM */}
           {users.find(u => u._id === activeMenu.id)?.role !== "admin" && (
-            <button
-              onClick={() => handleDelete(activeMenu.id)}
-              disabled={actionLoading}
-              className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-red-900/10 hover:text-red-300 flex items-center gap-2 transition-colors border-t border-zinc-800"
-            >
-              <Icon icon="solar:trash-bin-trash-bold" className="text-lg" />
-              Delete User
-            </button>
+            <div className="relative group/item border-t border-zinc-800">
+                <button
+                    disabled={actionLoading}
+                    className="w-full text-left px-4 py-3 text-sm text-red-400 group-hover/item:bg-red-900/10 group-hover/item:text-red-300 flex items-center gap-2 transition-colors pointer-events-none"
+                >
+                    <Icon icon="solar:trash-bin-trash-bold" className="text-lg" />
+                    Delete User
+                </button>
+                {/* Interaction Fix */}
+                <span 
+                    onClick={() => handleDelete(activeMenu.id)} 
+                    className="absolute inset-0 z-10 cursor-pointer" 
+                />
+            </div>
           )}
         </div>
       )}

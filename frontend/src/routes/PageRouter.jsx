@@ -24,7 +24,7 @@ import Wishlistpage from '../pages/Wishlistpage';
 import CheckoutPage from '../pages/Checkoutpage';
 import AdminOrderDetails from '../pages/admin/services/orders/AdminOrderDetails';
 import AdminReviews from '../pages/admin/panel/AdminReviews';
-import Orderspage from '../pages/OrdersPage';
+import Orderspage from '../pages/Orderspage';
 import OrderDetailsPage from '../pages/OrderDetailsPage';
 import AdminUserDetails from '../pages/admin/services/user/AdminUserDetails';
 import AdminBags from '../pages/admin/panel/AdminBags';
@@ -38,6 +38,7 @@ import TermsOfService from '../pages/policies/TermsOfService';
 import PrivacyPolicy from '../pages/policies/PrivacyPolicy';
 import CookiePolicy from '../pages/policies/CookiePolicy';
 import Disclaimer from '../pages/policies/Disclaimer';
+import OrderReturnPage from '../pages/OrderReturnPage';
 
 
 const PageRouter = () => {
@@ -67,6 +68,7 @@ const PageRouter = () => {
         <Route path='/checkout' element={<CheckoutPage />} />
         <Route path="/orders" element={<Orderspage />} />
         <Route path="/orders/:orderId" element={<OrderDetailsPage />} />
+        <Route path="/orders/:orderId/return" element={<OrderReturnPage />} />
       </Route>
 
       {/* ADMIN AUTH */}

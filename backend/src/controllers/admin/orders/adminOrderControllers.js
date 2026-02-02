@@ -3,25 +3,51 @@ import Product from "../../../models/product-model.js";
 import Coupon from "../../../models/coupon-model.js";
 
 // ==================== GET ALL ORDERS (ADMIN) ====================
-// Supports: Pagination, Filtering (Status, Date), Searching (Order ID/Guest Email)
+// Supports: Pagination, Status Filtering, Date Range, Search, AND Return Management
 export const getAllAdminOrders = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, search, startDate, endDate } = req.query;
+    const { 
+        page = 1, 
+        limit = 10, 
+        status, 
+        returnStatus,
+        search, 
+        startDate, 
+        endDate 
+    } = req.query;
 
     const query = {};
 
-    // 1. Status Filter
+    // 1. Main Order Status Filter
     if (status && status !== "") {
       query.orderStatus = status;
     }
 
-    // 2. Date Range Filter
+    // 2. Return Status Filter (For Return Dashboard)
+    // Allows fetching "requested", "approved", "completed", or "all" active returns
+    if (returnStatus) {
+        if (returnStatus === 'active') {
+            // Fetch everything that is NOT 'none' and NOT 'completed'/'rejected' if you strictly want "active"
+            // Or simpler: fetch where status is 'requested' or 'approved'
+            query["returnInfo.status"] = { $in: ['requested', 'approved', 'received', 'qc_passed'] };
+        } else if (returnStatus === 'history') {
+             query["returnInfo.status"] = { $in: ['completed', 'rejected', 'refund_processed'] };
+        } else if (returnStatus !== 'all') {
+            // Fetch specific status (e.g. ?returnStatus=requested)
+            query["returnInfo.status"] = returnStatus;
+        } else {
+            // ?returnStatus=all -> Fetch ANY order that has ever had a return interaction
+            query["returnInfo.status"] = { $ne: 'none' };
+        }
+    }
+
+    // 3. Date Range Filter
     if (startDate && endDate) {
       const start = new Date(startDate);
       start.setHours(0, 0, 0, 0);
 
       const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999); // Ensure full day coverage
+      end.setHours(23, 59, 59, 999);
 
       query.createdAt = {
         $gte: start,
@@ -29,7 +55,7 @@ export const getAllAdminOrders = async (req, res) => {
       };
     }
 
-    // 3. Search Logic (Order Number, Guest Email, or Phone)
+    // 4. Search Logic
     if (search) {
       const searchRegex = new RegExp(search, "i");
       query.$or = [
@@ -41,14 +67,14 @@ export const getAllAdminOrders = async (req, res) => {
       ];
     }
 
-    // 4. Execute Query with Pagination
+    // 5. Execute Query
     const orders = await Order.find(query)
       .populate("user", "name email phone")
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
 
-    // 5. Get Total Count for Pagination
+    // 6. Count
     const count = await Order.countDocuments(query);
 
     return res.status(200).json({
@@ -70,12 +96,13 @@ export const getAllAdminOrders = async (req, res) => {
   }
 };
 
-// ... (Rest of the file remains unchanged: getAdminOrderById, updateOrderStatus, etc.)
 // ==================== GET SINGLE ORDER DETAILS ====================
 export const getAdminOrderById = async (req, res) => {
   try {
     const { orderId } = req.params;
 
+    // Because 'returnInfo' is embedded in the Order Schema, 
+    // simply finding the order retrieves the return details automatically.
     const order = await Order.findById(orderId)
       .populate("user", "name email phone")
       .populate("items.product", "name image");
@@ -106,7 +133,6 @@ export const updateOrderStatus = async (req, res) => {
     const { orderId } = req.params;
     const { status } = req.body;
 
-    // Validate Status
     const validStatuses = [
       "pending",
       "confirmed",
@@ -135,54 +161,40 @@ export const updateOrderStatus = async (req, res) => {
       });
     }
 
-    // Logic: If order is already delivered, prevent changing back to pending
-    if (order.orderStatus === "delivered" && status !== "delivered") {
+    // Prevent changing delivered/returned orders back to pending
+    if (["delivered", "returned"].includes(order.orderStatus) && !["delivered", "returned"].includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Cannot change status of a delivered order",
+        message: "Cannot change status of a completed order",
       });
     }
 
-    // --- CANCELLATION LOGIC (Standardized) ---
+    // --- CANCELLATION LOGIC ---
     if (status === "cancelled" && order.orderStatus !== "cancelled") {
-      // Use the model method to handle Refunds (COD logic) & Coupon logic
       const { order: cancelledOrder, couponToRevert } = await order.cancelOrder(
         "admin",
         "Cancelled by Admin"
       );
 
-      // Restore Stock & Revert Sales Count
+      // Restore Stock
       for (const item of cancelledOrder.items) {
         if (item.isFreeGift) continue;
-
         const product = await Product.findById(item.product);
         if (product) {
-          const sizeIndex = product.sizes.findIndex(
-            (s) => s.value === item.size.value
-          );
+          const sizeIndex = product.sizes.findIndex((s) => s.value === item.size.value);
           if (sizeIndex !== -1) {
-            // Restore stock
             product.sizes[sizeIndex].stock += item.quantity;
-            
-            // Revert sales count (Prevent negative)
-            product.sizes[sizeIndex].salesCount = Math.max(
-              0, 
-              product.sizes[sizeIndex].salesCount - item.quantity
-            );
-            
+            product.sizes[sizeIndex].salesCount = Math.max(0, product.sizes[sizeIndex].salesCount - item.quantity);
             await product.save();
           }
         }
       }
 
-      // Decrement Coupon Usage if applicable
+      // Revert Coupon
       if (couponToRevert) {
         const coupon = await Coupon.findOne({ code: couponToRevert.code });
         if (coupon) {
-          await coupon.decrementUsageForUser(
-            couponToRevert.userId,
-            couponToRevert.deviceId
-          );
+          await coupon.decrementUsageForUser(couponToRevert.userId, couponToRevert.deviceId);
         }
       }
 
@@ -193,23 +205,18 @@ export const updateOrderStatus = async (req, res) => {
       });
     }
 
-    // --- STANDARD STATUS UPDATE ---
-
-    // Logic: If delivering a COD order, mark payment as completed
+    // --- STANDARD UPDATE ---
     if (
       status === "delivered" &&
       order.payment.method === "COD" &&
       order.payment.status === "pending"
     ) {
       order.payment.status = "completed";
-      // Ensure paidOnDelivery matches the pending amount
-      // Since it's inclusive tax, amountPaidOnDelivery is (FinalTotal - PaidOnline)
       order.payment.paidAt = new Date();
     }
 
     order.orderStatus = status;
 
-    // Optional: Add tracking info if provided in body
     if (status === "shipped" && req.body.tracking) {
       if (req.body.tracking.trackingNumber)
         order.tracking.trackingNumber = req.body.tracking.trackingNumber;
@@ -234,6 +241,71 @@ export const updateOrderStatus = async (req, res) => {
   }
 };
 
+// ==================== NEW: MANAGE RETURN REQUEST ====================
+// Used by Admin Order Details page to Approve/Reject/Refund returns
+export const manageReturnRequest = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { status, note } = req.body; // status: approved, rejected, completed
+
+    const validStatuses = ["approved", "rejected", "completed"];
+    if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Invalid return action" });
+    }
+
+    const order = await Order.findById(orderId);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    // Validate current state
+    if (!order.returnInfo || order.returnInfo.status === 'none') {
+        return res.status(400).json({ message: "No active return request found" });
+    }
+
+    // Update Return Info
+    order.returnInfo.status = status;
+    order.returnInfo.adminNote = note || "";
+    
+    // Update Timeline
+    order.returnInfo.timeline.push({
+        status: status === 'completed' ? 'Return Completed' : `Return ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+        date: new Date(),
+        note: note || (status === 'approved' ? 'Request approved by admin' : 'Request rejected by admin')
+    });
+
+    // --- State Logic ---
+    
+    // 1. If Rejected -> Mark active as false
+    if (status === 'rejected') {
+        order.returnInfo.isReturnActive = false; 
+    }
+
+    // 2. If Completed (Money Refunded) -> Mark Order as Returned
+    if (status === 'completed') {
+        order.orderStatus = 'returned';
+        order.returnInfo.isReturnActive = false;
+        
+        // Optional: Add logic here if you want to auto-restock returned items
+        // For simplicity in this approach, we assume restocking is manual or items are damaged.
+    }
+
+    await order.save();
+
+    return res.status(200).json({
+        success: true,
+        message: `Return request marked as ${status}`,
+        order
+    });
+
+  } catch (error) {
+    console.error("Manage Return Error:", error);
+    return res.status(500).json({
+        success: false,
+        message: "Failed to update return status",
+        error: error.message
+    });
+  }
+};
+
 // ==================== DELETE ORDER (Admin Only) ====================
 export const deleteOrder = async (req, res) => {
   try {
@@ -241,17 +313,13 @@ export const deleteOrder = async (req, res) => {
 
     const order = await Order.findById(orderId);
     if (!order) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Order not found" });
+      return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    // Only allow deleting cancelled orders to maintain financial records consistency
     if (order.orderStatus !== "cancelled") {
       return res.status(400).json({
         success: false,
-        message:
-          "Only cancelled orders can be deleted to maintain stock/financial integrity.",
+        message: "Only cancelled orders can be deleted to maintain stock/financial integrity.",
       });
     }
 
@@ -270,7 +338,8 @@ export const deleteOrder = async (req, res) => {
   }
 };
 
-// ==================== GET ORDER STATS (Dashboard) ====================
+// ==================== GET ORDER STATS ====================
+// ==================== GET ORDER STATS ====================
 export const getOrderStats = async (req, res) => {
   try {
     const stats = await Order.aggregate([
@@ -278,15 +347,24 @@ export const getOrderStats = async (req, res) => {
         $group: {
           _id: "$orderStatus",
           count: { $sum: 1 },
-          // Gross Sales (Inclusive of Tax)
           totalSales: { $sum: "$pricing.finalTotal" },
-          // Net Revenue (Exclusive of Tax)
           netRevenue: { $sum: "$subTotal" },
-          // Total Tax Collected
           totalTax: { $sum: "$totalGST" },
         },
       },
     ]);
+
+    // We filter for statuses that require admin attention.
+    const returnStats = await Order.aggregate([
+        { 
+            $match: { 
+                "returnInfo.status": { $in: ['requested', 'approved', 'received', 'qc_passed'] } 
+            } 
+        },
+        { $count: "totalReturns" }
+    ]);
+    
+    const totalReturnRequests = returnStats[0]?.totalReturns || 0;
 
     const totalOrders = stats.reduce((acc, curr) => acc + curr.count, 0);
     const totalSales = stats.reduce((acc, curr) => acc + curr.totalSales, 0);
@@ -301,6 +379,7 @@ export const getOrderStats = async (req, res) => {
         totalSales: Math.round(totalSales),
         totalTax: Math.round(totalTax),
         netRevenue: Math.round(netRevenue),
+        totalReturnRequests
       },
     });
   } catch (error) {

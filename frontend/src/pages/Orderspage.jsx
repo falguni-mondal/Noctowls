@@ -140,7 +140,7 @@ const Orderspage = () => {
               Looks like you haven't placed any orders in this category yet.
             </p>
             <Link 
-              to="/products"
+              to="/catalog"
               className="px-8 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
             >
               Start Shopping

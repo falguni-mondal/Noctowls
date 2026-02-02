@@ -4,7 +4,11 @@ import { Link } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import * as XLSX from 'xlsx'; 
 import Loader from '../../../utils/loader/Loader';
-import { getAllAdminOrders } from '../../../store/features/admin/adminOrderSlice';
+import { 
+  getAllAdminOrders,
+  getAdminOrderStats,
+  selectAdminOrderStats 
+} from '../../../store/features/admin/adminOrderSlice';
 
 const AdminOrders = () => {
   const dispatch = useDispatch();
@@ -14,13 +18,21 @@ const AdminOrders = () => {
   
   const [statusFilter, setStatusFilter] = useState('');
   
-  // ✅ NEW: Date State
+  const [returnStatus, setReturnStatus] = useState(''); 
+  const [activeTab, setActiveTab] = useState('all'); 
+
+  // Export Menu State
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
   const [currentPage, setCurrentPage] = useState(1);
   
   const { orders, loading, pagination } = useSelector(state => state.adminOrders);
+  
+  // Get Stats for the badge
+  const stats = useSelector(selectAdminOrderStats);
 
   // DEBOUNCE Search
   useEffect(() => {
@@ -34,21 +46,67 @@ const AdminOrders = () => {
     };
   }, [inputValue]);
 
-  // API CALL (Added startDate and endDate)
+  // FETCH STATS ON MOUNT
+  useEffect(() => {
+    dispatch(getAdminOrderStats());
+  }, [dispatch]);
+
+  // API CALL
   useEffect(() => {
     dispatch(getAllAdminOrders({
       page: currentPage,
       limit: 10,
       status: statusFilter,
+      returnStatus: returnStatus,
       search: searchQuery,
       startDate,
       endDate
     }));
-  }, [dispatch, currentPage, statusFilter, searchQuery, startDate, endDate]);
+  }, [dispatch, currentPage, statusFilter, returnStatus, searchQuery, startDate, endDate]);
 
-  // ✅ EXPORT TO EXCEL FUNCTION
-  const handleExport = () => {
+  // Handle Tab Change
+  const handleTabChange = (tab) => {
+      setActiveTab(tab);
+      setCurrentPage(1);
+      if (tab === 'returns') {
+          setReturnStatus('active'); 
+          setStatusFilter(''); 
+      } else {
+          setReturnStatus(''); 
+      }
+  };
+
+  // EXPORT FUNCTION
+  const handleExport = (type = 'all') => {
     if (!orders || orders.length === 0) return;
+
+    // 1. Filter Logic
+    let ordersToExport = orders;
+
+    if (type === 'profit') {
+        // [!code ++] MODIFIED PROFIT LOGIC
+        ordersToExport = orders.filter(order => {
+            // 1. Exclude if currently being returned or return requested
+            const hasActiveReturn = order.returnInfo?.status && order.returnInfo.status !== 'none';
+            
+            // 2. Exclude if already marked as returned
+            const isReturnedStatus = order.orderStatus === 'returned';
+            
+            // 3. Exclude if cancelled (Safe check)
+            const isCancelled = order.orderStatus === 'cancelled';
+
+            // 4. [!code ++] NEW: Exclude if payment is NOT completed (Pending/Failed)
+            const isPaymentComplete = order.payment?.status === 'completed';
+
+            // Include ONLY if ALL checks pass
+            return !hasActiveReturn && !isReturnedStatus && !isCancelled && isPaymentComplete;
+        });
+    }
+
+    if (ordersToExport.length === 0) {
+        alert("No orders match the 'Profit' criteria (Completed Payment & No Returns).");
+        return;
+    }
 
     let totalSubtotal = 0;
     let totalDiscount = 0;
@@ -62,7 +120,7 @@ const AdminOrders = () => {
 
     const toNum = (val) => Number(Number(val || 0).toFixed(2));
 
-    const excelData = orders.map(order => {
+    const excelData = ordersToExport.map(order => {
         const itemsSummary = order.items
             .map(item => `${item.productName} (x${item.quantity})`)
             .join(', ');
@@ -95,6 +153,7 @@ const AdminOrders = () => {
             "Phone": order.shippingAddress?.phone || "N/A",
             "State": order.shippingAddress?.state || "N/A",
             "Order Status": order.orderStatus,
+            "Return Status": order.returnInfo?.status !== 'none' ? order.returnInfo?.status : 'N/A',
             "Payment Method": order.payment.method,
             "Payment Status": order.payment.status,
             "Subtotal (Excl. Tax)": subtotal,
@@ -131,11 +190,12 @@ const AdminOrders = () => {
     XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
 
     const dateStr = new Date().toISOString().slice(0, 10);
-    // If filtered by date, add range to filename
     const rangeStr = startDate && endDate ? `_${startDate}_to_${endDate}` : '';
-    const fileName = `Orders_Export${rangeStr}_${dateStr}.xlsx`;
+    const typeStr = type === 'profit' ? '_ProfitOnly' : '_All';
+    const fileName = `Orders_Export${typeStr}${rangeStr}_${dateStr}.xlsx`;
 
     XLSX.writeFile(workbook, fileName);
+    setShowExportMenu(false);
   };
 
   const getStatusColor = (status) => {
@@ -144,11 +204,11 @@ const AdminOrders = () => {
       case 'cancelled': return 'bg-red-900/30 text-red-400 border-red-800';
       case 'shipped': return 'bg-blue-900/30 text-blue-400 border-blue-800';
       case 'confirmed': return 'bg-indigo-900/30 text-indigo-400 border-indigo-800';
+      case 'returned': return 'bg-purple-900/30 text-purple-400 border-purple-800'; 
       default: return 'bg-amber-900/30 text-amber-400 border-amber-800';
     }
   };
 
-  // Helper to clear dates
   const clearDates = () => {
     setStartDate('');
     setEndDate('');
@@ -169,7 +229,7 @@ const AdminOrders = () => {
         {/* ACTIONS & FILTERS */}
         <div className="flex flex-col md:flex-row flex-wrap gap-3 w-full xl:w-auto items-start md:items-center">
           
-          {/* ✅ DATE FILTERS */}
+          {/* DATE FILTERS */}
           <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 px-3">
             <div className="flex flex-col md:flex-row gap-2">
                 <div className="flex items-center gap-2">
@@ -194,9 +254,13 @@ const AdminOrders = () => {
                 </div>
             </div>
             {(startDate || endDate) && (
-                <button onClick={clearDates} className="ml-2 text-zinc-500 hover:text-red-400 transition">
-                    <Icon icon="solar:close-circle-bold" />
-                </button>
+                <div className="relative ml-2 w-6 h-6">
+                    <button className="w-full h-full flex items-center justify-center text-zinc-500 hover:text-red-400 transition pointer-events-none">
+                        <Icon icon="solar:close-circle-bold" />
+                    </button>
+                    {/* Interaction Fix */}
+                    <span onClick={clearDates} className="absolute inset-0 z-10 cursor-pointer rounded-full" title="Clear Dates" />
+                </div>
             )}
           </div>
 
@@ -213,35 +277,115 @@ const AdminOrders = () => {
           </div>
 
           {/* Status Filter */}
-          <div className="relative w-full md:w-36">
-            <select
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-2.5 px-4 text-sm focus:ring-2 focus:ring-blue-600 outline-none appearance-none cursor-pointer"
-              onChange={(e) => {
-                  setStatusFilter(e.target.value);
-                  setCurrentPage(1);
-              }}
-              value={statusFilter}
-            >
-              <option value="">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="shipped">Shipped</option>
-              <option value="delivered">Delivered</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-            <Icon icon="fluent:chevron-down-12-filled" className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+          {activeTab !== 'returns' && (
+              <div className="relative w-full md:w-36">
+                <select
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-2.5 px-4 text-sm focus:ring-2 focus:ring-blue-600 outline-none appearance-none cursor-pointer"
+                  onChange={(e) => {
+                      setStatusFilter(e.target.value);
+                      setCurrentPage(1);
+                  }}
+                  value={statusFilter}
+                >
+                  <option value="">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="shipped">Shipped</option>
+                  <option value="delivered">Delivered</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="returned">Returned</option>
+                </select>
+                <Icon icon="fluent:chevron-down-12-filled" className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+              </div>
+          )}
+
+          {/* EXPORT DROPDOWN */}
+          <div className="relative">
+            <div className="relative">
+                <button 
+                    disabled={orders.length === 0}
+                    className="flex items-center gap-2 bg-green-700 hover:bg-green-600 disabled:bg-zinc-800 disabled:text-zinc-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors pointer-events-none"
+                >
+                    <Icon icon="file-icons:microsoft-excel" className="text-lg" />
+                    <span className="hidden md:inline">Export</span>
+                    <Icon icon="fluent:chevron-down-12-filled" className="text-xs" />
+                </button>
+                {/* Interaction Fix */}
+                <span onClick={() => setShowExportMenu(!showExportMenu)} className="absolute inset-0 z-10 cursor-pointer rounded-lg" />
+            </div>
+
+            {/* Dropdown Menu */}
+            {showExportMenu && (
+                <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)}></div>
+                    <div className="absolute left-0 mt-2 w-40 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                        <div className="relative w-full group/item">
+                            <button 
+                                className="w-full text-left px-4 py-3 text-sm text-zinc-200 group-hover/item:bg-zinc-800 group-hover/item:text-white transition-colors flex items-center gap-2 pointer-events-none"
+                            >
+                                <Icon icon="solar:file-text-bold" /> Export All
+                            </button>
+                            {/* Interaction Fix */}
+                            <span onClick={() => handleExport('all')} className="absolute inset-0 z-10 cursor-pointer" />
+                        </div>
+                        
+                        <div className="border-t border-zinc-800"></div>
+                        
+                        <div className="relative w-full group/item">
+                            <button 
+                                className="w-full text-left px-4 py-3 text-sm text-green-400 group-hover/item:bg-zinc-800 group-hover/item:text-green-300 transition-colors flex items-center gap-2 pointer-events-none"
+                            >
+                                <Icon icon="solar:wallet-money-bold" /> Export Profit
+                            </button>
+                            {/* Interaction Fix */}
+                            <span onClick={() => handleExport('profit')} className="absolute inset-0 z-10 cursor-pointer" />
+                        </div>
+                    </div>
+                </>
+            )}
           </div>
 
-          {/* Export Button */}
-          <button 
-            onClick={handleExport}
-            disabled={orders.length === 0}
-            className="flex items-center gap-2 bg-green-700 hover:bg-green-600 disabled:bg-zinc-800 disabled:text-zinc-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
-          >
-            <Icon icon="file-icons:microsoft-excel" className="text-lg" />
-            <span className="hidden md:inline">Export</span>
-          </button>
         </div>
+      </div>
+
+      {/* TABS */}
+      <div className="flex gap-4 mb-6 border-b border-zinc-800">
+          <div className="relative">
+              <button 
+                  className={`pb-3 px-2 text-sm font-medium transition-all relative pointer-events-none ${
+                      activeTab === 'all' 
+                      ? 'text-white' 
+                      : 'text-zinc-500'
+                  }`}
+              >
+                  All Orders
+                  {activeTab === 'all' && (
+                      <span className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-500 rounded-t-full"></span>
+                  )}
+              </button>
+              {/* Interaction Fix */}
+              <span onClick={() => handleTabChange('all')} className="absolute inset-0 z-10 cursor-pointer" />
+          </div>
+
+          <div className="relative">
+              <button 
+                  className={`pb-3 px-2 text-sm font-medium transition-all relative flex items-center gap-2 pointer-events-none ${
+                      activeTab === 'returns' 
+                      ? 'text-white' 
+                      : 'text-zinc-500'
+                  }`}
+              >
+                  Return Requests
+                  <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] px-1.5 rounded-full">
+                      {stats?.totalReturnRequests || 0}
+                  </span>
+                  {activeTab === 'returns' && (
+                      <span className="absolute bottom-0 left-0 w-full h-0.5 bg-amber-500 rounded-t-full"></span>
+                  )}
+              </button>
+              {/* Interaction Fix */}
+              <span onClick={() => handleTabChange('returns')} className="absolute inset-0 z-10 cursor-pointer" />
+          </div>
       </div>
 
       {/* TABLE CONTAINER */}
@@ -279,9 +423,11 @@ const AdminOrders = () => {
                 orders.map((order) => {
                   const customerName = order.user ? order.user.name : order.guestInfo?.name || "Guest";
                   const customerEmail = order.user ? order.user.email : order.guestInfo?.email;
+                  const isReturnRequested = order.returnInfo?.status === 'requested';
+                  const returnStatus = order.returnInfo?.status !== 'none' ? order.returnInfo.status : null;
 
                   return (
-                    <tr key={order._id} className="hover:bg-zinc-800/30 transition-colors group">
+                    <tr key={order._id} className="hover:bg-zinc-800/30 transition-colors group relative">
                       <td className="p-4 font-mono text-zinc-300">
                         #{order.orderNumber}
                       </td>
@@ -319,18 +465,34 @@ const AdminOrders = () => {
                         </div>
                       </td>
                       <td className="p-4">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.orderStatus)} capitalize`}>
-                          {order.orderStatus}
-                        </span>
+                        <div className="flex flex-col gap-1 items-start">
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.orderStatus)} capitalize`}>
+                                {order.orderStatus}
+                            </span>
+                            
+                            {returnStatus && (
+                                <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${
+                                    returnStatus === 'requested' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                                    returnStatus === 'approved' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' :
+                                    'bg-zinc-800 text-zinc-400 border-zinc-700'
+                                }`}>
+                                    Return {returnStatus}
+                                </span>
+                            )}
+                        </div>
                       </td>
                       <td className="p-4 text-right">
-                        <Link
-                          to={`/admin/orders/${order._id}`}
-                          className="inline-flex items-center justify-center w-8 h-8 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
-                          title="View Details"
-                        >
-                          <Icon icon="solar:eye-bold" className="text-lg" />
-                        </Link>
+                        <div className="relative inline-flex w-8 h-8">
+                            <div className={`w-full h-full flex items-center justify-center rounded transition-colors pointer-events-none ${
+                                isReturnRequested 
+                                ? 'bg-amber-600 text-white shadow-lg shadow-amber-500/20' 
+                                : 'text-zinc-400 group-hover:text-white group-hover:bg-zinc-800'
+                            }`}>
+                                <Icon icon="solar:eye-bold" className="text-lg" />
+                            </div>
+                            {/* Interaction Fix */}
+                            <Link to={`/admin/orders/${order._id}`} className="absolute inset-0 z-10 cursor-pointer rounded" />
+                        </div>
                       </td>
                     </tr>
                   );
@@ -346,20 +508,29 @@ const AdminOrders = () => {
               Page {currentPage} of {pagination.totalPages}
             </span>
             <div className="flex gap-2">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1.5 rounded border border-zinc-700 bg-zinc-800 text-zinc-300 text-xs hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => setCurrentPage(p => Math.min(pagination.totalPages, p + 1))}
-                disabled={currentPage === pagination.totalPages}
-                className="px-3 py-1.5 rounded border border-zinc-700 bg-zinc-800 text-zinc-300 text-xs hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-              >
-                Next
-              </button>
+              <div className="relative">
+                  <button
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 rounded border border-zinc-700 bg-zinc-800 text-zinc-300 text-xs disabled:opacity-50 transition pointer-events-none"
+                  >
+                    Previous
+                  </button>
+                  {currentPage !== 1 && (
+                      <span onClick={() => setCurrentPage(p => Math.max(1, p - 1))} className="absolute inset-0 z-10 cursor-pointer rounded" />
+                  )}
+              </div>
+
+              <div className="relative">
+                  <button
+                    disabled={currentPage === pagination.totalPages}
+                    className="px-3 py-1.5 rounded border border-zinc-700 bg-zinc-800 text-zinc-300 text-xs disabled:opacity-50 transition pointer-events-none"
+                  >
+                    Next
+                  </button>
+                  {currentPage !== pagination.totalPages && (
+                      <span onClick={() => setCurrentPage(p => Math.min(pagination.totalPages, p + 1))} className="absolute inset-0 z-10 cursor-pointer rounded" />
+                  )}
+              </div>
             </div>
           </div>
         )}

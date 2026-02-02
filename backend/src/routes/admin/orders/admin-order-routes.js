@@ -5,11 +5,12 @@ import {
   updateOrderStatus,
   deleteOrder,
   getOrderStats,
+  manageReturnRequest, // <--- Imported new controller
 } from "../../../controllers/admin/orders/adminOrderControllers.js";
 
-// ✅ Import your specific middlewares
+// Import middlewares
 import isValidUser from "../../../middlewares/global/auth/user-validator.js";
-import isAdmin from "../../../middlewares/admin/admin-verifier.js"; // Adjust path if necessary based on your folder structure
+import isAdmin from "../../../middlewares/admin/admin-verifier.js"; 
 
 const router = express.Router();
 
@@ -29,5 +30,7 @@ router
   .get(isValidUser, isAdmin, getAdminOrderById)      // View Order Details
   .put(isValidUser, isAdmin, updateOrderStatus)      // Update Status (Shipped/Delivered etc)
   .delete(isValidUser, isAdmin, deleteOrder);        // Delete Order (Cancelled only)
+
+router.put("/:orderId/return", isValidUser, isAdmin, manageReturnRequest);
 
 export default router;

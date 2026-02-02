@@ -82,8 +82,9 @@ const AdminWishlists = () => {
   };
 
   const handleTogglePopover = (e, list) => {
-    e.stopPropagation();
+    e.stopPropagation(); // Stop click from propagating
 
+    // If clicking the same button, close it
     if (activePopover?.id === list._id) {
       setActivePopover(null);
       return;
@@ -91,7 +92,6 @@ const AdminWishlists = () => {
 
     const rect = e.currentTarget.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
-    // Estimate height based on items
     const popoverHeightEstimate = Math.min(list.items.length * 45 + 50, 400);
     const openUpwards = spaceBelow < popoverHeightEstimate;
 
@@ -167,14 +167,16 @@ const AdminWishlists = () => {
             />
           </div>
           {searchTerm && (
-            <button
-              onClick={handleClearFilters}
-              className="px-3 py-2.5 bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 border border-transparent rounded-xl transition-all flex items-center justify-center gap-2 text-sm font-medium"
-              title="Clear Search"
-            >
-              <Icon icon="solar:restart-bold" className="text-lg" />
-              <span className="hidden sm:inline">Clear</span>
-            </button>
+            <div className="relative">
+                <button
+                className="px-3 py-2.5 bg-zinc-800 text-zinc-400 border border-transparent rounded-xl transition-all flex items-center justify-center gap-2 text-sm font-medium pointer-events-none"
+                >
+                <Icon icon="solar:restart-bold" className="text-lg" />
+                <span className="hidden sm:inline">Clear</span>
+                </button>
+                {/* Interaction Fix */}
+                <span onClick={handleClearFilters} className="absolute inset-0 z-10 cursor-pointer rounded-xl" title="Clear Search" />
+            </div>
           )}
         </div>
       </div>
@@ -193,7 +195,6 @@ const AdminWishlists = () => {
               <tr className="bg-zinc-950/50 border-b border-zinc-800 text-xs uppercase tracking-wider text-zinc-500 font-semibold">
                 <th className="p-5 pl-6">Customer</th>
                 <th className="p-5">Saved Items</th>
-                {/* Removed Total Value Column Header */}
                 <th className="p-5">Last Updated</th>
                 <th className="p-5 text-right pr-6 w-32">Action</th>
               </tr>
@@ -213,7 +214,7 @@ const AdminWishlists = () => {
                 </tr>
               ) : (
                 wishlists.map((list) => (
-                  <tr key={list._id} className="group hover:bg-zinc-800/30 transition-colors border-b border-zinc-800/50 last:border-0">
+                  <tr key={list._id} className="group hover:bg-zinc-800/30 transition-colors border-b border-zinc-800/50 last:border-0 relative">
                     {/* Customer */}
                     <td className="p-5 pl-6">
                       <div className="flex items-center gap-4">
@@ -235,8 +236,6 @@ const AdminWishlists = () => {
                       </div>
                     </td>
 
-                    {/* Removed Total Value Data Column */}
-
                     {/* Date */}
                     <td className="p-5 text-zinc-400">
                       <div className="flex flex-col text-xs">
@@ -250,28 +249,37 @@ const AdminWishlists = () => {
 
                     {/* Action Buttons */}
                     <td className="p-5 pr-6 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-2 relative z-20">
+                        
                         {/* View Button */}
-                        <button
-                          onClick={(e) => handleTogglePopover(e, list)}
-                          className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all border ${activePopover?.id === list._id
-                              ? "bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-500/20"
-                              : "bg-zinc-800 text-zinc-400 border-zinc-700 hover:text-white hover:bg-zinc-700 hover:border-zinc-600"
-                            }`}
-                          title="View Items"
-                        >
-                          <Icon icon={activePopover?.id === list._id ? "solar:eye-bold" : "solar:eye-linear"} className="text-lg" />
-                        </button>
+                        <div className="relative group/btn">
+                            <div className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all border pointer-events-none ${activePopover?.id === list._id
+                                ? "bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-500/20"
+                                : "bg-zinc-800 text-zinc-400 border-zinc-700 group-hover/btn:text-white group-hover/btn:bg-zinc-700 group-hover/btn:border-zinc-600"
+                            }`}>
+                                <Icon icon={activePopover?.id === list._id ? "solar:eye-bold" : "solar:eye-linear"} className="text-lg" />
+                            </div>
+                            
+                            {/* FIX: stopPropagation on mousedown to prevent global listener from closing it before click fires */}
+                            <span 
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={(e) => handleTogglePopover(e, list)} 
+                                className="absolute inset-0 z-10 cursor-pointer rounded-lg" 
+                                title="View Items" 
+                            />
+                        </div>
 
                         {/* Delete Button */}
-                        <button
-                          onClick={(e) => handleDelete(e, list._id)}
-                          disabled={actionLoading}
-                          className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 border border-zinc-700 hover:text-red-400 hover:bg-red-900/10 hover:border-red-900/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Delete Wishlist"
-                        >
-                          <Icon icon="solar:trash-bin-trash-bold" className="text-lg" />
-                        </button>
+                        <div className="relative group/btn">
+                            <button
+                                disabled={actionLoading}
+                                className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 border border-zinc-700 group-hover/btn:text-red-400 group-hover/btn:bg-red-900/10 group-hover/btn:border-red-900/30 transition-all disabled:opacity-50 pointer-events-none"
+                            >
+                                <Icon icon="solar:trash-bin-trash-bold" className="text-lg" />
+                            </button>
+                            <span onClick={(e) => handleDelete(e, list._id)} className="absolute inset-0 z-10 cursor-pointer rounded-lg" title="Delete Wishlist" />
+                        </div>
+
                       </div>
                     </td>
                   </tr>
@@ -288,22 +296,27 @@ const AdminWishlists = () => {
               Page <span className="text-white font-semibold">{pagination.currentPage}</span> of {pagination.totalPages}
             </span>
             <div className="flex gap-2">
-              <button
-                onClick={() => handlePageChange(pagination.currentPage - 1)}
-                disabled={pagination.currentPage === 1}
-                className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 text-xs hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1"
-              >
-                <Icon icon="solar:alt-arrow-left-linear" />
-                Previous
-              </button>
-              <button
-                onClick={() => handlePageChange(pagination.currentPage + 1)}
-                disabled={pagination.currentPage === pagination.totalPages}
-                className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 text-xs hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1"
-              >
-                Next
-                <Icon icon="solar:alt-arrow-right-linear" />
-              </button>
+              <div className="relative">
+                  <button
+                    disabled={pagination.currentPage === 1}
+                    className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 text-xs disabled:opacity-50 transition flex items-center gap-1 pointer-events-none"
+                  >
+                    <Icon icon="solar:alt-arrow-left-linear" />
+                    Previous
+                  </button>
+                  {pagination.currentPage !== 1 && <span onClick={() => handlePageChange(pagination.currentPage - 1)} className="absolute inset-0 z-10 cursor-pointer rounded-lg" />}
+              </div>
+
+              <div className="relative">
+                  <button
+                    disabled={pagination.currentPage === pagination.totalPages}
+                    className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 text-xs disabled:opacity-50 transition flex items-center gap-1 pointer-events-none"
+                  >
+                    Next
+                    <Icon icon="solar:alt-arrow-right-linear" />
+                  </button>
+                  {pagination.currentPage !== pagination.totalPages && <span onClick={() => handlePageChange(pagination.currentPage + 1)} className="absolute inset-0 z-10 cursor-pointer rounded-lg" />}
+              </div>
             </div>
           </div>
         )}
