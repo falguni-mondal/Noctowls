@@ -10,7 +10,7 @@ import {
 } from "../store/features/user/contactSlice"; // Adjust path to your store
 
 // Import your image (Make sure to move the file to your assets folder)
-import bgImage from "../assets/images/contact_page_bg.jpg"; 
+import bgImage from "../assets/images/contact_page_bg_min.jpg"; 
 
 const Contact = () => {
     const dispatch = useDispatch();

@@ -93,7 +93,7 @@ const Orderspage = () => {
     <div className="min-h-screen bg-zinc-950 text-zinc-100 pb-20">
       
       {/* --- HEADER --- */}
-      <div className="bg-zinc-900/50 border-b border-zinc-800 pt-20 pb-6 px-4 md:px-8">
+      <div className="bg-zinc-900/50 border-b border-zinc-800 pt-6 pb-6 px-4 md:px-8">
         <div className="max-w-5xl mx-auto">
           <div className="flex items-center gap-2 text-sm text-zinc-500 mb-2">
             <Link to="/" className="hover:text-white transition">Home</Link>
@@ -141,7 +141,7 @@ const Orderspage = () => {
             </p>
             <Link 
               to="/catalog"
-              className="px-8 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
+              className="px-8 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
             >
               Start Shopping
             </Link>
