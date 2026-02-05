@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Razorpay from "razorpay";
 import crypto from "crypto";
+import axios from "axios";
 import Cart from "../../../models/cart-model.js";
 import Order from "../../../models/order-model.js";
 import Product from "../../../models/product-model.js";
@@ -73,6 +74,102 @@ async function generateUniqueOrderNumber(session) {
   const orderNumber = `ORD-${dateStr}-${sequence.toString().padStart(5, "0")}`;
   return orderNumber;
 }
+
+// --- HELPER: Sync Order to Delhivery ---
+const syncToDelhivery = async (order) => {
+  try {
+    // 1. Basic Checks
+    if (order.orderStatus === "shipped" || order.tracking?.trackingId) {
+      console.log(`[Delhivery] Order ${order.orderNumber} already shipped.`);
+      return;
+    }
+
+    // 2. Configure Environment
+    const isProd = process.env.DELHIVERY_MODE === "production";
+    const baseUrl = isProd
+      ? "https://track.delhivery.com"
+      : "https://staging-express.delhivery.com";
+
+    console.log(`[Delhivery] Attempting ship from Location: "${process.env.DELHIVERY_PICKUP_NAME}"`);
+
+    // 3. Prepare Data Object (The internal part)
+    const shipmentData = {
+      "shipments": [
+        {
+          "name": order.shippingAddress.fullName,
+          "add": order.shippingAddress.address,
+          "pin": order.shippingAddress.pincode,
+          "city": order.shippingAddress.city,
+          "state": order.shippingAddress.state,
+          "country": "India",
+          "phone": order.shippingAddress.phone,
+          "order": order.orderNumber,
+          "payment_mode": order.payment.method === "COD" ? "COD" : "Prepaid",
+          "return_pin": process.env.DELHIVERY_RETURN_PIN || process.env.DELHIVERY_PICKUP_PIN,
+          "return_name": process.env.DELHIVERY_RETURN_NAME || process.env.DELHIVERY_PICKUP_NAME,
+          "products_desc": "Apparel/Merchandise",
+          "cod_amount": order.payment.method === "COD" ? (order.pricing.finalTotal - order.payment.amountPaidOnline) : 0,
+          "order_date": order.createdAt,
+          "total_amount": order.pricing.finalTotal,
+          "quantity": order.items.length,
+          "waybill": "",
+        }
+      ],
+      "pickup_location": {
+        "name": process.env.DELHIVERY_PICKUP_NAME,
+        "add": process.env.DELHIVERY_PICKUP_ADD,
+        "city": process.env.DELHIVERY_PICKUP_CITY,
+        "pin_code": process.env.DELHIVERY_PICKUP_PIN,
+        "country": "India",
+        "phone": process.env.DELHIVERY_PICKUP_PHONE
+      }
+    };
+
+    // 4. FIX: Use URLSearchParams for Form Data encoding
+    const params = new URLSearchParams();
+    params.append("format", "json");
+    params.append("data", JSON.stringify(shipmentData)); // Stringify the inner data
+
+    // 5. API Call
+    const response = await axios.post(
+      `${baseUrl}/api/cmu/create.json`,
+      params, // Send params, not JSON object
+      {
+        headers: {
+          "Authorization": `Token ${process.env.DELHIVERY_API_TOKEN}`,
+          // Axios automatically sets 'application/x-www-form-urlencoded' for URLSearchParams
+        }
+      }
+    );
+
+    // 6. Handle Response
+    if (response.data && response.data.packages && response.data.packages.length > 0) {
+      const pkg = response.data.packages[0];
+
+      if (pkg.status === "Success") {
+        order.orderStatus = "shipped";
+        order.tracking = {
+          trackingId: pkg.waybill,
+          courier: "Delhivery",
+          trackingUrl: `https://www.delhivery.com/track/package/${pkg.waybill}`
+        };
+
+        if (!order.statusTimestamps) order.statusTimestamps = {};
+        order.statusTimestamps.shipped = new Date();
+
+        await order.save();
+        console.log(`✅ [Delhivery] Shipment created for ${order.orderNumber}. AWB: ${pkg.waybill}`);
+      } else {
+        console.error(`❌ [Delhivery] API Error for ${order.orderNumber}:`, pkg.remarks || "Unknown error");
+      }
+    } else {
+      console.error(`❌ [Delhivery] Critical Error for ${order.orderNumber}. Response:`, JSON.stringify(response.data, null, 2));
+    }
+
+  } catch (error) {
+    console.error(`❌ [Delhivery] Network/Server Error for ${order.orderNumber}:`, error.response?.data || error.message);
+  }
+};
 
 // ==================== CREATE ORDER ====================
 export const createOrder = async (req, res) => {
@@ -368,10 +465,10 @@ export const createOrder = async (req, res) => {
     const finalGuestInfo = userId
       ? {}
       : {
-          email: guestInfo.email.toLowerCase(),
-          name: guestInfo.name,
-          phone: shippingAddress.phone,
-        };
+        email: guestInfo.email.toLowerCase(),
+        name: guestInfo.name,
+        phone: shippingAddress.phone,
+      };
 
     // Generate Order Number & Save Address
     const orderNumber = await generateUniqueOrderNumber(session);
@@ -389,7 +486,7 @@ export const createOrder = async (req, res) => {
           if (!user.phone && shippingAddress.phone) {
             user.phone = shippingAddress.phone;
           }
-          
+
           if (user.isModified('name') || user.isModified('phone')) {
             await user.save({ session });
           }
@@ -529,7 +626,6 @@ export const handleRazorpayWebhook = async (req, res) => {
     const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
     const signature = req.headers["x-razorpay-signature"];
 
-    // Use req.rawBody (buffer) instead of JSON.stringify
     if (!req.rawBody) {
       console.error("⚠️ Raw body not available. Check express.json setup.");
       return res.status(400).json({ message: "Server misconfiguration" });
@@ -537,24 +633,21 @@ export const handleRazorpayWebhook = async (req, res) => {
 
     const expectedSignature = crypto
       .createHmac("sha256", secret)
-      .update(req.rawBody) // Use the raw buffer
+      .update(req.rawBody)
       .digest("hex");
 
     if (signature !== expectedSignature) {
       console.warn("⚠️ Invalid Razorpay Webhook Signature");
-      // Security: Return 400 for invalid signature logs
       return res.status(400).json({ message: "Invalid signature" });
     }
 
     const { event, payload } = req.body;
 
-    // We only care about successful payments
     if (event === "payment.captured") {
       const payment = payload.payment.entity;
       const razorpayOrderId = payment.order_id;
       const razorpayPaymentId = payment.id;
 
-      // Find the order
       const order = await Order.findOne({
         "payment.razorpayOrderId": razorpayOrderId,
       });
@@ -569,15 +662,11 @@ export const handleRazorpayWebhook = async (req, res) => {
         return res.status(200).json({ status: "already_processed" });
       }
 
-      // Security Check:
       const expectedAmountPaise = Math.round(
         order.payment.amountPaidOnline * 100
       );
 
       if (payment.amount !== expectedAmountPaise) {
-        console.error(
-          `🚨 Webhook Amount Mismatch! Order: ${order.orderNumber}. Expected: ${expectedAmountPaise}, Received: ${payment.amount}`
-        );
         order.payment.status = "failed";
         await order.save();
         return res.status(400).json({ message: "Amount mismatch" });
@@ -589,21 +678,12 @@ export const handleRazorpayWebhook = async (req, res) => {
         razorpaySignature: "webhook_verified_signature",
       });
 
-      // [!code ++] DEDUCT STOCK HERE (Fallback Mechanism)
-      // This ensures stock is deducted if the frontend verifyPayment call failed or wasn't made.
-      // Product.findOneAndUpdate is atomic, so race conditions with verifyPayment are minimized.
+      // Deduct Stock
       for (const item of order.items) {
         await Product.findOneAndUpdate(
           {
             _id: item.product,
-            sizes: {
-              $elemMatch: {
-                value: item.size.value,
-                stock: { $gte: item.quantity }
-                // Optional: You can add 'stock: { $gte: item.quantity }' check here if strict.
-                // However, since payment is already captured, we usually force deduction even if negative to reflect overselling for manual fix.
-              },
-            },
+            sizes: { $elemMatch: { value: item.size.value } },
           },
           {
             $inc: {
@@ -616,7 +696,7 @@ export const handleRazorpayWebhook = async (req, res) => {
         );
       }
 
-      // Increment Coupon Usage
+      // Coupon Usage
       if (order.coupon && order.coupon.code) {
         const coupon = await Coupon.findOne({ code: order.coupon.code });
         if (coupon) {
@@ -632,7 +712,6 @@ export const handleRazorpayWebhook = async (req, res) => {
         userId: order.user,
         deviceId: order.deviceId,
       });
-
       if (cart) {
         await cart.clearCart();
       }
@@ -642,11 +721,15 @@ export const handleRazorpayWebhook = async (req, res) => {
         await generateInvoiceSafe(order);
       }
 
+      // --- DELHI VERY INTEGRATION ---
+      // We purposefully don't await this so the webhook responds fast (200 OK)
+      // The shipping will process in the background
+      syncToDelhivery(order).catch(err => console.error("Background shipping sync failed:", err));
+
       console.log(`Webhook verified payment for Order: ${order.orderNumber}`);
       return res.status(200).json({ status: "ok" });
     }
 
-    // Acknowledge other events
     return res.status(200).json({ status: "ignored" });
   } catch (error) {
     console.error("Razorpay Webhook Error:", error);
@@ -657,45 +740,21 @@ export const handleRazorpayWebhook = async (req, res) => {
 // ==================== VERIFY PAYMENT (SECURED) ====================
 export const verifyPayment = async (req, res) => {
   try {
-    const { razorpayOrderId, razorpayPaymentId, razorpaySignature, orderId } =
-      req.body;
-
+    const { razorpayOrderId, razorpayPaymentId, razorpaySignature, orderId } = req.body;
     const userId = req.user;
     const deviceId = req.cookies.device_id;
 
-    if (
-      !razorpayOrderId ||
-      !razorpayPaymentId ||
-      !razorpaySignature ||
-      !orderId
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required payment details",
-      });
+    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature || !orderId) {
+      return res.status(400).json({ success: false, message: "Missing required payment details" });
     }
 
-    // Find Order
     const query = { _id: orderId };
-    if (userId) {
-      query.user = userId;
-    } else if (deviceId) {
-      query.deviceId = deviceId;
-    } else {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication or device identification required",
-      });
-    }
+    if (userId) query.user = userId;
+    else if (deviceId) query.deviceId = deviceId;
+    else return res.status(401).json({ success: false, message: "Authentication required" });
 
     const order = await Order.findOne(query);
-
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
-    }
+    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
 
     // Verify Signature
     const sign = razorpayOrderId + "|" + razorpayPaymentId;
@@ -707,61 +766,37 @@ export const verifyPayment = async (req, res) => {
     if (razorpaySignature !== expectedSign) {
       order.payment.status = "failed";
       await order.save();
-      return res.status(400).json({
-        success: false,
-        message: "Payment verification failed. Invalid signature.",
-      });
+      return res.status(400).json({ success: false, message: "Invalid signature" });
     }
 
-    // SECURE AMOUNT CHECK
+    // Amount Check
     try {
       const paymentDetails = await razorpay.payments.fetch(razorpayPaymentId);
-      const expectedAmountPaise = Math.round(
-        order.payment.amountPaidOnline * 100
-      );
+      const expectedAmountPaise = Math.round(order.payment.amountPaidOnline * 100);
 
       if (paymentDetails.amount !== expectedAmountPaise) {
-        console.error(
-          `🚨 Payment Tampering Detected! Order: ${order.orderNumber}. Expected: ${expectedAmountPaise}, Paid: ${paymentDetails.amount}`
-        );
         order.payment.status = "failed";
         await order.save();
-        return res.status(400).json({
-          success: false,
-          message: "Payment verification failed. Amount mismatch.",
-        });
+        return res.status(400).json({ success: false, message: "Amount mismatch" });
       }
 
       if (paymentDetails.status !== "captured") {
-        return res.status(400).json({
-          success: false,
-          message: `Payment is not captured. Status: ${paymentDetails.status}`,
-        });
+        return res.status(400).json({ success: false, message: `Payment not captured: ${paymentDetails.status}` });
       }
     } catch (gatewayError) {
-      console.error("Razorpay Gateway Error:", gatewayError);
-      return res.status(500).json({
-        success: false,
-        message: "Failed to validate payment with gateway.",
-      });
+      console.error("Gateway Error:", gatewayError);
+      return res.status(500).json({ success: false, message: "Gateway validation failed" });
     }
 
     // Complete Payment
     await order.completePayment({ razorpayPaymentId, razorpaySignature });
 
-    // [MODIFICATION]: Deduct Stock Here (Primary)
-    // Only happens when payment is successfully verified
+    // Deduct Stock
     for (const item of order.items) {
       await Product.findOneAndUpdate(
         {
           _id: item.product,
-          sizes: {
-            $elemMatch: {
-              value: item.size.value,
-              // Optional: 'stock: { $gte: item.quantity }' if you want strict checking.
-              // Usually we force deduction here since payment is already captured.
-            },
-          },
+          sizes: { $elemMatch: { value: item.size.value } },
         },
         {
           $inc: {
@@ -774,22 +809,25 @@ export const verifyPayment = async (req, res) => {
       );
     }
 
-    // Increment Coupon Usage
+    // Coupon
     if (order.coupon && order.coupon.code) {
       const coupon = await Coupon.findOne({ code: order.coupon.code });
-      if (coupon) {
-        await coupon.incrementUsageForUser(userId, userId ? null : deviceId);
-      }
+      if (coupon) await coupon.incrementUsageForUser(userId, userId ? null : deviceId);
     }
 
     // Clear Cart
     const cart = await Cart.getOrCreateCart({ userId, deviceId });
     if (cart) await cart.clearCart();
 
-    // Generate Invoice
+    // Invoice
     if (!order.invoice || !order.invoice.invoiceNumber) {
       await generateInvoiceSafe(order);
     }
+
+    // --- DELHI VERY INTEGRATION ---
+    // Here we await it because we can afford a 1-2 second delay on the "Success" screen
+    // to ensure the user gets a "Shipped" status if possible.
+    await syncToDelhivery(order);
 
     return res.status(200).json({
       success: true,
@@ -841,7 +879,7 @@ export const getOrders = async (req, res) => {
 
     // If a specific status is requested (e.g. "delivered"), add it to the query
     if (status) {
-        query.orderStatus = status;
+      query.orderStatus = status;
     }
 
     // [NOTE]: Removed .lean() to allow virtuals (e.g. canBeReturned) to work
@@ -1449,7 +1487,7 @@ export const requestReturn = async (req, res) => {
     // Format Reason with Bank Details if provided
     let finalReason = reason;
     if (bankDetails) {
-        finalReason += `\n\n[Bank Details for Refund]\nHolder: ${bankDetails.accountHolderName}\nAcc: ${bankDetails.accountNumber}\nIFSC: ${bankDetails.ifscCode}\nBank: ${bankDetails.bankName}`;
+      finalReason += `\n\n[Bank Details for Refund]\nHolder: ${bankDetails.accountHolderName}\nAcc: ${bankDetails.accountNumber}\nIFSC: ${bankDetails.ifscCode}\nBank: ${bankDetails.bankName}`;
     }
 
     // Update Return Info
@@ -1472,10 +1510,10 @@ export const requestReturn = async (req, res) => {
 
     await order.save();
 
-    return res.status(200).json({ 
-      success: true, 
-      message: "Return requested successfully", 
-      order 
+    return res.status(200).json({
+      success: true,
+      message: "Return requested successfully",
+      order
     });
 
   } catch (error) {
