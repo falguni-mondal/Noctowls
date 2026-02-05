@@ -1,32 +1,28 @@
-import nodemailer from "nodemailer";
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const sendEmail = async ({ to, subject, html }) => {
   try {
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
-      // --- Timeout Settings ---
-      connectionTimeout: 10000, // Time to wait for a connection to be established
-      greetingTimeout: 5000,    // Time to wait for the greeting after connection
-      socketTimeout: 15000,     // Time of inactivity on the socket
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
-      },
-    });
-
-    await transporter.sendMail({
-      from: `"Noctowls" <${process.env.GMAIL_USER}>`,
+    const { data, error } = await resend.emails.send({
+      // IMPORTANT: 
+      // 1. While testing, you must use 'onboarding@resend.dev' as the 'from' address.
+      // 2. Once you verify your domain (e.g., noctowls.com) in the Resend dashboard, 
+      //    update this to: "Noctowls <noreply@noctowls.com>"
+      from: "Noctowls <noreply@noctowls.com>", 
       to,
       subject,
       html,
     });
 
+    if (error) {
+      console.error("Resend API Error:", error);
+      return false;
+    }
+
     return true;
   } catch (err) {
-    console.error("Email error:", err);
+    console.error("Unexpected Email error:", err);
     return false;
   }
 };
