@@ -51,6 +51,11 @@ app.use(
   })
 );
 
+// FOR TESTING //////////////////////////////////////////////////////////
+app.get("/", (req, res) => {
+  res.status(200).json({ success: true });
+})
+
 // NO CACHE MIDDLEWARE (For not storing anything in the cache)
 app.use(noCache);
 
