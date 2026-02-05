@@ -7,6 +7,10 @@ export const sendEmail = async ({ to, subject, html }) => {
       host: 'smtp.gmail.com',
       port: 465,
       secure: true,
+      // --- Timeout Settings ---
+      connectionTimeout: 10000, // Time to wait for a connection to be established
+      greetingTimeout: 5000,    // Time to wait for the greeting after connection
+      socketTimeout: 15000,     // Time of inactivity on the socket
       auth: {
         user: process.env.GMAIL_USER,
         pass: process.env.GMAIL_APP_PASSWORD,
