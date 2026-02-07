@@ -83,18 +83,18 @@ const Verify = () => {
     };
 
     const handleAccountReset = async () => {
-    const res = await dispatch(deleteAccount());
+        const res = await dispatch(deleteAccount());
 
-    if (res?.meta?.requestStatus === "fulfilled") {
-        navigate("/account/signin");
-    } else {
-        toast.error(res?.payload?.message || "Failed to delete account.", toastControls);
-    }
-};
+        if (res?.meta?.requestStatus === "fulfilled") {
+            navigate("/account/signin");
+        } else {
+            toast.error(res?.payload?.message || "Failed to delete account.", toastControls);
+        }
+    };
 
 
     return (
-        <div className="w-full px-5" id='verify-page'>
+        <div className="w-full px-5 md:max-w-md md:mx-auto md:px-0" id='verify-page'>
             <div className="verify-subheader">
                 <p className='verify-subheading w-[24ch] text-center mx-auto leading-none mt-5 text-zinc-300'>
                     Verify with the OTP sent to your email.

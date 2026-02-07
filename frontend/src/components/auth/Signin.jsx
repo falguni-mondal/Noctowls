@@ -48,7 +48,7 @@ const Signin = () => {
     };
 
     return (
-        <div className="w-full px-5" id='sign-in-page'>
+        <div className="w-full px-5 md:max-w-md md:mx-auto md:px-0" id='sign-in-page'>
             <div className="signin-subheader">
                 <p className='signin-subheading w-[24ch] text-center mx-auto leading-none mt-5 text-zinc-300'>
                     Sign in with your email.

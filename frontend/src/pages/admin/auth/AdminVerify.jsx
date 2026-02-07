@@ -85,7 +85,7 @@ const AdminVerify = () => {
 
 
     return (
-        <div className="w-full px-5 py-20" id='verify-page'>
+        <div className="w-full px-5 py-20 md:max-w-md md:mx-auto md:px-0" id='verify-page'>
             <div className="account-header-container">
                 <h1 className="account-heading text-3xl uppercase font-medium text-center leading-none px-3">
                     noctowls admin account
@@ -147,4 +147,4 @@ const AdminVerify = () => {
     );
 };
 
-export default AdminVerify
+export default AdminVerify;
