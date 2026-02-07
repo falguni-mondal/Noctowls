@@ -135,11 +135,21 @@ const Navbar = ({
                                     `absolute inset-0 z-10 ${isActive ? "border-b-2 border-red-600" : ""}`
                                 }
                             />
-                            {/* Active State visual fix: If active, we usually style the text, but with overlay logic, we can underline or target the sibling. 
-                                Alternatively, standard NavLink usage is fine here, but 'relative group' wrapper ensures click area.
-                            */}
                         </li>
                     ))}
+
+                    {/* [!code ++] Whatsapp Navigation (Desktop Only) */}
+                    <li className="relative group">
+                        <a 
+                            href="https://wa.me/8348341112"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 group-hover:text-white transition-colors capitalize"
+                        >
+                            <Icon icon="uil:whatsapp-alt" className='pointer-events-none text-lg text-green-600'/>
+                            <span>Whatsapp</span>
+                        </a>
+                    </li>
                 </ul>
             </div>
 

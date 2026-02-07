@@ -12,6 +12,7 @@ import {
   downloadInvoice,
   handleRazorpayWebhook,
   requestReturn,
+  handleDelhiveryWebhook,
 } from "../../../controllers/user/order/order-controllers.js";
 import {
   validateCreateOrder,
@@ -37,6 +38,8 @@ router.post("/track", validateGuestOrderTracking, trackGuestOrder);
 router.post("/track/cancel", validateGuestOrderCancellation, cancelGuestOrder);
 
 router.post("/webhook/razorpay", handleRazorpayWebhook);
+
+router.post("/delhivery-webhook", handleDelhiveryWebhook);
 
 // ==================== AUTHENTICATED/GUEST ROUTES (OPTIONAL AUTH) ====================
 
@@ -69,5 +72,6 @@ router.post("/:orderId/return", validateOrderId, requestReturn);
 
 // Download invoice
 router.get("/:orderId/invoice", validateOrderId, downloadInvoice);
+
 
 export default router;

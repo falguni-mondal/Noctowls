@@ -3,7 +3,7 @@ import { backendTestApi } from "../utils/global/keys";
 import { backendApi } from "../utils/global/keys";
 
 const userApi = axios.create({
-  baseURL: `${backendApi}/api`,
+  baseURL: `${backendTestApi}/api`,
   withCredentials: true,
 });
 

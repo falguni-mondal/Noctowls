@@ -75,99 +75,63 @@ async function generateUniqueOrderNumber(session) {
   return orderNumber;
 }
 
-// --- HELPER: Sync Order to Delhivery ---
-const syncToDelhivery = async (order) => {
+// ==================== HANDLE DELHI VERY WEBHOOK ====================
+export const handleDelhiveryWebhook = async (req, res) => {
   try {
-    // 1. Basic Checks
-    if (order.orderStatus === "shipped" || order.tracking?.trackingId) {
-      console.log(`[Delhivery] Order ${order.orderNumber} already shipped.`);
-      return;
+    // 1. Log the incoming data (Crucial for debugging)
+    console.log("🔔 [Delhivery Webhook] Received:", JSON.stringify(req.body, null, 2));
+
+    // 2. Extract Data
+    // Delhivery sends data in different formats depending on the event.
+    // Usually for "Scan Push", the structure is inside a 'ScanDetail' object or root level.
+    // We look for Reference Number (Order ID) and Waybill (AWB).
+
+    const data = req.body?.ScanDetail || req.body;
+
+    // key mapping: Delhivery usually sends "RefID" or "ReferenceNo" as your Order ID
+    // and "Waybill" or "AWB" as the tracking number.
+    const orderNumber = data?.RefID || data?.ReferenceNo || data?.OrderNo;
+    const awb = data?.Waybill || data?.AWB;
+    const status = data?.Status || data?.ScanType;
+
+    if (!orderNumber || !awb) {
+      console.warn("⚠️ [Delhivery Webhook] Missing Order Number or AWB in payload");
+      return res.status(200).send("OK"); // Always return 200 to acknowledge receipt
     }
 
-    // 2. Configure Environment
-    const isProd = process.env.DELHIVERY_MODE === "production";
-    const baseUrl = isProd
-      ? "https://track.delhivery.com"
-      : "https://staging-express.delhivery.com";
+    // 3. Find and Update Order
+    const order = await Order.findOne({ orderNumber: orderNumber });
 
-    console.log(`[Delhivery] Attempting ship from Location: "${process.env.DELHIVERY_PICKUP_NAME}"`);
-
-    // 3. Prepare Data Object (The internal part)
-    const shipmentData = {
-      "shipments": [
-        {
-          "name": order.shippingAddress.fullName,
-          "add": order.shippingAddress.address,
-          "pin": order.shippingAddress.pincode,
-          "city": order.shippingAddress.city,
-          "state": order.shippingAddress.state,
-          "country": "India",
-          "phone": order.shippingAddress.phone,
-          "order": order.orderNumber,
-          "payment_mode": order.payment.method === "COD" ? "COD" : "Prepaid",
-          "return_pin": process.env.DELHIVERY_RETURN_PIN || process.env.DELHIVERY_PICKUP_PIN,
-          "return_name": process.env.DELHIVERY_RETURN_NAME || process.env.DELHIVERY_PICKUP_NAME,
-          "products_desc": "Apparel/Merchandise",
-          "cod_amount": order.payment.method === "COD" ? (order.pricing.finalTotal - order.payment.amountPaidOnline) : 0,
-          "order_date": order.createdAt,
-          "total_amount": order.pricing.finalTotal,
-          "quantity": order.items.length,
-          "waybill": "",
-        }
-      ],
-      "pickup_location": {
-        "name": process.env.DELHIVERY_PICKUP_NAME,
-        "add": process.env.DELHIVERY_PICKUP_ADD,
-        "city": process.env.DELHIVERY_PICKUP_CITY,
-        "pin_code": process.env.DELHIVERY_PICKUP_PIN,
-        "country": "India",
-        "phone": process.env.DELHIVERY_PICKUP_PHONE
+    if (order) {
+      // If we don't have the tracking ID yet, save it
+      if (!order.tracking.trackingId) {
+        order.tracking.trackingId = awb;
+        order.tracking.courier = "Delhivery";
+        order.tracking.trackingUrl = `https://www.delhivery.com/track/package/${awb}`;
+        console.log(`✅ [Delhivery Webhook] Linked AWB ${awb} to Order ${orderNumber}`);
       }
-    };
 
-    // 4. FIX: Use URLSearchParams for Form Data encoding
-    const params = new URLSearchParams();
-    params.append("format", "json");
-    params.append("data", JSON.stringify(shipmentData)); // Stringify the inner data
-
-    // 5. API Call
-    const response = await axios.post(
-      `${baseUrl}/api/cmu/create.json`,
-      params, // Send params, not JSON object
-      {
-        headers: {
-          "Authorization": `Token ${process.env.DELHIVERY_API_TOKEN}`,
-          // Axios automatically sets 'application/x-www-form-urlencoded' for URLSearchParams
+      // Update Status based on Delhivery Status (Optional but recommended)
+      // Example: If status is "Manifested" or "In Transit", mark as shipped
+      if (status === "Manifested" || status === "In Transit") {
+        if (order.orderStatus !== "shipped") {
+          order.orderStatus = "shipped";
+          order.statusTimestamps.shipped = new Date();
         }
       }
-    );
 
-    // 6. Handle Response
-    if (response.data && response.data.packages && response.data.packages.length > 0) {
-      const pkg = response.data.packages[0];
-
-      if (pkg.status === "Success") {
-        order.orderStatus = "shipped";
-        order.tracking = {
-          trackingId: pkg.waybill,
-          courier: "Delhivery",
-          trackingUrl: `https://www.delhivery.com/track/package/${pkg.waybill}`
-        };
-
-        if (!order.statusTimestamps) order.statusTimestamps = {};
-        order.statusTimestamps.shipped = new Date();
-
-        await order.save();
-        console.log(`✅ [Delhivery] Shipment created for ${order.orderNumber}. AWB: ${pkg.waybill}`);
-      } else {
-        console.error(`❌ [Delhivery] API Error for ${order.orderNumber}:`, pkg.remarks || "Unknown error");
-      }
+      await order.save();
     } else {
-      console.error(`❌ [Delhivery] Critical Error for ${order.orderNumber}. Response:`, JSON.stringify(response.data, null, 2));
+      console.error(`❌ [Delhivery Webhook] Order not found: ${orderNumber}`);
     }
+
+    // 4. Acknowledge Delhivery
+    return res.status(200).send("OK");
 
   } catch (error) {
-    console.error(`❌ [Delhivery] Network/Server Error for ${order.orderNumber}:`, error.response?.data || error.message);
+    console.error("❌ [Delhivery Webhook] Error:", error);
+    // Still return 200 so they don't keep retrying and crashing your server logs
+    return res.status(200).send("Error handled");
   }
 };
 
@@ -721,11 +685,6 @@ export const handleRazorpayWebhook = async (req, res) => {
         await generateInvoiceSafe(order);
       }
 
-      // --- DELHI VERY INTEGRATION ---
-      // We purposefully don't await this so the webhook responds fast (200 OK)
-      // The shipping will process in the background
-      syncToDelhivery(order).catch(err => console.error("Background shipping sync failed:", err));
-
       console.log(`Webhook verified payment for Order: ${order.orderNumber}`);
       return res.status(200).json({ status: "ok" });
     }
@@ -823,11 +782,6 @@ export const verifyPayment = async (req, res) => {
     if (!order.invoice || !order.invoice.invoiceNumber) {
       await generateInvoiceSafe(order);
     }
-
-    // --- DELHI VERY INTEGRATION ---
-    // Here we await it because we can afford a 1-2 second delay on the "Success" screen
-    // to ensure the user gets a "Shipped" status if possible.
-    await syncToDelhivery(order);
 
     return res.status(200).json({
       success: true,

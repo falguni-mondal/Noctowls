@@ -7,6 +7,9 @@ import Loader from '../utils/loader/Loader';
 import { Link, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react/dist/iconify.js';
 
+// [!code ++] IMPORT PIXEL TRACKING
+import { trackEvent } from '../utils/pixel/pixel';
+
 const Bagpage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -19,6 +22,22 @@ const Bagpage = () => {
   useEffect(() => {
     dispatch(getCart());
   }, [dispatch, user, admin]);
+
+  // [!code ++] TRACK ViewCart EVENT ON LOAD
+  useEffect(() => {
+    if (cart && cart.items && cart.items.length > 0) {
+        trackEvent('ViewCart', {
+            currency: 'INR',
+            value: cart.summary.total,
+            content_ids: cart.items.map(item => item.product._id || item.product),
+            content_type: 'product',
+            contents: cart.items.map(item => ({
+                id: item.product._id || item.product,
+                quantity: item.quantity
+            }))
+        });
+    }
+  }, [cart]);
 
   // Filter purchased items
   const purchasedItems = cart?.items?.filter(item => !item.isFreeGift) || [];
@@ -34,6 +53,20 @@ const Bagpage = () => {
       originalPrice: (gift.originalPrice * gift.quantity) || 0,
     }))
     : [];
+
+  const handleCheckout = () => {
+    if (cart) {
+        // [!code ++] TRACK InitiateCheckout EVENT
+        trackEvent('InitiateCheckout', {
+            currency: 'INR',
+            value: cart.summary.total,
+            num_items: cart.summary.totalQuantity,
+            content_ids: cart.items.map(item => item.product._id || item.product),
+            content_type: 'product'
+        });
+    }
+    navigate("/checkout");
+  };
 
   if (loading) {
     return (
@@ -214,7 +247,7 @@ const Bagpage = () => {
                 </div>
 
                 <button 
-                    onClick={() => navigate("/checkout")} 
+                    onClick={handleCheckout} 
                     className="w-full bg-red-600 text-white py-3 rounded font-semibold uppercase mt-8 hover:bg-red-700 transition-all shadow-lg shadow-red-900/20 flex items-center justify-center gap-2 group lg:text-sm"
                 >
                   Checkout

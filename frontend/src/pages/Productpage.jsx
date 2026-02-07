@@ -37,6 +37,9 @@ import Loader from "../utils/loader/Loader";
 import { toast } from "react-toastify";
 import toastControls from "../utils/global/toastControls";
 
+// [!code ++] IMPORT PIXEL TRACKING
+import { trackEvent } from "../utils/pixel/pixel";
+
 const Productpage = () => {
     const [selectedSize, setselectedSize] = useState("l");
     const [quantity, setQuantity] = useState(1);
@@ -112,6 +115,15 @@ const Productpage = () => {
     useEffect(() => {
         if (product && !productLoading && !productError) {
             addToRecentlyViewed(product);
+            
+            // [!code ++] Track ViewContent Event
+            trackEvent('ViewContent', {
+                content_name: product.name,
+                content_ids: [product._id],
+                content_type: 'product',
+                value: product.price,
+                currency: 'INR'
+            });
         }
     }, [product, productLoading, productError]);
 
@@ -208,6 +220,17 @@ const Productpage = () => {
                 sizeValue: selectedSize,
                 quantity: quantity
             })).unwrap();
+            
+            // [!code ++] Track AddToCart
+            trackEvent('AddToCart', {
+                content_name: product.name,
+                content_ids: [productId],
+                content_type: 'product',
+                value: product.price,
+                currency: 'INR',
+                contents: [{ id: productId, quantity: quantity }]
+            });
+
             toast.success("Added to cart!", toastControls);
         } catch (error) {
             toast.error(error || "Failed to add!", toastControls);
@@ -216,6 +239,17 @@ const Productpage = () => {
 
     const buyNowHandler = async () => {
         if (!canPurchase || cartActionLoading) return;
+        
+        // [!code ++] Track InitiateCheckout (Buy Now)
+        trackEvent('InitiateCheckout', {
+            content_name: product.name,
+            content_ids: [productId],
+            content_type: 'product',
+            value: product.price * quantity,
+            currency: 'INR',
+            num_items: quantity
+        });
+
         try {
             if (!isInCart) {
                 await dispatch(addToCart({
@@ -241,6 +275,18 @@ const Productpage = () => {
 
         try {
             const result = await dispatch(toggleWishlist(productId)).unwrap();
+            
+            // [!code ++] Track AddToWishlist (Only when adding)
+            if (result.isInWishlist) {
+                trackEvent('AddToWishlist', {
+                    content_name: product.name,
+                    content_ids: [productId],
+                    content_type: 'product',
+                    value: product.price,
+                    currency: 'INR'
+                });
+            }
+
             toast.success(result.message || (result.isInWishlist ? "Added to wishlist!" : "Removed from wishlist"), toastControls);
         } catch (error) {
             toast.error(error || "Failed to update wishlist", toastControls);

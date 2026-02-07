@@ -17,7 +17,7 @@ export const getAllAdminOrders = createAsyncThunk(
       params.append("limit", limit);
 
       if (status) params.append("status", status);
-      // [!code ++] Add returnStatus to query params
+      // Add returnStatus to query params
       if (returnStatus) params.append("returnStatus", returnStatus);
       if (search) params.append("search", search);
 
@@ -57,7 +57,7 @@ export const updateAdminOrderStatus = createAsyncThunk(
     try {
       const response = await adminApi.put(`/orders/${orderId}`, {
         status,
-        trackingId,
+        trackingId, // Optional manual tracking update
       });
       return response.data;
     } catch (error) {
@@ -68,7 +68,34 @@ export const updateAdminOrderStatus = createAsyncThunk(
   }
 );
 
+// 4. [!code ++] MANUAL SHIP ORDER (With Error Parsing)
+export const shipAdminOrder = createAsyncThunk(
+  "adminOrder/shipOrder",
+  async (orderId, { rejectWithValue }) => {
+    try {
+      const response = await adminApi.post(`/orders/${orderId}/ship`);
+      return response.data;
+    } catch (error) {
+      let errorMessage = error.response?.data?.message || "Failed to ship order";
+      const detailedError = error.response?.data?.error;
 
+      // Check for specific Delhivery "Insufficient Balance" error in the response
+      // We convert to string and lowercase to catch any variation of the error message
+      const combinedErrorString = (errorMessage + " " + JSON.stringify(detailedError || "")).toLowerCase();
+
+      if (combinedErrorString.includes("insufficient balance")) {
+        errorMessage = "Insufficient Delhivery Wallet Balance. Please recharge.";
+      } else if (detailedError && typeof detailedError === 'string') {
+        // If there's a specific error string from backend, prefer that over the generic message
+        errorMessage = detailedError;
+      }
+
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+// 5. Process Return Request
 export const processReturnRequest = createAsyncThunk(
   "adminOrder/processReturn",
   async ({ orderId, status, note }, { rejectWithValue }) => {
@@ -86,7 +113,7 @@ export const processReturnRequest = createAsyncThunk(
   }
 );
 
-// 5. Delete Order (Only cancelled)
+// 6. Delete Order (Only cancelled)
 export const deleteAdminOrder = createAsyncThunk(
   "adminOrder/delete",
   async (orderId, { rejectWithValue }) => {
@@ -101,7 +128,7 @@ export const deleteAdminOrder = createAsyncThunk(
   }
 );
 
-// 6. Get Order Statistics
+// 7. Get Order Statistics
 export const getAdminOrderStats = createAsyncThunk(
   "adminOrder/getStats",
   async (_, { rejectWithValue }) => {
@@ -222,7 +249,44 @@ const adminOrderSlice = createSlice({
         state.error = action.payload;
       });
 
-    // --- [!code ++] PROCESS RETURN REQUEST ---
+    // --- SHIP ORDER ---
+    builder
+      .addCase(shipAdminOrder.pending, (state) => {
+        state.actionLoading = true;
+        state.error = null;
+        state.successMessage = null;
+      })
+      .addCase(shipAdminOrder.fulfilled, (state, action) => {
+        state.actionLoading = false;
+        state.successMessage = action.payload.message;
+
+        // Note: The backend doesn't return the full order object here, 
+        // it returns { success, message, awb }.
+        // Ideally, we should update the local state manually or re-fetch.
+        // Here we update the AWB and Status optimistically if currentOrder matches.
+        if (state.currentOrder && action.meta.arg === state.currentOrder._id) {
+            state.currentOrder.orderStatus = "shipped";
+            state.currentOrder.tracking = {
+                ...state.currentOrder.tracking,
+                trackingId: action.payload.awb,
+                courier: "Delhivery"
+            };
+        }
+        
+        // Update in the list as well
+        const index = state.orders.findIndex((o) => o._id === action.meta.arg);
+        if (index !== -1) {
+            state.orders[index].orderStatus = "shipped";
+            // We don't have the full tracking object to update the list view perfectly
+            // but status change is enough for the UI to reflect "Shipped"
+        }
+      })
+      .addCase(shipAdminOrder.rejected, (state, action) => {
+        state.actionLoading = false;
+        state.error = action.payload;
+      });
+
+    // --- PROCESS RETURN REQUEST ---
     builder
       .addCase(processReturnRequest.pending, (state) => {
         state.actionLoading = true;

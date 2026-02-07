@@ -1,44 +1,344 @@
+import axios from "axios";
 import Order from "../../../models/order-model.js";
 import Product from "../../../models/product-model.js";
 import Coupon from "../../../models/coupon-model.js";
 
+// ==================== HELPER: WEIGHT CALCULATOR ====================
+// Calculates total weight in grams based on your strict product rules
+const calculateOrderWeight = (items, freeGiftsData) => {
+  let totalGrams = 0;
+
+  // 1. Helper for Main Items
+  const getItemWeight = (category, sizeValue) => {
+    const cat = String(category || "").toLowerCase().trim();
+    const size = String(sizeValue || "").toLowerCase().trim();
+
+    if (cat === "deskmat") {
+      if (size === "l") return 600;
+      if (size === "xl") return 730;
+      if (size === "xxl") return 955;
+      return 600;
+    }
+    if (cat === "anime-keychain") return 30;
+    if (cat === "anime-figure") return 100;
+    if (cat === "anime-katana") {
+      if (size === "miniature") return 80;
+      if (size === "kids-short") return 330;
+      if (size === "full-length") return 700;
+      return 80;
+    }
+    return 500; // Generic fallback
+  };
+
+  // 2. Helper for Free Gifts (Exact Name Matching)
+  const getGiftWeight = (name) => {
+    const n = String(name || "").trim();
+    switch (n) {
+      case "Anime Keychain": return 30;
+      case "Anime Figure": return 100;
+      case "Anime Katana": return 80;  // Miniature
+      case "Stickers": return 10;
+      default: return 50;
+    }
+  };
+
+  // --- PROCESSING ---
+  if (items && Array.isArray(items)) {
+    items.forEach((item) => {
+      const cat = item.category || (item.product && item.product.category);
+      const w = getItemWeight(cat, item.size?.value);
+      totalGrams += w * item.quantity;
+    });
+  }
+
+  if (freeGiftsData && freeGiftsData.gifts && Array.isArray(freeGiftsData.gifts)) {
+    freeGiftsData.gifts.forEach((gift) => {
+      const w = getGiftWeight(gift.name);
+      totalGrams += w * (gift.quantity || 1);
+    });
+  }
+
+  return totalGrams;
+};
+
+// ==================== HELPER: CREATE REVERSE PICKUP (PRIVATE) ====================
+const createReversePickup = async (order) => {
+  try {
+    const isProd = process.env.DELHIVERY_MODE === "production";
+    const baseUrl = isProd
+      ? "https://track.delhivery.com"
+      : "https://staging-express.delhivery.com";
+
+    console.log(`[Delhivery] Attempting Reverse Pickup for ${order.orderNumber}`);
+
+    // 1. Calculate Weight (Important for pricing)
+    const weightGrams = calculateOrderWeight(order.items, order.freeGifts);
+
+    // 2. Prepare Payload
+    // Note: Reverse pickup API structure is slightly different from Forward
+    const payload = {
+      "shipments": [
+        {
+          "client": process.env.DELHIVERY_PICKUP_NAME, // Your account name
+          "order": `${order.orderNumber}-R`, // Append -R so it doesn't conflict with original order ID
+          "name": order.shippingAddress.fullName,
+          "add": order.shippingAddress.address,
+          "city": order.shippingAddress.city,
+          "state": order.shippingAddress.state,
+          "country": "India",
+          "pin": order.shippingAddress.pincode,
+          "phone": order.shippingAddress.phone,
+          "payment_mode": "Prepaid", // You (Merchant) pay for reverse shipping
+          "products_desc": "Return: Anime Merchandise",
+          "quantity": order.items.length,
+          "weight": weightGrams,
+          // DESTINATION (Your Warehouse)
+          // The API automatically routes to your registered warehouse based on your Token,
+          // but explicit return address ensures clarity.
+          "return_name": process.env.DELHIVERY_PICKUP_NAME,
+          "return_add": process.env.DELHIVERY_PICKUP_ADD,
+          "return_city": process.env.DELHIVERY_PICKUP_CITY,
+          "return_pin": process.env.DELHIVERY_PICKUP_PIN,
+          "return_phone": process.env.DELHIVERY_PICKUP_PHONE,
+          "qc": {
+            "item": [
+              {
+                "image": "", // Optional: URL of product image
+                "code": "QC_001",
+                "reason": "Product and box should be intact"
+              }
+            ]
+          }
+        }
+      ],
+      "pickup_location": {
+        // In Reverse API, "pickup_location" is actually where the courier DROPS the item (Your Warehouse)
+        // Confusing naming by Delhivery, but this is how it works for incoming.
+        "name": process.env.DELHIVERY_PICKUP_NAME,
+        "add": process.env.DELHIVERY_PICKUP_ADD,
+        "city": process.env.DELHIVERY_PICKUP_CITY,
+        "pin_code": process.env.DELHIVERY_PICKUP_PIN,
+        "country": "India",
+        "phone": process.env.DELHIVERY_PICKUP_PHONE
+      }
+    };
+
+    // 3. Format Data
+    const params = new URLSearchParams();
+    params.append("format", "json");
+    params.append("data", JSON.stringify(payload));
+
+    // 4. Call API
+    // We use the same endpoint; Delhivery detects it's a reverse flow based on configuration 
+    // OR we use the specific incoming endpoint. 
+    // Standard practice: Use `api/cmu/create.json` but ensuring the 'client' matches your reverse capability.
+    // If your account supports reverse, this works.
+
+    const response = await axios.post(
+      `${baseUrl}/api/cmu/create.json`,
+      params,
+      { headers: { "Authorization": `Token ${process.env.DELHIVERY_API_TOKEN}` } }
+    );
+
+    // 5. Check Response
+    if (response.data && response.data.packages && response.data.packages.length > 0) {
+      const pkg = response.data.packages[0];
+      if (pkg.status === "Success" || pkg.status === "Scanned") {
+        console.log(`✅ [Delhivery] Reverse Pickup Created. AWB: ${pkg.waybill}`);
+        return { success: true, awb: pkg.waybill, ref: pkg.refnum };
+      } else {
+        throw new Error(pkg.remarks || "Reverse API Failed");
+      }
+    } else {
+      throw new Error("Unexpected API Response");
+    }
+
+  } catch (error) {
+    console.error(`❌ [Delhivery] Reverse Error:`, error.response?.data || error.message);
+    // We re-throw so the Admin Controller knows it failed
+    throw new Error(error.message || "Reverse Pickup Failed");
+  }
+};
+
+// ==================== HELPER: SYNC TO DELHI VERY (RESTORED WORKING VERSION) ====================
+const syncToDelhivery = async (order) => {
+  try {
+    // 1. Basic Checks
+    if (order.tracking?.courier === "Delhivery" && order.tracking?.trackingId) {
+      console.log(`[Delhivery] Order ${order.orderNumber} already synced.`);
+      return { success: true, awb: order.tracking.trackingId, message: "Already shipped" };
+    }
+
+    // 2. Configure Environment
+    const isProd = process.env.DELHIVERY_MODE === "production";
+    const baseUrl = isProd
+      ? "https://track.delhivery.com"
+      : "https://staging-express.delhivery.com";
+
+    console.log(`[Delhivery] Attempting ship from Location: "${process.env.DELHIVERY_PICKUP_NAME}"`);
+
+    // 3. Calculate Weight (The only new addition to your old code)
+    const totalWeightGrams = calculateOrderWeight(order.items, order.freeGifts);
+
+    // 4. Prepare Data Object (Exact structure from your working code)
+    const shipmentData = {
+      "shipments": [
+        {
+          "name": order.shippingAddress.fullName,
+          "add": order.shippingAddress.address,
+          "pin": order.shippingAddress.pincode,
+          "city": order.shippingAddress.city,
+          "state": order.shippingAddress.state,
+          "country": "India",
+          "phone": order.shippingAddress.phone,
+          "order": order.orderNumber,
+          "payment_mode": order.payment.method === "COD" ? "COD" : "Prepaid",
+          "return_pin": process.env.DELHIVERY_PICKUP_PIN, // Simplified as per your working code
+          "return_name": process.env.DELHIVERY_PICKUP_NAME,
+          "products_desc": "Apparel/Merchandise",
+          "cod_amount": order.payment.method === "COD" ? (order.pricing.finalTotal - order.payment.amountPaidOnline) : 0,
+          "order_date": order.createdAt,
+          "total_amount": order.pricing.finalTotal,
+          "quantity": order.items.length,
+          "weight": totalWeightGrams, // Added weight
+          "waybill": "",
+        }
+      ],
+      "pickup_location": {
+        "name": process.env.DELHIVERY_PICKUP_NAME,
+        "add": process.env.DELHIVERY_PICKUP_ADD,
+        "city": process.env.DELHIVERY_PICKUP_CITY,
+        "pin_code": process.env.DELHIVERY_PICKUP_PIN,
+        "country": "India",
+        "phone": process.env.DELHIVERY_PICKUP_PHONE
+      }
+    };
+
+    // 5. Use URLSearchParams (Crucial Fix)
+    const params = new URLSearchParams();
+    params.append("format", "json");
+    params.append("data", JSON.stringify(shipmentData));
+
+    // 6. API Call
+    const response = await axios.post(
+      `${baseUrl}/api/cmu/create.json`,
+      params,
+      {
+        headers: {
+          "Authorization": `Token ${process.env.DELHIVERY_API_TOKEN}`,
+          // Axios automatically sets content-type for URLSearchParams
+        }
+      }
+    );
+
+    // 7. Handle Response
+    if (response.data && response.data.packages && response.data.packages.length > 0) {
+      const pkg = response.data.packages[0];
+
+      if (pkg.status === "Success") {
+        console.log(`✅ [Delhivery] Shipment created. AWB: ${pkg.waybill}`);
+        
+        order.orderStatus = "shipped";
+        order.tracking = {
+          trackingId: pkg.waybill,
+          courier: "Delhivery",
+          trackingUrl: `https://www.delhivery.com/track/package/${pkg.waybill}`
+        };
+
+        if (!order.statusTimestamps) order.statusTimestamps = {};
+        order.statusTimestamps.shipped = new Date();
+
+        await order.save();
+        return { success: true, awb: pkg.waybill };
+      } else {
+        const errorMsg = pkg.remarks || "Delhivery API Error";
+        throw new Error(errorMsg);
+      }
+    } else {
+      // If error is true but no package info
+      console.error("Delhivery Raw Response:", JSON.stringify(response.data));
+      throw new Error(JSON.stringify(response.data));
+    }
+
+  } catch (error) {
+    const msg = error.response?.data ? JSON.stringify(error.response.data) : error.message;
+    console.error(`❌ [Delhivery] Sync Failed:`, msg);
+    throw new Error(msg);
+  }
+};
+
+// ==================== NEW: MANUAL SHIP BUTTON CONTROLLER ====================
+export const shipOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    // 1. Find Order
+    const order = await Order.findById(orderId);
+    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+
+    // 2. Validate Status
+    // If order is marked shipped AND has an AWB, we block re-shipping.
+    if (order.orderStatus === "shipped" && order.tracking?.trackingId) {
+      return res.status(400).json({
+        success: false,
+        message: "Order is already shipped",
+        awb: order.tracking.trackingId
+      });
+    }
+    if (order.orderStatus === "cancelled") {
+      return res.status(400).json({ success: false, message: "Cannot ship a cancelled order" });
+    }
+
+    // 3. Trigger Sync
+    const result = await syncToDelhivery(order);
+
+    return res.status(200).json({
+      success: true,
+      message: result.message || "Order shipped successfully",
+      awb: result.awb
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Shipping failed",
+      error: error.message
+    });
+  }
+};
+
 // ==================== GET ALL ORDERS (ADMIN) ====================
-// Supports: Pagination, Status Filtering, Date Range, Search, AND Return Management
 export const getAllAdminOrders = async (req, res) => {
   try {
-    const { 
-        page = 1, 
-        limit = 10, 
-        status, 
-        returnStatus,
-        search, 
-        startDate, 
-        endDate 
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      returnStatus,
+      search,
+      startDate,
+      endDate
     } = req.query;
 
     const query = {};
 
     // 1. Main Order Status Filter
-    if (status && status !== "") {
+    // Safe check: ignore "all" string from frontend dropdowns
+    if (status && status !== "" && status !== "all") {
       query.orderStatus = status;
     }
 
-    // 2. Return Status Filter (For Return Dashboard)
-    // Allows fetching "requested", "approved", "completed", or "all" active returns
+    // 2. Return Status Filter
     if (returnStatus) {
-        if (returnStatus === 'active') {
-            // Fetch everything that is NOT 'none' and NOT 'completed'/'rejected' if you strictly want "active"
-            // Or simpler: fetch where status is 'requested' or 'approved'
-            query["returnInfo.status"] = { $in: ['requested', 'approved', 'received', 'qc_passed'] };
-        } else if (returnStatus === 'history') {
-             query["returnInfo.status"] = { $in: ['completed', 'rejected', 'refund_processed'] };
-        } else if (returnStatus !== 'all') {
-            // Fetch specific status (e.g. ?returnStatus=requested)
-            query["returnInfo.status"] = returnStatus;
-        } else {
-            // ?returnStatus=all -> Fetch ANY order that has ever had a return interaction
-            query["returnInfo.status"] = { $ne: 'none' };
-        }
+      if (returnStatus === 'active') {
+        query["returnInfo.status"] = { $in: ['requested', 'approved', 'received', 'qc_passed'] };
+      } else if (returnStatus === 'history') {
+        query["returnInfo.status"] = { $in: ['completed', 'rejected', 'refund_processed'] };
+      } else if (returnStatus !== 'all' && returnStatus !== '') {
+        query["returnInfo.status"] = returnStatus;
+      } else if (returnStatus === 'all') {
+        query["returnInfo.status"] = { $ne: 'none' };
+      }
     }
 
     // 3. Date Range Filter
@@ -101,8 +401,6 @@ export const getAdminOrderById = async (req, res) => {
   try {
     const { orderId } = req.params;
 
-    // Because 'returnInfo' is embedded in the Order Schema, 
-    // simply finding the order retrieves the return details automatically.
     const order = await Order.findById(orderId)
       .populate("user", "name email phone")
       .populate("items.product", "name image");
@@ -134,39 +432,19 @@ export const updateOrderStatus = async (req, res) => {
     const { status } = req.body;
 
     const validStatuses = [
-      "pending",
-      "confirmed",
-      "processing",
-      "packed",
-      "shipped",
-      "out-for-delivery",
-      "delivered",
-      "cancelled",
-      "returned",
+      "pending", "confirmed", "processing", "packed", "shipped",
+      "out-for-delivery", "delivered", "cancelled", "returned",
     ];
-    
+
     if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid status value",
-      });
+      return res.status(400).json({ success: false, message: "Invalid status value" });
     }
 
     const order = await Order.findById(orderId);
+    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
 
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
-    }
-
-    // Prevent changing delivered/returned orders back to pending
     if (["delivered", "returned"].includes(order.orderStatus) && !["delivered", "returned"].includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot change status of a completed order",
-      });
+      return res.status(400).json({ success: false, message: "Cannot change status of a completed order" });
     }
 
     // --- CANCELLATION LOGIC ---
@@ -206,11 +484,7 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     // --- STANDARD UPDATE ---
-    if (
-      status === "delivered" &&
-      order.payment.method === "COD" &&
-      order.payment.status === "pending"
-    ) {
+    if (status === "delivered" && order.payment.method === "COD" && order.payment.status === "pending") {
       order.payment.status = "completed";
       order.payment.paidAt = new Date();
     }
@@ -241,67 +515,79 @@ export const updateOrderStatus = async (req, res) => {
   }
 };
 
-// ==================== NEW: MANAGE RETURN REQUEST ====================
-// Used by Admin Order Details page to Approve/Reject/Refund returns
+// ==================== MANAGE RETURN REQUEST (Modified) ====================
 export const manageReturnRequest = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { status, note } = req.body; // status: approved, rejected, completed
+    const { status, note } = req.body;
 
     const validStatuses = ["approved", "rejected", "completed"];
     if (!validStatuses.includes(status)) {
-        return res.status(400).json({ message: "Invalid return action" });
+      return res.status(400).json({ message: "Invalid return action" });
     }
 
     const order = await Order.findById(orderId);
     if (!order) return res.status(404).json({ message: "Order not found" });
 
-    // Validate current state
     if (!order.returnInfo || order.returnInfo.status === 'none') {
-        return res.status(400).json({ message: "No active return request found" });
+      return res.status(400).json({ message: "No active return request found" });
     }
 
-    // Update Return Info
+    // --- AUTOMATION LOGIC ---
+    let pickupAWB = null;
+
+    // Only trigger Delhivery if status is being set to 'approved' AND it hasn't been approved before
+    if (status === 'approved' && order.returnInfo.status !== 'approved') {
+      try {
+        const result = await createReversePickup(order);
+        pickupAWB = result.awb;
+        // Append tracking info to admin note automatically
+        const autoNote = `Reverse Pickup Scheduled. AWB: ${result.awb}`;
+        order.returnInfo.adminNote = note ? `${note} | ${autoNote}` : autoNote;
+      } catch (apiError) {
+        return res.status(500).json({
+          success: false,
+          message: "Failed to schedule Delhivery Reverse Pickup. Please check address/pincode.",
+          error: apiError.message
+        });
+      }
+    } else {
+      order.returnInfo.adminNote = note || "";
+    }
+
+    // Update Status
     order.returnInfo.status = status;
-    order.returnInfo.adminNote = note || "";
-    
+
     // Update Timeline
     order.returnInfo.timeline.push({
-        status: status === 'completed' ? 'Return Completed' : `Return ${status.charAt(0).toUpperCase() + status.slice(1)}`,
-        date: new Date(),
-        note: note || (status === 'approved' ? 'Request approved by admin' : 'Request rejected by admin')
+      status: status === 'completed' ? 'Return Completed' : `Return ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+      date: new Date(),
+      note: note || (status === 'approved' ? `Approved. Pickup AWB: ${pickupAWB}` : 'Updated by admin')
     });
 
-    // --- State Logic ---
-    
-    // 1. If Rejected -> Mark active as false
     if (status === 'rejected') {
-        order.returnInfo.isReturnActive = false; 
+      order.returnInfo.isReturnActive = false;
     }
 
-    // 2. If Completed (Money Refunded) -> Mark Order as Returned
     if (status === 'completed') {
-        order.orderStatus = 'returned';
-        order.returnInfo.isReturnActive = false;
-        
-        // Optional: Add logic here if you want to auto-restock returned items
-        // For simplicity in this approach, we assume restocking is manual or items are damaged.
+      order.orderStatus = 'returned';
+      order.returnInfo.isReturnActive = false;
     }
 
     await order.save();
 
     return res.status(200).json({
-        success: true,
-        message: `Return request marked as ${status}`,
-        order
+      success: true,
+      message: `Return request marked as ${status}`,
+      order
     });
 
   } catch (error) {
     console.error("Manage Return Error:", error);
     return res.status(500).json({
-        success: false,
-        message: "Failed to update return status",
-        error: error.message
+      success: false,
+      message: "Failed to update return status",
+      error: error.message
     });
   }
 };
@@ -339,7 +625,6 @@ export const deleteOrder = async (req, res) => {
 };
 
 // ==================== GET ORDER STATS ====================
-// ==================== GET ORDER STATS ====================
 export const getOrderStats = async (req, res) => {
   try {
     const stats = await Order.aggregate([
@@ -354,16 +639,15 @@ export const getOrderStats = async (req, res) => {
       },
     ]);
 
-    // We filter for statuses that require admin attention.
     const returnStats = await Order.aggregate([
-        { 
-            $match: { 
-                "returnInfo.status": { $in: ['requested', 'approved', 'received', 'qc_passed'] } 
-            } 
-        },
-        { $count: "totalReturns" }
+      {
+        $match: {
+          "returnInfo.status": { $in: ['requested', 'approved', 'received', 'qc_passed'] }
+        }
+      },
+      { $count: "totalReturns" }
     ]);
-    
+
     const totalReturnRequests = returnStats[0]?.totalReturns || 0;
 
     const totalOrders = stats.reduce((acc, curr) => acc + curr.count, 0);

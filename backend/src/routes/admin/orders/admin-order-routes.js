@@ -5,7 +5,8 @@ import {
   updateOrderStatus,
   deleteOrder,
   getOrderStats,
-  manageReturnRequest, // <--- Imported new controller
+  manageReturnRequest,
+  shipOrder, // <--- 1. Import the new Ship controller
 } from "../../../controllers/admin/orders/adminOrderControllers.js";
 
 // Import middlewares
@@ -31,6 +32,11 @@ router
   .put(isValidUser, isAdmin, updateOrderStatus)      // Update Status (Shipped/Delivered etc)
   .delete(isValidUser, isAdmin, deleteOrder);        // Delete Order (Cancelled only)
 
+// 4. Specific Action Routes
+// [!code ++] Route for Manual Shipping (Trigger Delhivery Sync)
+router.post("/:orderId/ship", isValidUser, isAdmin, shipOrder);
+
+// Route for Managing Returns (Approve/Reject)
 router.put("/:orderId/return", isValidUser, isAdmin, manageReturnRequest);
 
 export default router;

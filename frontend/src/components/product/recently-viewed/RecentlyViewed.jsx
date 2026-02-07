@@ -43,6 +43,7 @@ const RecentlyViewed = () => {
           breakpoints={{
             500: { slidesPerView: 2.2, spaceBetween: 16 }, // Larger phones
             768: { slidesPerView: 2.5, spaceBetween: 20 }, // Tablets
+            1024:{ slidesPerView: 4, spaceBetween: 20 },
           }}
           className="pb-4 px-1" // Padding for shadow visibility
         >

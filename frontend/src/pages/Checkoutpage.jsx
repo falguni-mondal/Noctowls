@@ -36,6 +36,9 @@ import { selectIsAuthenticated } from '../store/features/user/authSlice';
 
 import toastControls from '../utils/global/toastControls';
 
+// [!code ++] IMPORT META PIXEL TRACKING
+import { trackEvent } from '../utils/pixel/pixel';
+
 // ✅ List of Indian States for robust GST calculation (State selection preserved)
 const INDIAN_STATES = [
   "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam",
@@ -299,6 +302,40 @@ const CheckoutPage = () => {
     return true;
   };
 
+  // Calculate totals (GST Removed from Logic as requested)
+  const calculateTotals = () => {
+    if (!orderSummary) {
+      return {
+        productsSubtotal: 0,
+        couponDiscount: 0,
+        subtotalAfterCoupon: 0,
+        codFee: 0,
+        finalTotal: 0,
+        payNow: 0,
+        payOnDelivery: 0,
+      };
+    }
+
+    const productsSubtotal = orderSummary.productsSubtotal || 0;
+    const couponDiscount = orderSummary.couponDiscount || 0;
+    // ✅ CHANGED: Round to integer
+    const subtotalAfterCoupon = Math.round(productsSubtotal - couponDiscount);
+    const codFee = paymentMethod === 'COD' ? 49 : 0;
+    const finalTotal = subtotalAfterCoupon + codFee;
+
+    return {
+      productsSubtotal,
+      couponDiscount,
+      subtotalAfterCoupon,
+      codFee,
+      finalTotal,
+      payNow: paymentMethod === 'ONLINE' ? finalTotal : codFee,
+      payOnDelivery: paymentMethod === 'COD' ? subtotalAfterCoupon : 0,
+    };
+  };
+
+  const totals = calculateTotals();
+
   // Handle Razorpay payment
   const handleRazorpayPayment = (razorpayData, orderData) => {
     if (typeof window.Razorpay === 'undefined') {
@@ -342,6 +379,18 @@ const CheckoutPage = () => {
               orderId: orderData.orderId,
             })
           ).unwrap();
+
+          // [!code ++] TRACK PURCHASE EVENT
+          // Fired on successful payment verification, right before redirect
+          trackEvent('Purchase', {
+            content_name: `Order #${verifyResult.order.orderNumber}`,
+            content_ids: orderSummary?.items?.map((item) => item.product._id) || [],
+            content_type: 'product',
+            value: totals.finalTotal,
+            currency: 'INR',
+            order_id: verifyResult.order.orderId, // Crucial for deduplication
+            num_items: orderSummary?.items?.length
+          });
 
           toast.success('Payment successful! Order confirmed.', toastControls);
           // ✅ REDIRECT HERE: Only on successful verification
@@ -441,6 +490,16 @@ const CheckoutPage = () => {
       return;
     }
 
+    // [!code ++] TRACK ADD PAYMENT INFO
+    // Triggered when user attempts to place order/pay
+    trackEvent('AddPaymentInfo', {
+      content_ids: orderSummary?.items?.map((item) => item.product._id) || [],
+      content_type: 'product',
+      currency: 'INR',
+      value: totals.finalTotal,
+      payment_type: paymentMethod
+    });
+
     const shippingAddress = getShippingAddress();
 
     const orderData = {
@@ -464,40 +523,6 @@ const CheckoutPage = () => {
       toast.error(error || 'Failed to create order', toastControls);
     }
   };
-
-  // Calculate totals (GST Removed from Logic as requested)
-  const calculateTotals = () => {
-    if (!orderSummary) {
-      return {
-        productsSubtotal: 0,
-        couponDiscount: 0,
-        subtotalAfterCoupon: 0,
-        codFee: 0,
-        finalTotal: 0,
-        payNow: 0,
-        payOnDelivery: 0,
-      };
-    }
-
-    const productsSubtotal = orderSummary.productsSubtotal || 0;
-    const couponDiscount = orderSummary.couponDiscount || 0;
-    // ✅ CHANGED: Round to integer
-    const subtotalAfterCoupon = Math.round(productsSubtotal - couponDiscount);
-    const codFee = paymentMethod === 'COD' ? 49 : 0;
-    const finalTotal = subtotalAfterCoupon + codFee;
-
-    return {
-      productsSubtotal,
-      couponDiscount,
-      subtotalAfterCoupon,
-      codFee,
-      finalTotal,
-      payNow: paymentMethod === 'ONLINE' ? finalTotal : codFee,
-      payOnDelivery: paymentMethod === 'COD' ? subtotalAfterCoupon : 0,
-    };
-  };
-
-  const totals = calculateTotals();
 
   // ===================== RENDER =====================
 
