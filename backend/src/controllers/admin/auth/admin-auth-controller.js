@@ -1,9 +1,10 @@
 import cookieOptions from "../../../utils/cookie-options.js";
 import tokenizer from "../../../utils/tokenizer.js";
-import {sendEmail} from "../../../configs/nodemailer.js";
-import {generateOTP} from "../../../utils/otp-generator.js";
+import { sendEmail } from "../../../configs/nodemailer.js";
+import { generateOTP } from "../../../utils/otp-generator.js";
 import adminDataTrimmer from "../../../utils/admin-data-trimmer.js";
 import adminModel from "../../../models/admin-model.js";
+import sessionModel from "../../../models/session-model.js";
 import jwt from "jsonwebtoken";
 
 const checkAdmin = async (req, res) => {
@@ -31,6 +32,13 @@ const adminLogin = async (req, res) => {
   try {
     let admin = req.admin;
 
+    // [!code ++] REQUIREMENT 1 & 2: Reset Verification & Delete Old Sessions
+    // Reset verification status
+    admin.isVerified = false;
+    
+    // Delete ALL existing sessions for this admin (Force Single Session)
+    await sessionModel.deleteMany({ user: admin._id });
+
     let nextResendAt;
     const previousTime = admin.verificationCodeTime;
 
@@ -40,6 +48,8 @@ const adminLogin = async (req, res) => {
         (Date.now() - new Date(previousTime).getTime()) / 1000;
 
       if (secondsPassed < 60) {
+        // Just update the timestamp if sent recently
+        await admin.save();
         nextResendAt = new Date(previousTime).getTime() + 60 * 1000;
       } else {
         // Generate new OTP
@@ -52,7 +62,7 @@ const adminLogin = async (req, res) => {
         nextResendAt = Date.now() + 60 * 1000;
 
         const emailSent = await sendEmail({
-          to: process.env.ADMIN_MAIL, // <-- fixed
+          to: process.env.ADMIN_MAIL,
           subject: "Admin OTP Verification Code",
           html: `
             <h2>Admin Login Verification</h2>
@@ -78,7 +88,7 @@ const adminLogin = async (req, res) => {
       nextResendAt = Date.now() + 60 * 1000;
 
       const emailSent = await sendEmail({
-        to: process.env.ADMIN_MAIL, // <-- send to fixed admin email
+        to: process.env.ADMIN_MAIL,
         subject: "Admin OTP Verification Code",
         html: `
           <h2>Admin Login Verification</h2>
@@ -97,6 +107,7 @@ const adminLogin = async (req, res) => {
     // Generate tokens after password login
     const accessToken = tokenizer.createAccessToken(admin._id, admin.role);
 
+    // [!code highlight] Kept your original tokenizer helper
     const refreshToken = await tokenizer.createRefreshToken(
       admin._id,
       req,
@@ -182,31 +193,35 @@ const adminOtpVerifier = async (req, res) => {
 
 const adminLogout = async (req, res) => {
   try {
-    const refreshToken = req.cookies.refreshToken;
+    // [!code ++] REQUIREMENT 3: Reset Status & Delete ALL Sessions
+    
+    // Attempt to identify admin from request or token
+    let adminId = req.user; 
 
-    if (refreshToken) {
-      try {
-        const payload = jwt.verify(
-          refreshToken,
-          process.env.REFRESH_TOKEN_SECRET
-        );
-
-        await sessionModel.findByIdAndDelete(payload.jti);
-      } catch (err) {
-        console.warn("Admin Logout: invalid refresh token");
-      }
+    // If req.user is missing (e.g. middleware failed), try decoding token manually
+    if (!adminId && req.cookies.accessToken) {
+        const decoded = jwt.decode(req.cookies.accessToken);
+        if (decoded) adminId = decoded.id;
     }
 
-    const admin = await adminModel.findById(req.user);
-    admin.isVerified = false;
-    admin.verificationCode = null;
-    admin.verificationCodeTime = null;
-    await admin.save();
+    if (adminId) {
+        // 1. Delete ALL sessions for this admin
+        await sessionModel.deleteMany({ user: adminId });
+
+        // 2. Reset Verification Status
+        const admin = await adminModel.findById(adminId);
+        if (admin) {
+            admin.isVerified = false;
+            admin.verificationCode = null;
+            admin.verificationCodeTime = null;
+            await admin.save();
+        }
+    }
 
     // Clear cookies
     res
       .clearCookie("accessToken", cookieOptions)
-      .clearCookie("refreshToken", cookieOptions)
+      .clearCookie("refreshToken", cookieOptions);
 
     return res.status(200).json({ message: "Logged out!." });
   } catch (error) {
@@ -215,10 +230,10 @@ const adminLogout = async (req, res) => {
   }
 };
 
-export{
+export {
   checkAdmin,
   adminLogin,
   adminOtpSender,
   adminOtpVerifier,
   adminLogout
-}
+};
