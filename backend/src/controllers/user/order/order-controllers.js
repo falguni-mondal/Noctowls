@@ -1,13 +1,13 @@
 import mongoose from "mongoose";
 import Razorpay from "razorpay";
 import crypto from "crypto";
-import axios from "axios";
 import Cart from "../../../models/cart-model.js";
 import Order from "../../../models/order-model.js";
 import Product from "../../../models/product-model.js";
 import Coupon from "../../../models/coupon-model.js";
 import Address from "../../../models/address-model.js";
 import User from "../../../models/user-model.js";
+import {sendEmail} from "../../../configs/nodemailer.js";
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
@@ -685,6 +685,47 @@ export const handleRazorpayWebhook = async (req, res) => {
         await generateInvoiceSafe(order);
       }
 
+      // SEND ADMIN EMAIL
+      try {
+        const customerName = order.shippingAddress.fullName || "Customer";
+        const orderDate = new Date().toLocaleDateString('en-IN', { 
+          weekday: 'short', 
+          month: 'short', 
+          day: 'numeric' 
+        });
+        
+        const firstItemName = order.items[0]?.productName || "Product";
+        const extraItems = order.items.length - 1;
+        const itemSummary = extraItems > 0 
+          ? `${firstItemName} + ${extraItems} other item(s)` 
+          : firstItemName;
+
+        await sendEmail({
+          to: process.env.ADMIN_MAIL,
+          subject: `[Noctowls] Order #${order.orderNumber} placed by ${customerName}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; max-width: 600px;">
+              <h2 style="color: #333; margin-bottom: 10px;">${itemSummary}</h2>
+              <p style="color: #666; margin-top: 0;">${order.items.length} item(s) from Noctowls</p>
+              
+              <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+              
+              <h3 style="color: #333;">Order placed</h3>
+              <p style="margin: 5px 0;"><strong>Placed on:</strong> ${orderDate}</p>
+              <p style="margin: 5px 0;"><strong>Order number:</strong> #${order.orderNumber}</p>
+              <p style="margin: 5px 0;"><strong>Total Amount:</strong> ₹${order.pricing.finalTotal}</p>
+              
+              <div style="margin-top: 20px;">
+                <a href="${process.env.CLIENT_URL}/admin/orders/${order._id}" style="background-color: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-size: 14px;">View Order</a>
+              </div>
+            </div>
+          `,
+        });
+        console.log(`📧 Admin notification sent for Order: ${order.orderNumber}`);
+      } catch (emailError) {
+        console.error("Failed to send admin email:", emailError.message);
+      }
+
       console.log(`Webhook verified payment for Order: ${order.orderNumber}`);
       return res.status(200).json({ status: "ok" });
     }
@@ -781,6 +822,47 @@ export const verifyPayment = async (req, res) => {
     // Invoice
     if (!order.invoice || !order.invoice.invoiceNumber) {
       await generateInvoiceSafe(order);
+    }
+
+    // SEND ADMIN EMAIL
+    try {
+      const customerName = order.shippingAddress.fullName || "Customer";
+      const orderDate = new Date().toLocaleDateString('en-IN', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+      
+      const firstItemName = order.items[0]?.productName || "Product";
+      const extraItems = order.items.length - 1;
+      const itemSummary = extraItems > 0 
+        ? `${firstItemName} + ${extraItems} other item(s)` 
+        : firstItemName;
+
+      await sendEmail({
+        to: process.env.ADMIN_MAIL,
+        subject: `[Noctowls] Order #${order.orderNumber} placed by ${customerName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; max-width: 600px;">
+            <h2 style="color: #333; margin-bottom: 10px;">${itemSummary}</h2>
+            <p style="color: #666; margin-top: 0;">${order.items.length} item(s) from Noctowls</p>
+            
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+            
+            <h3 style="color: #333;">Order placed</h3>
+            <p style="margin: 5px 0;"><strong>Placed on:</strong> ${orderDate}</p>
+            <p style="margin: 5px 0;"><strong>Order number:</strong> #${order.orderNumber}</p>
+            <p style="margin: 5px 0;"><strong>Total Amount:</strong> ₹${order.pricing.finalTotal}</p>
+            
+            <div style="margin-top: 20px;">
+              <a href="${process.env.CLIENT_URL}/admin/orders/${order._id}" style="background-color: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-size: 14px;">View Order</a>
+            </div>
+          </div>
+        `,
+      });
+      console.log(`📧 Admin notification sent for Order: ${order.orderNumber}`);
+    } catch (emailError) {
+      console.error("Failed to send admin email:", emailError.message);
     }
 
     return res.status(200).json({

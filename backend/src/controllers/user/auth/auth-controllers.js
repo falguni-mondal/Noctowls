@@ -6,6 +6,7 @@ import cookieOptions from "../../../utils/cookie-options.js";
 import userDataTrimmer from "../../../utils/helpers/user-data-trimmer.js";
 import sessionModel from "../../../models/session-model.js";
 import jwt from "jsonwebtoken";
+import crypto from "crypto"; // 
 
 const checkAuth = async (req, res) => {
   try {
@@ -48,13 +49,35 @@ const loginUser = async (req, res) => {
       });
     }
 
-    // Reset verification status
+    // ============================================================
+    // REQUIREMENT 1 & 2: Single Session & Verification Reset
+    // ============================================================
+    
+    // A. Reset verification status (User must verify OTP again)
     user.isVerified = false;
+    
+    // B. Delete ALL existing sessions for this user (Force Single Session)
+    await sessionModel.deleteMany({ user: user._id });
+
+    // C. Create NEW Session (Explicit Logic)
+    const deviceId = req.cookies.device_id || crypto.randomUUID();
+    const expiryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 Days expiry
+
+    const newSession = await sessionModel.create({
+      user: user._id,
+      role: user.role,
+      expiry_at: expiryDate,
+      device_id: deviceId,
+      ip_address: req.ip,
+      user_agent: req.headers["user-agent"],
+    });
+
+    // ============================================================
 
     let nextResendAt;
     const previousTime = user.verificationCodeTime;
 
-    // CASE: OTP ALREADY SENT
+    // OTP LOGIC (Sending Code)
     if (previousTime) {
       const secondsPassed =
         (Date.now() - new Date(previousTime).getTime()) / 1000;
@@ -63,12 +86,9 @@ const loginUser = async (req, res) => {
         await user.save();
         nextResendAt = new Date(previousTime).getTime() + 60 * 1000;
       } else {
-        // Generate NEW OTP
         const otp = generateOTP();
-
         user.verificationCode = otp;
         user.verificationCodeTime = new Date();
-        // Don't reset failed attempts here; we only reset on successful verify
         await user.save();
 
         nextResendAt = Date.now() + 60 * 1000;
@@ -84,21 +104,15 @@ const loginUser = async (req, res) => {
         });
 
         if (!emailSent) {
-          return res
-            .status(500)
-            .json({ message: "Failed to send verification code." });
+          return res.status(500).json({ message: "Failed to send verification code." });
         }
       }
     } else {
-      // First time login
       const otp = generateOTP();
-
       user.verificationCode = otp;
       user.verificationCodeTime = new Date();
-      // Ensure clean state
       user.failedOtpAttempts = 0;
       user.lockoutUntil = null;
-
       await user.save();
 
       nextResendAt = Date.now() + 60 * 1000;
@@ -114,18 +128,22 @@ const loginUser = async (req, res) => {
       });
 
       if (!emailSent) {
-        return res
-          .status(500)
-          .json({ message: "Failed to send verification code." });
+        return res.status(500).json({ message: "Failed to send verification code." });
       }
     }
 
-    // Generate tokens
+    // Generate JWTs
     const accessToken = tokenizer.createAccessToken(user._id, user.role);
-    const refreshToken = await tokenizer.createRefreshToken(
-      user._id,
-      req,
-      user.role
+    
+    // Manual Refresh Token Creation using the session we just created
+    const refreshToken = jwt.sign(
+        { 
+            id: user._id, 
+            role: user.role, 
+            jti: newSession._id // Link token to the DB Session ID
+        },
+        process.env.REFRESH_TOKEN_SECRET,
+        { expiresIn: "7d" }
     );
 
     return res
@@ -134,11 +152,11 @@ const loginUser = async (req, res) => {
         ...cookieOptions,
         maxAge: 15 * 60 * 1000,
       })
-      .cookie("refreshToken", refreshToken?.token, {
+      .cookie("refreshToken", refreshToken, {
         ...cookieOptions,
         maxAge: 7 * 24 * 60 * 60 * 1000,
       })
-      .cookie("device_id", refreshToken?.device_id, {
+      .cookie("device_id", deviceId, {
         ...cookieOptions,
         maxAge: 365 * 24 * 60 * 60 * 1000,
       })
@@ -209,32 +227,36 @@ const verifyOtp = async (req, res) => {
 
 const logoutUser = async (req, res) => {
   try {
-    const refreshToken = req.cookies.refreshToken;
+    // REQUIREMENT 3: Reset Status & Delete ALL Sessions
+    
+    // Attempt to identify user from request or token
+    let userId = req.user; 
 
-    if (refreshToken) {
-      try {
-        const payload = jwt.verify(
-          refreshToken,
-          process.env.REFRESH_TOKEN_SECRET
-        );
-
-        await sessionModel.findByIdAndDelete(payload.jti);
-      } catch (err) {
-        console.warn("User Logout: invalid refresh token");
-        console.warn("User Logout:", err.message);
-      }
+    // If req.user is missing (e.g. middleware failed), try decoding token manually
+    if (!userId && req.cookies.accessToken) {
+        const decoded = jwt.decode(req.cookies.accessToken);
+        if (decoded) userId = decoded.id;
     }
 
-    const user = await userModel.findById(req.user);
-    user.isVerified = false;
-    user.verificationCode = null;
-    user.verificationCodeTime = null;
-    await user.save();
+    if (userId) {
+        // 1. Delete ALL sessions for this user
+        await sessionModel.deleteMany({ user: userId });
 
-    // Clear cookies
+        // 2. Reset Verification Status
+        const user = await userModel.findById(userId);
+        if (user) {
+            user.isVerified = false;
+            user.verificationCode = null;
+            user.verificationCodeTime = null;
+            await user.save();
+        }
+    }
+
+    // Clear cookies regardless of DB success
     res
       .clearCookie("accessToken", cookieOptions)
-      .clearCookie("refreshToken", cookieOptions);
+      .clearCookie("refreshToken", cookieOptions)
+      .clearCookie("device_id", cookieOptions);
 
     return res.status(200).json({ message: "Logged out successfully." });
   } catch (error) {

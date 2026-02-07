@@ -308,23 +308,60 @@ export const updateAddress = async (req, res) => {
   }
 };
 
-// ==================== DELETE ADDRESS ====================
+// ==================== DELETE ADDRESS (IMPROVED) ====================
 export const deleteAddress = async (req, res) => {
   try {
     const userId = req.user;
     const { addressId } = req.params;
 
-    await Address.deleteAddress(addressId, userId);
+    // 1. Find the address to ensure it exists and belongs to the user
+    const addressToDelete = await Address.findOne({
+      _id: addressId,
+      user: userId,
+    });
+
+    if (!addressToDelete) {
+      return res.status(404).json({
+        success: false,
+        message: "Address not found or does not belong to you",
+      });
+    }
+
+    const wasDefault = addressToDelete.isDefault;
+    let newDefaultAddress = null;
+
+    // 2. Delete the address
+    await Address.deleteOne({ _id: addressId });
+
+    // 3. AUTOMATIC DEFAULT REASSIGNMENT
+    // If the user deleted their default address, we must assign a new one
+    // to prevent the "No default address found" error in checkout.
+    if (wasDefault) {
+      // Find the most recently updated address that remains
+      const newDefault = await Address.findOne({ user: userId }).sort({
+        updatedAt: -1,
+      });
+
+      if (newDefault) {
+        newDefault.isDefault = true;
+        await newDefault.save();
+        newDefaultAddress = newDefault;
+      }
+    }
 
     return res.status(200).json({
       success: true,
-      message: "Address deleted successfully",
+      message: wasDefault
+        ? "Address deleted and default address reassigned"
+        : "Address deleted successfully",
+      newDefaultAddress, // Return this so Redux can update the UI immediately
     });
   } catch (error) {
     console.error("Error deleting address:", error);
-    return res.status(400).json({
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Failed to delete address",
+      error: error.message,
     });
   }
 };

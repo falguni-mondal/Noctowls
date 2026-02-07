@@ -26,13 +26,23 @@ const Bagpage = () => {
   // [!code ++] TRACK ViewCart EVENT ON LOAD
   useEffect(() => {
     if (cart && cart.items && cart.items.length > 0) {
+        
+        // Helper to safely get Product ID
+        const getProductId = (item) => {
+            if (item.product && item.product._id) return item.product._id;
+            // Fallback for Free Gifts which have product: null
+            return item.size?.skuCode || item._id; 
+        };
+
         trackEvent('ViewCart', {
             currency: 'INR',
             value: cart.summary.total,
-            content_ids: cart.items.map(item => item.product._id || item.product),
+            // [!code ++] FIX: Safe access for content_ids
+            content_ids: cart.items.map(item => getProductId(item)),
             content_type: 'product',
+            // [!code ++] FIX: Safe access for contents array
             contents: cart.items.map(item => ({
-                id: item.product._id || item.product,
+                id: getProductId(item),
                 quantity: item.quantity
             }))
         });
@@ -56,12 +66,19 @@ const Bagpage = () => {
 
   const handleCheckout = () => {
     if (cart) {
+        // Helper to safely get Product ID (Same as above)
+        const getProductId = (item) => {
+            if (item.product && item.product._id) return item.product._id;
+            return item.size?.skuCode || item._id;
+        };
+
         // [!code ++] TRACK InitiateCheckout EVENT
         trackEvent('InitiateCheckout', {
             currency: 'INR',
             value: cart.summary.total,
             num_items: cart.summary.totalQuantity,
-            content_ids: cart.items.map(item => item.product._id || item.product),
+            // [!code ++] FIX: Safe access for content_ids
+            content_ids: cart.items.map(item => getProductId(item)),
             content_type: 'product'
         });
     }

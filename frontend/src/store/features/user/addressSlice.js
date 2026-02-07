@@ -319,7 +319,7 @@ const addressSlice = createSlice({
         state.error = action.payload;
       });
 
-    // ===== DELETE ADDRESS =====
+    // ===== DELETE ADDRESS (IMPROVED) =====
     builder
       .addCase(deleteAddress.pending, (state) => {
         state.deleteAddressLoading = true;
@@ -329,18 +329,31 @@ const addressSlice = createSlice({
       .addCase(deleteAddress.fulfilled, (state, action) => {
         state.deleteAddressLoading = false;
         
-        // Remove from addresses list
+        // 1. Remove the deleted address from the list
         state.addresses = state.addresses.filter(
           (addr) => addr._id !== action.payload.addressId
         );
         state.addressesCount = Math.max(0, state.addressesCount - 1);
 
-        // Clear default if deleted
-        if (state.defaultAddress?._id === action.payload.addressId) {
-          state.defaultAddress = null;
+        // 2. Handle Default Address Logic (If new default was assigned by backend)
+        if (action.payload.newDefaultAddress) {
+            // A. Update the separate defaultAddress state
+            state.defaultAddress = action.payload.newDefaultAddress;
+
+            // B. Find the new default in the list and mark it as true
+            const index = state.addresses.findIndex(
+                (addr) => addr._id === action.payload.newDefaultAddress._id
+            );
+            if (index !== -1) {
+                state.addresses[index].isDefault = true;
+            }
+        } 
+        // 3. If no new default was sent (e.g. list is empty), and we deleted the old default
+        else if (state.defaultAddress?._id === action.payload.addressId) {
+            state.defaultAddress = null;
         }
 
-        // Clear current if deleted
+        // 4. Clear current address if it was the one deleted
         if (state.currentAddress?._id === action.payload.addressId) {
           state.currentAddress = null;
         }

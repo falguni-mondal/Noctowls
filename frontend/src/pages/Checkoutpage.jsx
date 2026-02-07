@@ -18,9 +18,11 @@ import {
 import {
   getAddresses,
   getDefaultAddress,
+  deleteAddress,
   selectAddresses,
   selectDefaultAddress,
   selectAddressLoading,
+  selectDeleteAddressLoading,
 } from '../store/features/user/addressSlice';
 
 import {
@@ -36,7 +38,7 @@ import { selectIsAuthenticated } from '../store/features/user/authSlice';
 
 import toastControls from '../utils/global/toastControls';
 
-// [!code ++] IMPORT META PIXEL TRACKING
+// IMPORT META PIXEL TRACKING
 import { trackEvent } from '../utils/pixel/pixel';
 
 // ✅ List of Indian States for robust GST calculation (State selection preserved)
@@ -64,6 +66,7 @@ const CheckoutPage = () => {
   const addresses = useSelector(selectAddresses);
   const defaultAddress = useSelector(selectDefaultAddress);
   const addressLoading = useSelector(selectAddressLoading);
+  const deleteLoading = useSelector(selectDeleteAddressLoading);
   const hasCouponApplied = useSelector(selectHasCouponApplied);
   const appliedCoupon = useSelector(selectAppliedCoupon);
 
@@ -82,6 +85,12 @@ const CheckoutPage = () => {
     city: '',
     state: '',
     pincode: '',
+  });
+
+  // [!code ++] DELETE MODAL STATE
+  const [deleteModal, setDeleteModal] = useState({
+    isOpen: false,
+    addressId: null
   });
 
   // Payment state
@@ -211,6 +220,31 @@ const CheckoutPage = () => {
   }, [hasCouponApplied, appliedCoupon]);
 
   // ===================== HANDLERS =====================
+
+  // [!code ++] OPEN DELETE MODAL
+  const handleDeleteClick = (e, addressId) => {
+    e.stopPropagation(); // Prevent radio selection
+    setDeleteModal({ isOpen: true, addressId });
+  };
+
+  // [!code ++] CONFIRM DELETE
+  const confirmDeleteAddress = async () => {
+    if (!deleteModal.addressId) return;
+
+    try {
+      await dispatch(deleteAddress(deleteModal.addressId)).unwrap();
+      toast.success("Address deleted successfully", toastControls);
+
+      // If the deleted address was selected, unselect it
+      if (selectedAddressId === deleteModal.addressId) {
+        setSelectedAddressId(null);
+      }
+      // Close modal
+      setDeleteModal({ isOpen: false, addressId: null });
+    } catch (error) {
+      toast.error(error || "Failed to delete address", toastControls);
+    }
+  };
 
   // Get shipping address
   const getShippingAddress = () => {
@@ -380,15 +414,14 @@ const CheckoutPage = () => {
             })
           ).unwrap();
 
-          // [!code ++] TRACK PURCHASE EVENT
-          // Fired on successful payment verification, right before redirect
+          // TRACK PURCHASE EVENT
           trackEvent('Purchase', {
             content_name: `Order #${verifyResult.order.orderNumber}`,
             content_ids: orderSummary?.items?.map((item) => item.product._id) || [],
             content_type: 'product',
             value: totals.finalTotal,
             currency: 'INR',
-            order_id: verifyResult.order.orderId, // Crucial for deduplication
+            order_id: verifyResult.order.orderId,
             num_items: orderSummary?.items?.length
           });
 
@@ -490,8 +523,7 @@ const CheckoutPage = () => {
       return;
     }
 
-    // [!code ++] TRACK ADD PAYMENT INFO
-    // Triggered when user attempts to place order/pay
+    // TRACK ADD PAYMENT INFO
     trackEvent('AddPaymentInfo', {
       content_ids: orderSummary?.items?.map((item) => item.product._id) || [],
       content_type: 'product',
@@ -664,14 +696,25 @@ const CheckoutPage = () => {
                               className="w-4 h-4 text-blue-600 mt-1 focus:ring-blue-500"
                             />
                             <div className="ml-3 flex-1">
-                              <h3 className="font-semibold text-zinc-100 flex items-center">
-                                {address.fullName}
-                                {address.isDefault && (
-                                  <span className="ml-2 text-xs bg-green-600 text-white px-2 py-0.5 rounded-full">
-                                    Default
-                                  </span>
-                                )}
-                              </h3>
+                              <div className="flex justify-between items-start">
+                                <h3 className="font-semibold text-zinc-100 flex items-center">
+                                  {address.fullName}
+                                  {address.isDefault && (
+                                    <span className="ml-2 text-xs bg-green-600 text-white px-2 py-0.5 rounded-full">
+                                      Default
+                                    </span>
+                                  )}
+                                </h3>
+                                {/* [!code ++] DELETE BUTTON */}
+                                <button 
+                                    onClick={(e) => handleDeleteClick(e, address._id)}
+                                    className="text-red-500 hover:text-red-400 text-xs px-2 py-1 rounded border border-red-900/50 bg-red-900/20 hover:bg-red-900/40 transition-colors"
+                                    title="Delete address"
+                                >
+                                    Delete
+                                </button>
+                              </div>
+                              
                               <p className="text-sm text-zinc-400 mt-1">{address.address}</p>
                               {address.landmark && (
                                 <p className="text-sm text-zinc-400">{address.landmark}</p>
@@ -1144,6 +1187,46 @@ const CheckoutPage = () => {
           </div>
         </div>
       </div>
+
+      {/* [!code ++] DELETE CONFIRMATION MODAL */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-zinc-950 border border-zinc-800 rounded-lg shadow-2xl w-full max-w-sm p-6 animate-in fade-in zoom-in-95 duration-200">
+                <div className="flex flex-col items-center text-center mb-6">
+                    <div className="w-12 h-12 bg-red-900/20 rounded-full flex items-center justify-center mb-4">
+                        <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </div>
+                    <h3 className="text-lg font-bold text-white mb-2">Delete Address?</h3>
+                    <p className="text-zinc-400 text-sm">
+                        Are you sure you want to remove this address? This action cannot be undone.
+                    </p>
+                </div>
+                
+                <div className="flex gap-3 justify-center">
+                    <button
+                        onClick={() => setDeleteModal({ isOpen: false, addressId: null })}
+                        className="px-5 py-2.5 text-sm font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-md transition-colors w-full"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={confirmDeleteAddress}
+                        disabled={deleteLoading}
+                        className="px-5 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors flex items-center justify-center gap-2 w-full shadow-lg shadow-red-900/20"
+                    >
+                        {deleteLoading ? (
+                            <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                Deleting...
+                            </>
+                        ) : 'Delete'}
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 };

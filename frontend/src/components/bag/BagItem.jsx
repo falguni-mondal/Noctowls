@@ -143,7 +143,7 @@ const BagItem = ({ item }) => {
                     className="ml-auto text-red-400 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Remove item"
                 >
-                    <Icon icon="material-symbols:delete-outline" className="text-xl" />
+                    <Icon icon="material-symbols:delete-outline" className="text-xl pointer-events-none" />
                 </button>
             </div>
         </li>
