@@ -1,6 +1,7 @@
 import Review from "../../../models/review-model.js";
 import Order from "../../../models/order-model.js";
-import { uploadImageInWorker } from "../../../utils/imageWorker.js";
+// ✅ CHANGED: Imported processAndUploadImage from the new utility file
+import { processAndUploadImage, cleanupUploadedImages } from "../../../utils/imageUtils.js";
 import { deleteWithRetry } from "../../../configs/imagekit.js";
 import { updateProductRating } from "../../../utils/helpers/rating-helper.js";
 
@@ -54,6 +55,9 @@ export const checkReviewEligibility = async (req, res) => {
 };
 
 export const createReview = async (req, res) => {
+  // Track uploaded images for rollback in case of DB error
+  let uploadedImagesRecord = [];
+
   try {
     const { productId } = req.params;
     const { rating, comment, userName, userEmail } = req.body;
@@ -73,10 +77,17 @@ export const createReview = async (req, res) => {
     let reviewImages = [];
     if (files && files.length > 0) {
       const filesToUpload = files.slice(0, 5);
+      
+      // ✅ CHANGED: Use Promise.all with processAndUploadImage
       const uploadPromises = filesToUpload.map((file) =>
-        uploadImageInWorker(file, `reviews/${productId}`)
+        processAndUploadImage(file, `reviews/${productId}`)
       );
+      
       const results = await Promise.all(uploadPromises);
+      
+      // Track successes for potential rollback
+      uploadedImagesRecord = [...results];
+
       reviewImages = results.map((res) => ({ url: res.url, imageId: res.imageId }));
     }
 
@@ -100,6 +111,11 @@ export const createReview = async (req, res) => {
       review: newReview,
     });
   } catch (error) {
+    // ✅ ADDED: Rollback logic (Cleanup images if DB save fails)
+    if (uploadedImagesRecord.length > 0) {
+      await cleanupUploadedImages(uploadedImagesRecord);
+    }
+
     if (error.code === 11000) {
       return res.status(400).json({ success: false, message: "Review already exists." });
     }
@@ -108,7 +124,7 @@ export const createReview = async (req, res) => {
   }
 };
 
-// --- MODIFIED: Returns ALL reviews (No pagination/limit) ---
+// --- Returns ALL reviews (No pagination/limit) ---
 export const getProductReviews = async (req, res) => {
   try {
     const { productId } = req.params;
@@ -144,7 +160,7 @@ export const getProductReviews = async (req, res) => {
   }
 };
 
-// --- NEW CONTROLLER: Returns Top 5 Recent Reviews ---
+// --- Returns Top 5 Recent Reviews ---
 export const getRecentReviews = async (req, res) => {
   try {
     const { productId } = req.params;
@@ -181,6 +197,9 @@ export const getRecentReviews = async (req, res) => {
 }
 
 export const updateReview = async (req, res) => {
+  // Track newly uploaded images for rollback
+  let uploadedImagesRecord = [];
+
   try {
     const { reviewId } = req.params;
     const { rating, comment } = req.body;
@@ -219,8 +238,16 @@ export const updateReview = async (req, res) => {
 
     let newUploadedImages = [];
     if (newFiles.length > 0) {
-      const uploadPromises = newFiles.map((file) => uploadImageInWorker(file, `reviews/${review.product}`));
+      // ✅ CHANGED: Use Promise.all with processAndUploadImage
+      const uploadPromises = newFiles.map((file) => 
+        processAndUploadImage(file, `reviews/${review.product}`)
+      );
+      
       const results = await Promise.all(uploadPromises);
+      
+      // Track for rollback
+      uploadedImagesRecord = [...results];
+      
       newUploadedImages = results.map((res) => ({ url: res.url, imageId: res.imageId }));
     }
 
@@ -239,6 +266,12 @@ export const updateReview = async (req, res) => {
     });
   } catch (error) {
     console.error("Update Review Error:", error);
+
+    // ✅ ADDED: Rollback new images if update fails
+    if (uploadedImagesRecord.length > 0) {
+      await cleanupUploadedImages(uploadedImagesRecord);
+    }
+
     return res.status(500).json({ success: false, message: error.message });
   }
 };
