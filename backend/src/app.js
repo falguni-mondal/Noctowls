@@ -46,7 +46,7 @@ connectToDB();
 // CORS Initialization..............................................
 app.use(
   cors({
-    origin: true,
+    origin: ["https://test.noctowls.com", "https://noctowls.com"],
     credentials: true,
   })
 );
