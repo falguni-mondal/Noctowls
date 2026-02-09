@@ -9,7 +9,7 @@ import {
   getAdminOrderStats,
   selectAdminOrderStats,
   shipAdminOrder,
-  updateAdminOrderStatus, // Import for cancellation
+  updateAdminOrderStatus, 
   clearAdminOrderErrors 
 } from '../../../store/features/admin/adminOrderSlice';
 
@@ -134,7 +134,7 @@ const AdminOrders = () => {
       }
   };
 
-  // --- EXPORT FUNCTION (RESTORED DETAILED COLUMNS) ---
+  // --- EXPORT FUNCTION ---
   const handleExport = (type = 'all') => {
     if (!orders || orders.length === 0) return;
 
@@ -411,7 +411,12 @@ const AdminOrders = () => {
                   const returnStatus = order.returnInfo?.status !== 'none' ? order.returnInfo.status : null;
                   
                   // LOGIC: Show Ship button if NOT shipped/delivered/returned/cancelled AND has no tracking
-                  const isShippable = !['shipped', 'out-for-delivery', 'delivered', 'returned', 'cancelled'].includes(order.orderStatus) && !order.tracking?.trackingId;
+                  // PLUS: Payment must be completed AND no active return
+                  const isShippable = 
+                    !['shipped', 'out-for-delivery', 'delivered', 'returned', 'cancelled'].includes(order.orderStatus) && 
+                    !order.tracking?.trackingNumber && 
+                    order.payment?.status === 'completed' && // Payment Check
+                    (!returnStatus || returnStatus === 'none'); // Return Status Check
                   
                   // LOGIC: Show Cancel button if NOT shipped/delivered/returned/cancelled/returned
                   // Also check if no return request is active
