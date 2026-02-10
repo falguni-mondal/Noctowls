@@ -1,8 +1,9 @@
-import mobile_video from "../../../assets/videos/mobile_hero_video.mp4";
+import mobile_video from "../../../assets/videos/mobile_hero_video.webm";
+import website_video from "../../../assets/videos/website_hero_video.webm";
 
 // TODO: Import your specific tablet and desktop videos here.
 const tablet_video = mobile_video; 
-const desktop_video = mobile_video; 
+const desktop_video = website_video; 
 
 const Hero = () => {
   return (
