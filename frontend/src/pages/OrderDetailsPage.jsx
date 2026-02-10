@@ -32,6 +32,7 @@ const OrderDetailsPage = () => {
   // Local State
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [customReason, setCustomReason] = useState(""); // [!code ++] New state for textarea
 
   // Fetch Order
   useEffect(() => {
@@ -50,18 +51,29 @@ const OrderDetailsPage = () => {
   };
 
   const handleCancelOrder = async () => {
-    if (!cancelReason.trim()) {
+    // [!code ++] Determine final reason based on selection
+    const finalReason = cancelReason === "Other" ? customReason : cancelReason;
+
+    if (!finalReason.trim()) {
       toast.warn("Please provide a reason for cancellation", toastControls);
       return;
     }
 
+    // [!code ++] Optional: Enforce minimum length for custom reasons
+    if (cancelReason === "Other" && finalReason.trim().length < 5) {
+        toast.warn("Please provide a bit more detail (min 5 chars)", toastControls);
+        return;
+    }
+
     const result = await dispatch(
-      cancelOrder({ orderId, reason: cancelReason })
+      cancelOrder({ orderId, reason: finalReason }) // Send finalReason
     );
 
     if (cancelOrder.fulfilled.match(result)) {
       toast.success("Order cancelled successfully", toastControls);
       setShowCancelModal(false);
+      setCancelReason(""); // Reset state
+      setCustomReason(""); // Reset state
       
       // ✅ FIX: Immediately re-fetch the order to update the UI in real-time
       dispatch(getOrderById(orderId)); 
@@ -498,8 +510,11 @@ const OrderDetailsPage = () => {
             </label>
             <select
               value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-zinc-200 focus:border-red-500 outline-none mb-6 cursor-pointer"
+              onChange={(e) => {
+                  setCancelReason(e.target.value);
+                  if (e.target.value !== "Other") setCustomReason(""); // Clear text if not other
+              }}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-zinc-200 focus:border-red-500 outline-none mb-4 cursor-pointer"
             >
               <option value="">Select a reason...</option>
               <option value="Changed my mind">Changed my mind</option>
@@ -508,6 +523,22 @@ const OrderDetailsPage = () => {
               <option value="Delay in shipping">Delay in shipping</option>
               <option value="Other">Other</option>
             </select>
+
+            {/* [!code ++] Textarea for 'Other' reason */}
+            {cancelReason === "Other" && (
+                <div className="animate-in fade-in slide-in-from-top-2 duration-200 mb-6">
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2">
+                        Please specify reason
+                    </label>
+                    <textarea
+                        value={customReason}
+                        onChange={(e) => setCustomReason(e.target.value)}
+                        placeholder="Tell us more about why you are cancelling..."
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-zinc-200 focus:border-red-500 outline-none resize-none h-24"
+                    />
+                </div>
+            )}
+
             <div className="flex justify-end gap-3">
               <div className="relative">
                 <button className="px-4 py-2 text-zinc-400 hover:text-white transition pointer-events-none">Cancel</button>
@@ -515,7 +546,7 @@ const OrderDetailsPage = () => {
               </div>
               <div className="relative">
                 <button
-                  disabled={!cancelReason || cancelLoading}
+                  disabled={!cancelReason || (cancelReason === "Other" && !customReason.trim()) || cancelLoading}
                   className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 pointer-events-none"
                 >
                   {cancelLoading && <Icon icon="eos-icons:loading" />}
