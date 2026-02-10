@@ -7,7 +7,7 @@ const desktop_video = website_video;
 
 const Hero = () => {
   return (
-    <section className='w-full h-[95vh] overflow-hidden' id='hero-section'>
+    <section className='w-full h-[95dvh] lg:h-[72dvh] overflow-hidden' id='hero-section'>
         
         {/* --- MOBILE VIDEO (0px - 767px) --- */}
         {/* Keeps original mobile design. Hidden on tablets and up. */}
@@ -23,7 +23,7 @@ const Hero = () => {
         {/* --- TABLET VIDEO (768px - 1199px) --- */}
         {/* Visible on medium screens, hidden on mobile and large desktops. */}
         <video 
-            className='w-full h-full object-cover hidden md:block min-[1200px]:hidden' 
+            className='w-full h-full object-cover hidden md:block lg:hidden' 
             src={tablet_video} 
             muted 
             autoPlay 
@@ -34,7 +34,7 @@ const Hero = () => {
         {/* --- DESKTOP VIDEO (1200px+) --- */}
         {/* Visible only on large screens. */}
         <video 
-            className='w-full h-full object-cover hidden min-[1200px]:block' 
+            className='w-full h-full object-cover hidden lg:block' 
             src={desktop_video} 
             muted 
             autoPlay 
