@@ -7,7 +7,7 @@ import Logo from '../../../../utils/logo/Logo';
 import {
     getAdminOrderById,
     updateAdminOrderStatus,
-    processReturnRequest, // [!code ++]
+    processReturnRequest,
     clearCurrentAdminOrder,
     selectAdminCurrentOrder,
     selectAdminOrderDetailsLoading,
@@ -26,7 +26,7 @@ const AdminOrderDetails = () => {
 
     const [statusToUpdate, setStatusToUpdate] = useState('');
     const [trackingId, setTrackingId] = useState('');
-    const [returnNote, setReturnNote] = useState(''); // [!code ++]
+    const [returnNote, setReturnNote] = useState('');
 
     useEffect(() => {
         dispatch(getAdminOrderById(id));
@@ -41,7 +41,8 @@ const AdminOrderDetails = () => {
         }
     }, [order]);
 
-    // --- UTILITIES ---
+    // --- HANDLERS ---
+
     const handleStatusUpdate = async () => {
         if (!statusToUpdate || statusToUpdate === order.orderStatus) return;
         if (statusToUpdate === 'shipped' && !trackingId.trim()) {
@@ -61,8 +62,16 @@ const AdminOrderDetails = () => {
         }
     };
 
-    // [!code ++] Handle Return Actions
+    // Handle Return Actions (Approve, Reject, Refund)
     const handleReturnAction = async (status) => {
+        // Confirmation for COD Manual Refund
+        if (status === 'completed' && order.payment.method === 'COD') {
+            const confirm = window.confirm(
+                "This is a COD Order.\n\nHave you MANUALLY refunded the amount to the customer's bank account?\n\nClicking OK will mark this return as completed and close the order."
+            );
+            if (!confirm) return;
+        }
+
         const result = await dispatch(processReturnRequest({
             orderId: id,
             status,
@@ -91,6 +100,7 @@ const AdminOrderDetails = () => {
 
     if (loading || !order) return <div className="w-full h-screen flex justify-center items-center bg-zinc-950"><Loader /></div>;
 
+    // Helpers
     const getStatusColor = (status) => {
         switch (status) {
             case 'delivered': return 'bg-green-500/10 text-green-500 border-green-500/20';
@@ -102,6 +112,9 @@ const AdminOrderDetails = () => {
     };
 
     const isReturnActive = order.returnInfo?.status && order.returnInfo.status !== 'none';
+    
+    // Check if the order has been picked up (logic: status is one of the 'post-approval' states)
+    const isReadyForRefund = ['picked', 'received', 'qc_passed'].includes(order.returnInfo?.status);
 
     return (
         <>
@@ -155,7 +168,7 @@ const AdminOrderDetails = () => {
                     {/* LEFT COLUMN */}
                     <div className="lg:col-span-2 space-y-6">
                         
-                        {/* [!code ++] RETURN REQUEST PANEL */}
+                        {/* RETURN REQUEST PANEL */}
                         {isReturnActive && (
                             <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden animate-in fade-in slide-in-from-top-4">
                                 <div className="p-4 border-b border-zinc-800 bg-amber-950/10 flex justify-between items-center">
@@ -166,7 +179,7 @@ const AdminOrderDetails = () => {
                                 <div className="p-6 space-y-4">
                                     <div className="bg-zinc-950 p-4 rounded border border-zinc-800">
                                         <p className="text-xs text-zinc-500 uppercase font-bold mb-1">Reason provided by user</p>
-                                        <p className="text-zinc-200 text-sm leading-relaxed">
+                                        <p className="text-zinc-200 text-sm leading-relaxed whitespace-pre-wrap">
                                             {order.returnInfo.reason}
                                         </p>
                                     </div>
@@ -200,17 +213,34 @@ const AdminOrderDetails = () => {
                                     )}
 
                                     {order.returnInfo.status === 'approved' && (
+                                        <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded mb-4 text-sm text-blue-400 flex items-center gap-2">
+                                            <Icon icon="solar:box-minimalistic-bold" />
+                                            Reverse pickup scheduled. Waiting for item to be picked up...
+                                        </div>
+                                    )}
+
+                                    {/* Refund Logic Trigger - Only Visible after Pickup */}
+                                    {isReadyForRefund && (
                                         <div className="pt-2">
-                                            <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded mb-4 text-sm text-blue-400">
-                                                <p>User has been notified to ship the item back. Once received and verified, mark as completed.</p>
+                                            <div className="bg-green-500/10 border border-green-500/20 p-3 rounded mb-4 text-sm text-green-400 flex flex-col gap-1">
+                                                <p className="font-bold flex items-center gap-2">
+                                                    <Icon icon="solar:check-circle-bold" />
+                                                    Item Picked Up / Received
+                                                </p>
+                                                <p className="text-zinc-400 text-xs">
+                                                    {order.payment.method === 'COD' 
+                                                        ? `COD Order: Manually refund ₹${order.pricing.finalTotal - order.pricing.codFee} to the bank details above.`
+                                                        : `Online Order: Clicking below will auto-refund ₹${order.payment.amountPaidOnline}.`
+                                                    }
+                                                </p>
                                             </div>
                                             <button 
                                                 onClick={() => handleReturnAction('completed')}
                                                 disabled={actionLoading}
                                                 className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-lg text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2"
                                             >
-                                                <Icon icon="solar:check-circle-bold" />
-                                                Refund Processed & Complete
+                                                <Icon icon="solar:card-transfer-bold" />
+                                                {order.payment.method === 'COD' ? 'Mark Refund Completed' : 'Process Auto-Refund'}
                                             </button>
                                         </div>
                                     )}
@@ -233,7 +263,6 @@ const AdminOrderDetails = () => {
                                             <h3 className="font-medium text-zinc-200 line-clamp-1">{item.productName}</h3>
                                             <p className="text-sm text-zinc-400 mt-1">Size: {item.size.label} | SKU: <span className="font-mono">{item.size.skuCode || "N/A"}</span></p>
                                             
-                                            {/* GST Info per item */}
                                             <div className="flex flex-wrap gap-x-4 mt-1 text-[10px] text-zinc-500">
                                                 <span>HSN: {item.hsnCode}</span>
                                                 <span>GST Rate: {item.gstRate}%</span>
@@ -248,7 +277,6 @@ const AdminOrderDetails = () => {
                                     </div>
                                 ))}
 
-                                {/* Free Gifts with Quantity */}
                                 {order.freeGifts?.gifts?.map((gift, idx) => (
                                     <div key={`gift-${idx}`} className="p-4 flex gap-4 bg-zinc-900/50">
                                         <div className="w-10 h-10 rounded-md overflow-hidden shrink-0 relative">
@@ -274,7 +302,6 @@ const AdminOrderDetails = () => {
                                     <span>₹{formatCurrency(Math.round(order.subTotal || order.pricing.productsSubtotal))}</span>
                                 </div>
                                 
-                                {/* GST Section */}
                                 <div className="bg-zinc-950/50 p-3 rounded border border-zinc-800/50 space-y-1">
                                     <p className="text-[10px] uppercase font-bold text-zinc-500 mb-1">Tax Breakdown</p>
                                     {order.items && order.items[0]?.taxType === 'cgst_sgst' ? (
@@ -321,7 +348,6 @@ const AdminOrderDetails = () => {
                                     <span>₹{formatCurrency(Math.round(order.pricing.finalTotal))}</span>
                                 </div>
 
-                                {/* PAID & DUE SECTION */}
                                 <div className="mt-4 pt-3 border-t border-dashed border-zinc-800 space-y-2">
                                     <div className="flex justify-between text-sm text-zinc-400">
                                         <span>Paid Online</span>
@@ -454,7 +480,6 @@ const AdminOrderDetails = () => {
                     <div>
                         <h3 className="font-bold text-gray-800 mb-2 uppercase text-xs tracking-wider">Billing & Shipping Address</h3>
                         <div className="text-gray-700 leading-snug">
-                            {/* ✅ Safety Check */}
                             <p className="font-semibold">{order.shippingAddress?.fullName}</p>
                             <p>{order.shippingAddress?.address}</p>
                             {order.shippingAddress?.landmark && <p>{order.shippingAddress.landmark}</p>}

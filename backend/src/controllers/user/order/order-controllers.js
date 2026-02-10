@@ -7,7 +7,7 @@ import Product from "../../../models/product-model.js";
 import Coupon from "../../../models/coupon-model.js";
 import Address from "../../../models/address-model.js";
 import User from "../../../models/user-model.js";
-import {sendEmail} from "../../../configs/nodemailer.js";
+import { sendEmail } from "../../../configs/nodemailer.js";
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
@@ -75,62 +75,122 @@ async function generateUniqueOrderNumber(session) {
   return orderNumber;
 }
 
-// ==================== HANDLE DELHI VERY WEBHOOK ====================
+// ==================== HANDLE DELHIVERY WEBHOOK ====================
 export const handleDelhiveryWebhook = async (req, res) => {
   try {
     // 1. Log the incoming data (Crucial for debugging)
-    console.log("🔔 [Delhivery Webhook] Received:", JSON.stringify(req.body, null, 2));
+    // console.log("🔔 [Delhivery Webhook] Received:", JSON.stringify(req.body, null, 2));
 
     // 2. Extract Data
-    // Delhivery sends data in different formats depending on the event.
-    // Usually for "Scan Push", the structure is inside a 'ScanDetail' object or root level.
-    // We look for Reference Number (Order ID) and Waybill (AWB).
-
     const data = req.body?.ScanDetail || req.body;
 
-    // key mapping: Delhivery usually sends "RefID" or "ReferenceNo" as your Order ID
-    // and "Waybill" or "AWB" as the tracking number.
-    const orderNumber = data?.RefID || data?.ReferenceNo || data?.OrderNo;
+    // Delhivery identifiers
+    const orderNumberRaw = data?.RefID || data?.ReferenceNo || data?.OrderNo;
     const awb = data?.Waybill || data?.AWB;
-    const status = data?.Status || data?.ScanType;
+    // Normalize status to lowercase for easier comparison
+    const statusRaw = data?.Status || data?.ScanType || "";
+    const status = statusRaw.toLowerCase();
+    const instruction = data?.Instructions || "";
 
-    if (!orderNumber || !awb) {
-      console.warn("⚠️ [Delhivery Webhook] Missing Order Number or AWB in payload");
-      return res.status(200).send("OK"); // Always return 200 to acknowledge receipt
+    if (!orderNumberRaw) {
+      console.warn("⚠️ [Delhivery Webhook] Missing Order Number in payload");
+      return res.status(200).send("OK");
     }
 
-    // 3. Find and Update Order
+    // 3. Find Order (Handle Return Suffixes)
+    // Returns might come as "ORD-12345-R", we need "ORD-12345" to find it in DB.
+    const orderNumber = orderNumberRaw.replace("-R", "").trim();
+    
     const order = await Order.findOne({ orderNumber: orderNumber });
 
     if (order) {
-      // If we don't have the tracking ID yet, save it
-      if (!order.tracking.trackingId) {
-        order.tracking.trackingId = awb;
-        order.tracking.courier = "Delhivery";
-        order.tracking.trackingUrl = `https://www.delhivery.com/track/package/${awb}`;
-        console.log(`✅ [Delhivery Webhook] Linked AWB ${awb} to Order ${orderNumber}`);
+      
+      // =========================================================
+      // SCENARIO A: FORWARD SHIPPING (Standard Order)
+      // =========================================================
+      // We assume it's forward if no return is currently active
+      if (!order.returnInfo?.isReturnActive) {
+          
+          // A1. Link AWB if missing
+          if (!order.tracking.trackingId && awb) {
+            order.tracking.trackingId = awb;
+            order.tracking.courier = "Delhivery";
+            order.tracking.trackingUrl = `https://www.delhivery.com/track/package/${awb}`;
+            console.log(`✅ [Forward] Linked AWB ${awb} to Order ${orderNumber}`);
+          }
+
+          // A2. Mark as Shipped
+          if (status === "manifested" || status === "in transit" || status === "dispatched") {
+            if (order.orderStatus === "confirmed" || order.orderStatus === "processing" || order.orderStatus === "packed") {
+              order.orderStatus = "shipped";
+              order.statusTimestamps.shipped = new Date();
+            }
+          }
+          
+          // A3. Mark as Delivered
+          else if (status === "delivered") {
+             if (order.orderStatus !== "delivered") {
+                order.orderStatus = "delivered";
+                order.statusTimestamps.delivered = new Date();
+                
+                // [!code highlight] Auto-Complete Payment for COD
+                if (order.payment.method === "COD" && order.payment.status === "pending") {
+                    order.payment.status = "completed";
+                    order.payment.paidAt = new Date();
+                    console.log(`💰 [Forward] COD Payment marked Completed for ${orderNumber}`);
+                }
+             }
+          }
       }
 
-      // Update Status based on Delhivery Status (Optional but recommended)
-      // Example: If status is "Manifested" or "In Transit", mark as shipped
-      if (status === "Manifested" || status === "In Transit") {
-        if (order.orderStatus !== "shipped") {
-          order.orderStatus = "shipped";
-          order.statusTimestamps.shipped = new Date();
-        }
+      // =========================================================
+      // SCENARIO B: REVERSE SHIPPING (Return Request)
+      // =========================================================
+      // We assume it's reverse if Return is Active
+      else if (order.returnInfo.isReturnActive) {
+          
+          // B1. Detect Pickup (Enable Refund Button)
+          // Delhivery statuses: "PickUp", "Picked Up", or Instruction contains "Pickup"
+          if (status === "picked up" || status === "pickup" || instruction.toLowerCase().includes("pickup")) {
+              
+              // Only update if current status is 'approved' (to prevent overwriting later states)
+              if (order.returnInfo.status === "approved") {
+                  order.returnInfo.status = "picked"; // <--- THIS ENABLES THE ADMIN REFUND BUTTON
+                  order.returnInfo.timeline.push({
+                      status: "Return Picked Up",
+                      date: new Date(),
+                      note: `Item picked up from customer. AWB: ${awb}`
+                  });
+                  console.log(`🔄 [Reverse] Return Picked Up for ${orderNumber}`);
+              }
+          }
+          
+          // B2. Detect Received at Warehouse
+          // Status "Delivered" or "RTO Delivered" on a return shipment means it reached YOU.
+          else if (status === "delivered" || status === "rto delivered") {
+              if (order.returnInfo.status === "picked" || order.returnInfo.status === "approved") {
+                  order.returnInfo.status = "received";
+                  order.returnInfo.timeline.push({
+                      status: "Return Received",
+                      date: new Date(),
+                      note: "Item received at warehouse. Pending QC."
+                  });
+                  console.log(`📦 [Reverse] Return Received at Warehouse for ${orderNumber}`);
+              }
+          }
       }
 
       await order.save();
     } else {
-      console.error(`❌ [Delhivery Webhook] Order not found: ${orderNumber}`);
+      console.warn(`❌ [Delhivery Webhook] Order not found in DB: ${orderNumber}`);
     }
 
-    // 4. Acknowledge Delhivery
+    // 4. Always Acknowledge Delhivery (Prevent Retries)
     return res.status(200).send("OK");
 
   } catch (error) {
     console.error("❌ [Delhivery Webhook] Error:", error);
-    // Still return 200 so they don't keep retrying and crashing your server logs
+    // Return 200 even on error to prevent Delhivery from crashing your logs with retries
     return res.status(200).send("Error handled");
   }
 };
@@ -688,16 +748,16 @@ export const handleRazorpayWebhook = async (req, res) => {
       // SEND ADMIN EMAIL
       try {
         const customerName = order.shippingAddress.fullName || "Customer";
-        const orderDate = new Date().toLocaleDateString('en-IN', { 
-          weekday: 'short', 
-          month: 'short', 
-          day: 'numeric' 
+        const orderDate = new Date().toLocaleDateString('en-IN', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric'
         });
-        
+
         const firstItemName = order.items[0]?.productName || "Product";
         const extraItems = order.items.length - 1;
-        const itemSummary = extraItems > 0 
-          ? `${firstItemName} + ${extraItems} other item(s)` 
+        const itemSummary = extraItems > 0
+          ? `${firstItemName} + ${extraItems} other item(s)`
           : firstItemName;
 
         await sendEmail({
@@ -827,16 +887,16 @@ export const verifyPayment = async (req, res) => {
     // SEND ADMIN EMAIL
     try {
       const customerName = order.shippingAddress.fullName || "Customer";
-      const orderDate = new Date().toLocaleDateString('en-IN', { 
-        weekday: 'short', 
-        month: 'short', 
-        day: 'numeric' 
+      const orderDate = new Date().toLocaleDateString('en-IN', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
       });
-      
+
       const firstItemName = order.items[0]?.productName || "Product";
       const extraItems = order.items.length - 1;
-      const itemSummary = extraItems > 0 
-        ? `${firstItemName} + ${extraItems} other item(s)` 
+      const itemSummary = extraItems > 0
+        ? `${firstItemName} + ${extraItems} other item(s)`
         : firstItemName;
 
       await sendEmail({
@@ -990,7 +1050,7 @@ export const getOrderById = async (req, res) => {
   }
 };
 
-// ==================== CANCEL ORDER ====================
+// ==================== CANCEL ORDER (Registered Users) ====================
 export const cancelOrder = async (req, res) => {
   try {
     const userId = req.user;
@@ -999,95 +1059,142 @@ export const cancelOrder = async (req, res) => {
     const { reason } = req.body;
 
     if (!reason || reason.trim().length < 10) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide a cancellation reason (minimum 10 characters)",
-      });
+      return res.status(400).json({ success: false, message: "Please provide a cancellation reason (minimum 10 characters)" });
     }
 
     const query = { _id: orderId };
-    if (userId) {
-      query.user = userId;
-    } else if (deviceId) {
-      query.deviceId = deviceId;
-    } else {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication or device identification required",
-      });
-    }
+    if (userId) query.user = userId;
+    else if (deviceId) query.deviceId = deviceId;
+    else return res.status(401).json({ success: false, message: "Authentication required" });
 
     const order = await Order.findOne(query);
+    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
 
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
-    }
-
-    if (!order.canBeCancelled) {
+    // Cancellation Policy Check
+    const nonCancellableStatuses = ['shipped', 'out-for-delivery', 'delivered', 'returned', 'cancelled'];
+    if (nonCancellableStatuses.includes(order.orderStatus)) {
       return res.status(400).json({
         success: false,
-        message: "Order cannot be cancelled at this stage",
+        message: "Order cannot be cancelled. It has already been shipped or processed.",
         currentStatus: order.orderStatus,
       });
     }
 
-    // Cancel order
-    const { order: cancelledOrder, couponToRevert } = await order.cancelOrder(
-      userId ? "user" : "guest",
-      reason
-    );
+    // 1. Process Cancellation
+    const { order: cancelledOrder, couponToRevert } = await order.cancelOrder(userId ? "user" : "guest", reason);
 
-    // Restore product stock & Revert sales count
+    // 2. Restock Inventory
     for (const item of cancelledOrder.items) {
       const product = await Product.findById(item.product);
       if (product) {
-        const sizeIndex = product.sizes.findIndex(
-          (s) => s.value === item.size.value
-        );
+        const sizeIndex = product.sizes.findIndex((s) => s.value === item.size.value);
         if (sizeIndex !== -1) {
           product.sizes[sizeIndex].stock += item.quantity;
-          // Decrement sales count, prevent negative numbers just in case
-          product.sizes[sizeIndex].salesCount = Math.max(
-            0,
-            product.sizes[sizeIndex].salesCount - item.quantity
-          );
+          product.sizes[sizeIndex].salesCount = Math.max(0, product.sizes[sizeIndex].salesCount - item.quantity);
           await product.save();
         }
       }
     }
 
-    // Decrement coupon usage
+    // 3. Revert Coupon
     if (couponToRevert) {
       const coupon = await Coupon.findOne({ code: couponToRevert.code });
-      if (coupon) {
-        await coupon.decrementUsageForUser(
-          couponToRevert.userId,
-          couponToRevert.deviceId
-        );
-      }
+      if (coupon) await coupon.decrementUsageForUser(couponToRevert.userId, couponToRevert.deviceId);
     }
+
+    // 4. AUTO REFUND LOGIC (Refunds to Source)
+    let refundDetails = null;
+    const amountToRefund = cancelledOrder.payment.amountPaidOnline;
+
+    if (amountToRefund > 0 && cancelledOrder.payment.razorpayPaymentId) {
+      try {
+        console.log(`Initiating Refund: ₹${amountToRefund} for Order #${cancelledOrder.orderNumber}`);
+
+        const refund = await razorpay.payments.refund(cancelledOrder.payment.razorpayPaymentId, {
+          amount: Math.round(amountToRefund * 100),
+          speed: "optimum",
+          notes: {
+            reason: reason,
+            order_number: cancelledOrder.orderNumber,
+            type: cancelledOrder.payment.method === "COD" ? "COD_FEE_REFUND" : "FULL_REFUND"
+          },
+          receipt: `Refund for ${cancelledOrder.orderNumber}`
+        });
+
+        cancelledOrder.cancellation.refundStatus = "processing";
+        cancelledOrder.cancellation.refundAmount = amountToRefund;
+        cancelledOrder.cancellation.refundedAt = new Date();
+        await cancelledOrder.save();
+        refundDetails = refund;
+
+      } catch (refundError) {
+        console.error("❌ Razorpay Refund Failed:", refundError);
+        cancelledOrder.cancellation.refundStatus = "failed";
+        await cancelledOrder.save();
+      }
+    } else {
+      cancelledOrder.cancellation.refundStatus = "not-applicable";
+      await cancelledOrder.save();
+    }
+
+    // 5. Send Emails
+    try {
+      await cancelledOrder.populate("user", "name email");
+      const customerEmail = cancelledOrder.customerEmail;
+      const customerName = cancelledOrder.customerName;
+
+      let refundMessage = "No refund is applicable for this order.";
+
+      if (amountToRefund > 0) {
+        const label = cancelledOrder.payment.method === "COD" ? "COD Confirmation Fee" : "Order Amount";
+
+        if (cancelledOrder.cancellation.refundStatus === "processing") {
+          refundMessage = `✅ <strong>Refund Initiated:</strong> The ${label} of ₹${amountToRefund} has been refunded to your source account.`;
+        } else if (cancelledOrder.cancellation.refundStatus === "failed") {
+          refundMessage = `⚠️ <strong>Refund Pending:</strong> We could not auto-process your refund of ₹${amountToRefund}. Our team will process it manually.`;
+        }
+      }
+
+      if (customerEmail) {
+        await sendEmail({
+          to: customerEmail,
+          subject: `Order Cancelled - #${cancelledOrder.orderNumber}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+              <h2 style="color: #d32f2f;">Order Cancelled</h2>
+              <p>Hi ${customerName},</p>
+              <p>Your order <strong>#${cancelledOrder.orderNumber}</strong> has been cancelled.</p>
+              <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                <p><strong>Reason:</strong> ${reason}</p>
+                <p style="margin-top: 10px;">${refundMessage}</p>
+                ${refundDetails ? `<p style="font-size: 12px; color: #666;">Refund Ref: ${refundDetails.id}</p>` : ''}
+              </div>
+              <p>Regards,<br/>Team Noctowls</p>
+            </div>
+          `,
+        });
+      }
+
+      await sendEmail({
+        to: process.env.ADMIN_MAIL,
+        subject: `[Alert] Order Cancelled - #${cancelledOrder.orderNumber}`,
+        html: `<div style="font-family: Arial, sans-serif;"><h3>Order Cancelled by Customer</h3><p><strong>Order:</strong> ${cancelledOrder.orderNumber}</p><p><strong>Refund Status:</strong> ${cancelledOrder.cancellation.refundStatus.toUpperCase()}</p><p><strong>Refund Amount:</strong> ₹${amountToRefund}</p>${cancelledOrder.cancellation.refundStatus === 'failed' ? '<p style="color: red; font-weight: bold;">⚠️ AUTO REFUND FAILED</p>' : ''}</div>`
+      });
+    } catch (e) { console.error("Email fail", e); }
 
     return res.status(200).json({
       success: true,
       message: "Order cancelled successfully",
       order: {
         orderId: cancelledOrder._id,
-        orderNumber: cancelledOrder.orderNumber,
         status: cancelledOrder.orderStatus,
         refundStatus: cancelledOrder.cancellation.refundStatus,
-        refundAmount: cancelledOrder.cancellation.refundAmount,
+        refundAmount: amountToRefund,
       },
     });
   } catch (error) {
     console.error("Error cancelling order:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to cancel order",
-      error: error.message,
-    });
+    return res.status(500).json({ success: false, message: "Failed to cancel order", error: error.message });
   }
 };
 
@@ -1155,20 +1262,13 @@ export const trackGuestOrder = async (req, res) => {
 export const cancelGuestOrder = async (req, res) => {
   try {
     const { orderNumber, email, reason } = req.body;
-    const deviceId = req.cookies.device_id;
 
     if (!orderNumber || !email || !reason) {
-      return res.status(400).json({
-        success: false,
-        message: "Order number, email, and reason are required",
-      });
+      return res.status(400).json({ success: false, message: "Order number, email, and reason are required" });
     }
 
     if (reason.trim().length < 10) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide a cancellation reason (minimum 10 characters)",
-      });
+      return res.status(400).json({ success: false, message: "Please provide a cancellation reason (min 10 chars)" });
     }
 
     const order = await Order.findOne({
@@ -1177,55 +1277,100 @@ export const cancelGuestOrder = async (req, res) => {
       user: null,
     });
 
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
+    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+
+    // Check Eligibility
+    const nonCancellableStatuses = ['shipped', 'out-for-delivery', 'delivered', 'returned', 'cancelled'];
+    if (nonCancellableStatuses.includes(order.orderStatus)) {
+      return res.status(400).json({ success: false, message: "Order cannot be cancelled at this stage." });
     }
 
-    if (!order.canBeCancelled) {
-      return res.status(400).json({
-        success: false,
-        message: "Order cannot be cancelled at this stage",
-        currentStatus: order.orderStatus,
-      });
-    }
+    // 1. Process Cancellation
+    const { order: cancelledOrder, couponToRevert } = await order.cancelOrder("guest", reason);
 
-    const { order: cancelledOrder, couponToRevert } = await order.cancelOrder(
-      "guest",
-      reason
-    );
-
-    // Restore product stock & Revert sales count
+    // 2. Restock
     for (const item of cancelledOrder.items) {
       const product = await Product.findById(item.product);
       if (product) {
-        const sizeIndex = product.sizes.findIndex(
-          (s) => s.value === item.size.value
-        );
+        const sizeIndex = product.sizes.findIndex((s) => s.value === item.size.value);
         if (sizeIndex !== -1) {
           product.sizes[sizeIndex].stock += item.quantity;
-          // Decrement sales count, prevent negative numbers just in case
-          product.sizes[sizeIndex].salesCount = Math.max(
-            0,
-            product.sizes[sizeIndex].salesCount - item.quantity
-          );
+          product.sizes[sizeIndex].salesCount = Math.max(0, product.sizes[sizeIndex].salesCount - item.quantity);
           await product.save();
         }
       }
     }
 
-    // Decrement coupon usage
+    // 3. Revert Coupon
     if (couponToRevert) {
       const coupon = await Coupon.findOne({ code: couponToRevert.code });
-      if (coupon) {
-        await coupon.decrementUsageForUser(
-          couponToRevert.userId,
-          couponToRevert.deviceId
-        );
-      }
+      if (coupon) await coupon.decrementUsageForUser(couponToRevert.userId, couponToRevert.deviceId);
     }
+
+    // 4. AUTO REFUND LOGIC
+    let refundDetails = null;
+    const amountToRefund = cancelledOrder.payment.amountPaidOnline;
+
+    if (amountToRefund > 0 && cancelledOrder.payment.razorpayPaymentId) {
+      try {
+        console.log(`Initiating Guest Refund: ₹${amountToRefund} for Order #${cancelledOrder.orderNumber}`);
+        const refund = await razorpay.payments.refund(cancelledOrder.payment.razorpayPaymentId, {
+          amount: Math.round(amountToRefund * 100),
+          speed: "optimum",
+          notes: {
+            reason: reason,
+            order_number: cancelledOrder.orderNumber,
+            type: cancelledOrder.payment.method === "COD" ? "COD_FEE_REFUND" : "FULL_REFUND"
+          },
+          receipt: `Refund for ${cancelledOrder.orderNumber}`
+        });
+
+        cancelledOrder.cancellation.refundStatus = "processing";
+        cancelledOrder.cancellation.refundAmount = amountToRefund;
+        cancelledOrder.cancellation.refundedAt = new Date();
+        await cancelledOrder.save();
+        refundDetails = refund;
+      } catch (refundError) {
+        console.error("❌ Guest Refund Failed:", refundError);
+        cancelledOrder.cancellation.refundStatus = "failed";
+        await cancelledOrder.save();
+      }
+    } else {
+      cancelledOrder.cancellation.refundStatus = "not-applicable";
+      await cancelledOrder.save();
+    }
+
+    // 5. EMAILS
+    try {
+      const customerEmail = cancelledOrder.guestInfo.email;
+      const customerName = cancelledOrder.guestInfo.name;
+      let refundMessage = "No refund is applicable.";
+
+      if (amountToRefund > 0) {
+        const label = cancelledOrder.payment.method === "COD" ? "COD Confirmation Fee" : "Order Amount";
+        if (cancelledOrder.cancellation.refundStatus === "processing") {
+          refundMessage = `✅ <strong>Refund Initiated:</strong> The ${label} of ₹${amountToRefund} has been refunded to your source account.`;
+        } else if (cancelledOrder.cancellation.refundStatus === "failed") {
+          refundMessage = `⚠️ <strong>Refund Pending:</strong> Auto-refund failed. Admin will process manually.`;
+        }
+      }
+
+      if (customerEmail) {
+        await sendEmail({
+          to: customerEmail,
+          subject: `Order Cancelled - #${cancelledOrder.orderNumber}`,
+          html: `<div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;"><h2 style="color: #d32f2f;">Order Cancelled</h2><p>Hi ${customerName},</p><p>Your order <strong>#${cancelledOrder.orderNumber}</strong> has been cancelled.</p><div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;"><p><strong>Reason:</strong> ${reason}</p><p style="margin-top: 10px;">${refundMessage}</p>
+          ${refundDetails ? `<p style="font-size: 12px; color: #666;">Refund Ref: ${refundDetails.id}</p>` : ''}</div></div>`
+        });
+      }
+
+      await sendEmail({
+        to: process.env.ADMIN_MAIL,
+        subject: `[Alert] Guest Order Cancelled - #${cancelledOrder.orderNumber}`,
+        html: `<div style="font-family: Arial, sans-serif;"><h3>Guest Order Cancelled</h3><p><strong>Order:</strong> ${cancelledOrder.orderNumber}</p><p><strong>Refund Status:</strong> ${cancelledOrder.cancellation.refundStatus}</p><p><strong>Amount:</strong> ₹${amountToRefund}</p></div>`
+      });
+
+    } catch (e) { console.error("Email fail", e); }
 
     return res.status(200).json({
       success: true,
@@ -1239,11 +1384,7 @@ export const cancelGuestOrder = async (req, res) => {
     });
   } catch (error) {
     console.error("Error cancelling guest order:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to cancel order",
-      error: error.message,
-    });
+    return res.status(500).json({ success: false, message: "Failed to cancel order", error: error.message });
   }
 };
 
@@ -1520,10 +1661,25 @@ export const requestReturn = async (req, res) => {
       if (daysDiff > 7) return res.status(400).json({ message: "Return period has expired" });
     }
 
+    // [!code highlight] 4. MANDATORY BANK DETAILS CHECK FOR COD REFUNDS
+    if (order.payment.method === "COD" && type === "refund") {
+      if (
+        !bankDetails ||
+        !bankDetails.accountNumber ||
+        !bankDetails.ifscCode ||
+        !bankDetails.accountHolderName
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Bank details (Account No, IFSC, Name) are required for COD refunds."
+        });
+      }
+    }
+
     // Format Reason with Bank Details if provided
     let finalReason = reason;
-    if (bankDetails) {
-      finalReason += `\n\n[Bank Details for Refund]\nHolder: ${bankDetails.accountHolderName}\nAcc: ${bankDetails.accountNumber}\nIFSC: ${bankDetails.ifscCode}\nBank: ${bankDetails.bankName}`;
+    if (bankDetails && type === "refund") {
+      finalReason += `\n\n[Bank Details]\nHolder: ${bankDetails.accountHolderName}\nAcc: ${bankDetails.accountNumber}\nIFSC: ${bankDetails.ifscCode}\nBank: ${bankDetails.bankName || 'N/A'}`;
     }
 
     // Update Return Info
@@ -1540,9 +1696,6 @@ export const requestReturn = async (req, res) => {
         }
       ]
     };
-
-    // If exchange, you might optionally set orderStatus to 'returned' right away OR wait for admin approval. 
-    // For now, let's keep orderStatus as 'delivered' until Admin approves.
 
     await order.save();
 

@@ -5,7 +5,7 @@ import adminApi from "../../../configs/adminAxiosConfig";
 
 // 1. Get All Orders (Pagination + Filter + Search + Date Range + ReturnStatus)
 export const getAllAdminOrders = createAsyncThunk(
-  "adminOrder/getAll",
+  "adminOrders/getAll",
   async (
     { page = 1, limit = 10, status = "", returnStatus = "", search = "", startDate = "", endDate = "" },
     { rejectWithValue }
@@ -37,7 +37,7 @@ export const getAllAdminOrders = createAsyncThunk(
 
 // 2. Get Single Order Details
 export const getAdminOrderById = createAsyncThunk(
-  "adminOrder/getById",
+  "adminOrders/getById",
   async (orderId, { rejectWithValue }) => {
     try {
       const response = await adminApi.get(`/orders/${orderId}`);
@@ -52,7 +52,7 @@ export const getAdminOrderById = createAsyncThunk(
 
 // 3. Update Order Status
 export const updateAdminOrderStatus = createAsyncThunk(
-  "adminOrder/updateStatus",
+  "adminOrders/updateStatus",
   async ({ orderId, status, trackingId }, { rejectWithValue }) => {
     try {
       const response = await adminApi.put(`/orders/${orderId}`, {
@@ -70,7 +70,7 @@ export const updateAdminOrderStatus = createAsyncThunk(
 
 // 4. [!code ++] MANUAL SHIP ORDER (With Error Parsing)
 export const shipAdminOrder = createAsyncThunk(
-  "adminOrder/shipOrder",
+  "adminOrders/shipOrder",
   async (orderId, { rejectWithValue }) => {
     try {
       const response = await adminApi.post(`/orders/${orderId}/ship`);
@@ -97,7 +97,7 @@ export const shipAdminOrder = createAsyncThunk(
 
 // 5. Process Return Request
 export const processReturnRequest = createAsyncThunk(
-  "adminOrder/processReturn",
+  "adminOrders/processReturn",
   async ({ orderId, status, note }, { rejectWithValue }) => {
     try {
       const response = await adminApi.put(`/orders/${orderId}/return`, {
@@ -115,7 +115,7 @@ export const processReturnRequest = createAsyncThunk(
 
 // 6. Delete Order (Only cancelled)
 export const deleteAdminOrder = createAsyncThunk(
-  "adminOrder/delete",
+  "adminOrders/delete",
   async (orderId, { rejectWithValue }) => {
     try {
       const response = await adminApi.delete(`/orders/${orderId}`);
@@ -130,7 +130,7 @@ export const deleteAdminOrder = createAsyncThunk(
 
 // 7. Get Order Statistics
 export const getAdminOrderStats = createAsyncThunk(
-  "adminOrder/getStats",
+  "adminOrders/getStats",
   async (_, { rejectWithValue }) => {
     try {
       const response = await adminApi.get("/orders/stats");
@@ -175,7 +175,7 @@ const initialState = {
 // ==================== SLICE ====================
 
 const adminOrderSlice = createSlice({
-  name: "adminOrder",
+  name: "adminOrders",
   initialState,
   reducers: {
     clearAdminOrderErrors: (state) => {

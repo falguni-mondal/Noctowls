@@ -95,7 +95,7 @@ const OrderReturnPage = () => {
       requestReturn({
         orderId,
         returnData: {
-          type: "refund", // Defaulting to refund as per simpler flow
+          type: "refund", 
           reason: finalReason,
           bankDetails: payloadBankDetails,
         },
@@ -104,7 +104,7 @@ const OrderReturnPage = () => {
 
     if (requestReturn.fulfilled.match(result)) {
       toast.success("Return request submitted successfully", toastControls);
-      navigate(`/orders/${orderId}`); // Redirect back to details to see status
+      navigate(`/orders/${orderId}`);
     } else {
       toast.error(result.payload || "Failed to submit request", toastControls);
     }
@@ -126,11 +126,12 @@ const OrderReturnPage = () => {
         
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-2 text-sm text-zinc-500 mb-4 relative w-fit hover:text-zinc-300 transition-colors">
+          <Link 
+            to={`/orders/${orderId}`}
+            className="flex items-center gap-2 text-sm text-zinc-500 mb-4 hover:text-zinc-300 transition-colors w-fit"
+          >
             <Icon icon="solar:arrow-left-linear" /> Cancel & Go Back
-            {/* Interaction Fix */}
-            <Link to={`/orders/${orderId}`} className="absolute inset-0 z-10 cursor-pointer" />
-          </div>
+          </Link>
           <h1 className="text-3xl font-bold mb-2">Request Return</h1>
           <p className="text-zinc-400 text-sm">
             Order #{order.orderNumber} • Placed on {new Date(order.createdAt).toLocaleDateString()}
@@ -168,7 +169,7 @@ const OrderReturnPage = () => {
               ))}
             </div>
 
-            {/* Custom Reason Textarea (Conditional) */}
+            {/* Custom Reason Textarea */}
             {reason === "Other" && (
               <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-200">
                 <label className="block text-xs font-bold text-zinc-500 uppercase mb-2">
@@ -184,7 +185,7 @@ const OrderReturnPage = () => {
             )}
           </div>
 
-          {/* 2. Refund Method (Informational or Input) */}
+          {/* 2. Refund Method */}
           <div className="bg-zinc-950 border border-zinc-900 rounded-xl p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-xs text-zinc-400">2</span>
@@ -261,17 +262,16 @@ const OrderReturnPage = () => {
             )}
           </div>
 
-          {/* Submit Button */}
-          <div className="pt-4 relative">
+          {/* Submit Button (FIXED) */}
+          <div className="pt-4">
             <button
+                onClick={handleSubmit}
                 disabled={submitLoading || !reason}
                 className="w-full bg-white text-black font-bold uppercase py-4 rounded-xl hover:bg-zinc-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
                 {submitLoading && <Icon icon="eos-icons:loading" className="text-lg" />}
                 Submit Return Request
             </button>
-            {/* Interaction Fix */}
-            <span onClick={handleSubmit} className="absolute inset-0 z-10 cursor-pointer" />
           </div>
 
         </div>
