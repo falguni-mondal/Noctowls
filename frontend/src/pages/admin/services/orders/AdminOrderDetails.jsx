@@ -439,7 +439,7 @@ const AdminOrderDetails = () => {
                 {/* Cancelled Watermark Logic */}
                 {order.orderStatus === 'cancelled' && (
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-0 opacity-20 pointer-events-none transform -rotate-45">
-                        <span className="text-[150px] font-black text-red-600 border-12 border-red-600 px-12 py-4 rounded-3xl tracking-widest uppercase">
+                        <span className="text-[150px] font-black text-red-600 border-12 border-red-600 px-12 py-4 rounded-3xl tracking-widest uppercase relative z-99999">
                             CANCELLED
                         </span>
                     </div>
