@@ -72,12 +72,12 @@ const UpdateHighlightImages = ({
                       className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 transition-colors"
                       aria-label={`Remove highlight image ${index + 1}`}
                     >
-                      <Icon icon="mdi:close" className="text-lg" />
+                      <Icon icon="mdi:close" className="text-lg pointer-events-none" />
                     </button>
                   </>
                 ) : (
                   <div className="flex flex-col items-center">
-                    <Icon icon="material-symbols-light:add-photo-alternate-outline-rounded" />
+                    <Icon className='pointer-events-none' icon="material-symbols-light:add-photo-alternate-outline-rounded" />
                     <span className="text-xs lg:text-base mt-1">{index + 1}</span>
                   </div>
                 )}

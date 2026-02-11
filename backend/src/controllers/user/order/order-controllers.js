@@ -76,123 +76,147 @@ async function generateUniqueOrderNumber(session) {
 }
 
 // ==================== HANDLE DELHIVERY WEBHOOK ====================
-export const handleDelhiveryWebhook = async (req, res) => {
-  try {
-    // 1. Log the incoming data (Crucial for debugging)
-    // console.log("🔔 [Delhivery Webhook] Received:", JSON.stringify(req.body, null, 2));
+export const handleDelhiveryWebhook = (req, res) => {
+  // 1️⃣ ACK IMMEDIATELY
+  res.status(200).send("OK");
 
-    // 2. Extract Data
-    const data = req.body?.ScanDetail || req.body;
+  // 2️⃣ PROCESS ASYNC
+  setImmediate(async () => {
+    try {
+      const body = req.body || {};
+      const shipment = body.Shipment || body.ScanDetail || body;
+      const statusBlock = shipment.Status || {};
 
-    // Delhivery identifiers
-    const orderNumberRaw = data?.RefID || data?.ReferenceNo || data?.OrderNo;
-    const awb = data?.Waybill || data?.AWB;
-    // Normalize status to lowercase for easier comparison
-    const statusRaw = data?.Status || data?.ScanType || "";
-    const status = statusRaw.toLowerCase();
-    const instruction = data?.Instructions || "";
+      const statusRaw =
+        statusBlock.Status ||
+        shipment.Status ||
+        shipment.ScanType ||
+        "";
 
-    if (!orderNumberRaw) {
-      console.warn("⚠️ [Delhivery Webhook] Missing Order Number in payload");
-      return res.status(200).send("OK");
-    }
+      const instruction =
+        statusBlock.Instructions ||
+        shipment.Instructions ||
+        "";
 
-    // 3. Find Order (Handle Return Suffixes)
-    // Returns might come as "ORD-12345-R", we need "ORD-12345" to find it in DB.
-    const orderNumber = orderNumberRaw.replace("-R", "").trim();
-    
-    const order = await Order.findOne({ orderNumber: orderNumber });
+      const status = statusRaw.toLowerCase().trim();
 
-    if (order) {
-      
-      // =========================================================
-      // SCENARIO A: FORWARD SHIPPING (Standard Order)
-      // =========================================================
-      // We assume it's forward if no return is currently active
+      const orderNumberRaw =
+        shipment.ReferenceNo ||
+        shipment.RefID ||
+        shipment.OrderNo ||
+        "";
+
+      const awb =
+        shipment.AWB ||
+        shipment.Waybill ||
+        "";
+
+      if (!orderNumberRaw) return;
+
+      const orderNumber = orderNumberRaw.replace(/-R$/i, "").trim();
+
+      const order = await Order.findOne({ orderNumber });
+      if (!order) return;
+
+      // -----------------------------
+      // IDEMPOTENCY (SAFE & SIMPLE)
+      // -----------------------------
+      const scanKey = `${awb}-${status}`;
+      if (order.lastWebhookScan === scanKey) return;
+      order.lastWebhookScan = scanKey;
+
+      // -----------------------------
+      // STATUS GROUPS
+      // -----------------------------
+      const SHIPPED_STATUSES = [
+        "manifest",
+        "dispatch",
+        "in transit",
+      ];
+
+      const OFD_STATUSES = [
+        "out for delivery",
+        "ofd",
+      ];
+
+      const DELIVERED_STATUSES = ["delivered"];
+
+      const PICKUP_STATUSES = ["pickup", "picked"];
+
+      // -----------------------------
+      // FORWARD SHIPPING
+      // -----------------------------
       if (!order.returnInfo?.isReturnActive) {
-          
-          // A1. Link AWB if missing
-          if (!order.tracking.trackingId && awb) {
-            order.tracking.trackingId = awb;
-            order.tracking.courier = "Delhivery";
-            order.tracking.trackingUrl = `https://www.delhivery.com/track/package/${awb}`;
-            console.log(`✅ [Forward] Linked AWB ${awb} to Order ${orderNumber}`);
-          }
+        // Link tracking
+        if (!order.tracking.trackingNumber && awb) {
+          order.tracking.trackingNumber = awb;
+          order.tracking.courierService = "Delhivery";
+        }
 
-          // A2. Mark as Shipped
-          if (status === "manifested" || status === "in transit" || status === "dispatched") {
-            if (order.orderStatus === "confirmed" || order.orderStatus === "processing" || order.orderStatus === "packed") {
-              order.orderStatus = "shipped";
-              order.statusTimestamps.shipped = new Date();
-            }
+        // Mark shipped
+        if (
+          SHIPPED_STATUSES.some(s => status.includes(s)) &&
+          ["confirmed", "processing", "packed"].includes(order.orderStatus)
+        ) {
+          order.orderStatus = "shipped";
+        }
+
+        // Mark out-for-delivery
+        if (
+          OFD_STATUSES.some(s => status.includes(s)) &&
+          order.orderStatus === "shipped"
+        ) {
+          order.orderStatus = "out-for-delivery";
+        }
+
+        // Mark delivered
+        if (
+          DELIVERED_STATUSES.some(s => status.includes(s)) &&
+          order.orderStatus !== "delivered"
+        ) {
+          order.orderStatus = "delivered";
+          order.tracking.actualDelivery = new Date();
+
+          // COD auto-complete
+          if (
+            order.payment.method === "COD" &&
+            order.payment.status === "pending"
+          ) {
+            order.payment.status = "completed";
+            order.payment.paidAt = new Date();
           }
-          
-          // A3. Mark as Delivered
-          else if (status === "delivered") {
-             if (order.orderStatus !== "delivered") {
-                order.orderStatus = "delivered";
-                order.statusTimestamps.delivered = new Date();
-                
-                // [!code highlight] Auto-Complete Payment for COD
-                if (order.payment.method === "COD" && order.payment.status === "pending") {
-                    order.payment.status = "completed";
-                    order.payment.paidAt = new Date();
-                    console.log(`💰 [Forward] COD Payment marked Completed for ${orderNumber}`);
-                }
-             }
-          }
+        }
       }
 
-      // =========================================================
-      // SCENARIO B: REVERSE SHIPPING (Return Request)
-      // =========================================================
-      // We assume it's reverse if Return is Active
-      else if (order.returnInfo.isReturnActive) {
-          
-          // B1. Detect Pickup (Enable Refund Button)
-          // Delhivery statuses: "PickUp", "Picked Up", or Instruction contains "Pickup"
-          if (status === "picked up" || status === "pickup" || instruction.toLowerCase().includes("pickup")) {
-              
-              // Only update if current status is 'approved' (to prevent overwriting later states)
-              if (order.returnInfo.status === "approved") {
-                  order.returnInfo.status = "picked"; // <--- THIS ENABLES THE ADMIN REFUND BUTTON
-                  order.returnInfo.timeline.push({
-                      status: "Return Picked Up",
-                      date: new Date(),
-                      note: `Item picked up from customer. AWB: ${awb}`
-                  });
-                  console.log(`🔄 [Reverse] Return Picked Up for ${orderNumber}`);
-              }
-          }
-          
-          // B2. Detect Received at Warehouse
-          // Status "Delivered" or "RTO Delivered" on a return shipment means it reached YOU.
-          else if (status === "delivered" || status === "rto delivered") {
-              if (order.returnInfo.status === "picked" || order.returnInfo.status === "approved") {
-                  order.returnInfo.status = "received";
-                  order.returnInfo.timeline.push({
-                      status: "Return Received",
-                      date: new Date(),
-                      note: "Item received at warehouse. Pending QC."
-                  });
-                  console.log(`📦 [Reverse] Return Received at Warehouse for ${orderNumber}`);
-              }
-          }
+      // -----------------------------
+      // REVERSE SHIPPING (RETURNS)
+      // -----------------------------
+      else {
+        // Pickup event
+        if (
+          PICKUP_STATUSES.some(s => status.includes(s)) ||
+          instruction.toLowerCase().includes("pickup")
+        ) {
+          order.returnInfo.timeline.push({
+            status: "Return Picked Up",
+            note: `AWB: ${awb}`,
+          });
+        }
+
+        // Received at warehouse
+        if (DELIVERED_STATUSES.some(s => status.includes(s))) {
+          order.returnInfo.timeline.push({
+            status: "Return Received",
+            note: "Item received at warehouse",
+          });
+        }
       }
 
       await order.save();
-    } else {
-      console.warn(`❌ [Delhivery Webhook] Order not found in DB: ${orderNumber}`);
+    } catch (err) {
+      console.error("[Delhivery Webhook] Async Error:", err);
     }
-
-    // 4. Always Acknowledge Delhivery (Prevent Retries)
-    return res.status(200).send("OK");
-
-  } catch (error) {
-    console.error("❌ [Delhivery Webhook] Error:", error);
-    // Return 200 even on error to prevent Delhivery from crashing your logs with retries
-    return res.status(200).send("Error handled");
-  }
+  });
 };
 
 // ==================== CREATE ORDER ====================
