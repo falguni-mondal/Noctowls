@@ -141,7 +141,7 @@ const Orderspage = () => {
             </p>
             <Link 
               to="/catalog"
-              className="px-8 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
+              className="px-8 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition"
             >
               Start Shopping
             </Link>
