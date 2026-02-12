@@ -5,6 +5,8 @@ import cors from "cors";
 import connectToDB from "./database/db.js";
 
 import noCache from "./middlewares/global/no-cache.js";
+import LeakyLimiter from "./utils/leaky-limiter.js";
+import UserLimiter from "./utils/user-limiter.js";
 
 // ROUTES Imports................................
 import authRouter from "./routes/user/auth/auth-routes.js";
@@ -28,6 +30,16 @@ import adminBagRouter from "./routes/admin/bag/admin-bag-routes.js";
 import adminWishlistRouter from "./routes/admin/wishlist/admin-wishlist-routes.js";
 
 const app = express();
+
+// 1. Initialize Global Leaky Limiter (50 req/sec)
+const globalLimiter = new LeakyLimiter(50);
+
+// 2. Initialize User Limiter (40 requests per 10 seconds)
+const userLimiter = new UserLimiter(40, 10000); 
+
+// Optional: Cleanup stale IPs every 60 seconds to save memory
+setInterval(() => userLimiter.cleanup(), 60000);
+
 app.set("trust proxy", true);
 app.use(
   express.json({
@@ -52,13 +64,34 @@ app.use(
   })
 );
 
+// NO CACHE MIDDLEWARE (For not storing anything in the cache)
+app.use(noCache);
+
+// 3. APPLY USER LIMITER (The Guard)
+// This runs FIRST. If a specific user is spamming, we reject them immediately.
+app.use((req, res, next) => {
+  const userIp = req.ip; // Identify by IP address
+  
+  if (!userLimiter.check(userIp)) {
+    return res.status(429).json({
+      success: false,
+      message: "Too many requests! Please wait a moment."
+    });
+  }
+  next();
+});
+
+// 4. APPLY GLOBAL LEAKY LIMITER (The Traffic Cop)
+// This runs SECOND. It delays valid requests to ensure the server isn't overwhelmed by a burst.
+app.use(async (req, res, next) => {
+  await globalLimiter.wait();
+  next();
+});
+
 // FOR TESTING //////////////////////////////////////////////////////////
 app.get("/", (req, res) => {
   res.status(200).json({ success: true });
 })
-
-// NO CACHE MIDDLEWARE (For not storing anything in the cache)
-app.use(noCache);
 
 // ROUTE INITIALIZATIONS.............................................
 app.use("/api/auth", authRouter);
