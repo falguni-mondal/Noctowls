@@ -221,8 +221,8 @@ const syncToDelhivery = async (order) => {
 
         order.orderStatus = "shipped";
         order.tracking = {
-          trackingId: pkg.waybill,
-          courier: "Delhivery",
+          trackingNumber: pkg.waybill,
+          courierService: "Delhivery",
           trackingUrl: `https://www.delhivery.com/track/package/${pkg.waybill}`
         };
 

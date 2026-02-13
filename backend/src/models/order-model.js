@@ -293,6 +293,10 @@ const trackingSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    trackingUrl:{
+      type: String,
+      default: "null",
+    },
   },
   { _id: false }
 );
