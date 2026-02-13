@@ -14,7 +14,7 @@ const HomeMarquee = () => {
                     titles.map((title, index) => (
                         // Increased margins for tablet/desktop to utilize screen width better (md:mr-10 lg:mr-16)
                         // Increased vertical padding slightly for larger touch targets/visual balance (md:py-4)
-                        <div key={`marquee-item-${index}`} className='flex items-center mr-5 md:mr-10 lg:mr-16 py-3 md:py-4'>
+                        <div key={`marquee-item-${index}`} className='flex items-center mr-5 md:mr-10 lg:mr-16 py-1.5 lg:py-2.5'>
                             {/* Spacers adjusted for consistency */}
                             <span className='ml-5 md:ml-2'></span>
                             {title}
