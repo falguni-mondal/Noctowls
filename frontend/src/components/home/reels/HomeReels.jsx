@@ -146,7 +146,6 @@ const ReelCard = memo(({ reel, isCurrent, onPlay, onPause }) => {
         <video
           src={reel.videoUrl}
           className="w-full h-full object-cover bg-black"
-          preload="none"
           playsInline={true}
           webkit-playsinline="true"
           autoPlay={true}
