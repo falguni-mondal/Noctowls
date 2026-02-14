@@ -98,39 +98,52 @@ const HomeReels = () => {
 };
 
 // ==================== INDIVIDUAL REEL CARD (MEMOIZED) ====================
-// [!code ++] Wrapped in memo to prevent re-rendering when other cards update
 const ReelCard = memo(({ reel, isCurrent, onPlay, onPause }) => {
   const videoRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
-  // Effect: Watch for changes in 'isCurrent'. 
+  // Effect: Watch for changes in 'isCurrent' to pause OTHERS
   useEffect(() => {
-    // If this card is NO LONGER the current one, pause it.
     if (!isCurrent && isPlaying && videoRef.current) {
       videoRef.current.pause();
       setIsPlaying(false);
     }
   }, [isCurrent, isPlaying]);
 
-  const togglePlay = () => {
-    if (!videoRef.current) return;
+  const togglePlay = async () => {
+    const video = videoRef.current;
+    if (!video) return;
 
     if (isPlaying) {
-      videoRef.current.pause();
+      video.pause();
       setIsPlaying(false);
-      onPause(); 
+      onPause();
     } else {
-      // [!code ++] Call with ID because we passed the generic handler
-      onPlay(reel.id); 
-      
-      videoRef.current.muted = false;
-      videoRef.current.volume = 1.0;
-      
-      const playPromise = videoRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => setIsPlaying(true))
-          .catch((err) => console.error("Playback failed", err));
+      // [!code warning] CRITICAL FIX: Do NOT call onPlay() yet. 
+      // Calling it triggers a re-render which cancels the play request on iOS.
+
+      // 1. Prepare the video first
+      video.muted = false;
+      video.currentTime = 0; // Optional: Restart video from beginning if needed
+      video.volume = 1.0;
+
+      try {
+        // 2. Await the play command DIRECTLY
+        // This ensures the browser links the "click" to the "play" action
+        await video.play();
+
+        // 3. ONLY update state after video is successfully playing
+        setIsPlaying(true);
+        onPlay(reel.id); // Now it's safe to tell parent to pause others
+      } catch (error) {
+        console.error("Playback failed:", error);
+        // iOS Fallback: If unmuted play fails, try muted (rarely needed on click, but good safety)
+        if (error.name === 'NotAllowedError') {
+             video.muted = true;
+             await video.play();
+             setIsPlaying(true);
+             onPlay(reel.id);
+        }
       }
     }
   };
@@ -143,9 +156,11 @@ const ReelCard = memo(({ reel, isCurrent, onPlay, onPause }) => {
         ref={videoRef}
         src={reel.videoUrl}
         className="w-full h-full object-cover bg-black"
-        playsInline
+        // [!code ++] Add explicit React boolean attributes
+        playsInline={true}
+        webkit-playsinline="true" // [!code ++] Vital for older iOS versions
         loop
-        preload="metadata" // [!code ++] Ensure metadata only to save bandwidth
+        preload="metadata"
         onClick={togglePlay}
         onEnded={() => {
             setIsPlaying(false);
@@ -153,6 +168,7 @@ const ReelCard = memo(({ reel, isCurrent, onPlay, onPause }) => {
         }}
       />
 
+      {/* Rest of your UI (Overlays, Icons, etc.) remains exactly the same */}
       <div 
         className={`absolute inset-0 bg-black/20 transition-opacity duration-300 pointer-events-none ${isPlaying ? "opacity-0" : "opacity-100"}`}
       ></div>
