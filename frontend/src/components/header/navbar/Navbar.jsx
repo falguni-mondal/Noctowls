@@ -141,7 +141,7 @@ const Navbar = ({
                     {/* [!code ++] Whatsapp Navigation (Desktop Only) */}
                     <li className="relative group">
                         <a 
-                            href="https://wa.me/8348341112"
+                            href="https://wa.me/+918348341112"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-1.5 group-hover:text-white transition-colors capitalize"
