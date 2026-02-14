@@ -1,12 +1,11 @@
 import { useState, useRef, useEffect, useCallback, memo } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
-// [!code ++] Import Virtual module and its CSS
 import { Virtual } from 'swiper/modules';
 import "swiper/css";
 import "swiper/css/virtual"; 
 import { Icon } from "@iconify/react";
 
-// --- IMPORT YOUR LOCAL VIDEOS HERE ---
+// --- IMPORT YOUR REELS HERE ---
 import video1 from "../../../assets/reels/reel1.mp4";
 import video2 from "../../../assets/reels/reel2.mp4";
 import video3 from "../../../assets/reels/reel3.mp4";
@@ -23,30 +22,45 @@ import video13 from "../../../assets/reels/reel13.mp4";
 import video14 from "../../../assets/reels/reel14.mp4";
 import video15 from "../../../assets/reels/reel15.mp4";
 
+// --- IMPORT YOUR THUMBNAILS HERE ---
+import thumb1 from "../../../assets/thumb/reel1.jpg";
+import thumb2 from "../../../assets/thumb/reel2.jpg";
+import thumb3 from "../../../assets/thumb/reel3.jpg";
+import thumb4 from "../../../assets/thumb/reel4.jpg";
+import thumb5 from "../../../assets/thumb/reel5.jpg";
+import thumb6 from "../../../assets/thumb/reel6.jpg";
+import thumb7 from "../../../assets/thumb/reel7.jpg";
+import thumb8 from "../../../assets/thumb/reel8.jpg";
+import thumb9 from "../../../assets/thumb/reel9.jpg";
+import thumb10 from "../../../assets/thumb/reel10.jpg";
+import thumb11 from "../../../assets/thumb/reel11.jpg";
+import thumb12 from "../../../assets/thumb/reel12.jpg";
+import thumb13 from "../../../assets/thumb/reel13.jpg";
+import thumb14 from "../../../assets/thumb/reel14.jpg";
+import thumb15 from "../../../assets/thumb/reel15.jpg";
+
+// [!code ++] MERGED DATA: Combining Video + Thumbnail into one object
 const REELS_DATA = [
-  { id: 1, videoUrl: video1 },
-  { id: 2, videoUrl: video2 },
-  { id: 3, videoUrl: video3 },
-  { id: 4, videoUrl: video4 },
-  { id: 5, videoUrl: video5 },
-  { id: 6, videoUrl: video6 },
-  { id: 7, videoUrl: video7 },
-  { id: 8, videoUrl: video8 },
-  { id: 9, videoUrl: video9 },
-  { id: 10, videoUrl: video10 },
-  { id: 11, videoUrl: video11 },
-  { id: 12, videoUrl: video12 },
-  { id: 13, videoUrl: video13 },
-  { id: 14, videoUrl: video14 },
-  { id: 15, videoUrl: video15 },
+  { id: 1, videoUrl: video1, thumbUrl: thumb1 },
+  { id: 2, videoUrl: video2, thumbUrl: thumb2 },
+  { id: 3, videoUrl: video3, thumbUrl: thumb3 },
+  { id: 4, videoUrl: video4, thumbUrl: thumb4 },
+  { id: 5, videoUrl: video5, thumbUrl: thumb5 },
+  { id: 6, videoUrl: video6, thumbUrl: thumb6 },
+  { id: 7, videoUrl: video7, thumbUrl: thumb7 },
+  { id: 8, videoUrl: video8, thumbUrl: thumb8 },
+  { id: 9, videoUrl: video9, thumbUrl: thumb9 },
+  { id: 10, videoUrl: video10, thumbUrl: thumb10 },
+  { id: 11, videoUrl: video11, thumbUrl: thumb11 },
+  { id: 12, videoUrl: video12, thumbUrl: thumb12 },
+  { id: 13, videoUrl: video13, thumbUrl: thumb13 },
+  { id: 14, videoUrl: video14, thumbUrl: thumb14 },
+  { id: 15, videoUrl: video15, thumbUrl: thumb15 },
 ];
 
 const HomeReels = () => {
-  // State to track which reel is currently active
   const [currentPlayingId, setCurrentPlayingId] = useState(null);
 
-  // [!code ++] Memoized handlers to prevent re-creating functions on every render
-  // This is crucial for React.memo to work in the child component
   const handlePlay = useCallback((id) => {
     setCurrentPlayingId(id);
   }, []);
@@ -65,13 +79,12 @@ const HomeReels = () => {
 
       <div className="w-full pl-4 md:pl-8">
         <Swiper
-          // [!code ++] Enable Virtual module
           modules={[Virtual]}
           virtual
           spaceBetween={16}
           slidesPerView={1.5}
           grabCursor={true}
-          loop={false} // [!code warning] Virtual slides + Loop can sometimes be tricky depending on version. If loop breaks, disable it.
+          loop={false} 
           breakpoints={{
             480: { slidesPerView: 2.2, spaceBetween: 16 },
             768: { slidesPerView: 3.5, spaceBetween: 20 },
@@ -81,13 +94,12 @@ const HomeReels = () => {
           className="reels-swiper overflow-visible pb-4"
         >
           {REELS_DATA.map((reel, index) => (
-            // [!code ++] Pass virtualIndex to SwiperSlide
             <SwiperSlide key={reel.id} virtualIndex={index} className="h-auto">
               <ReelCard 
                 reel={reel} 
                 isCurrent={currentPlayingId === reel.id} 
-                onPlay={handlePlay}   // [!code ++] Pass stable function
-                onPause={handlePause} // [!code ++] Pass stable function
+                onPlay={handlePlay} 
+                onPause={handlePause}
               />
             </SwiperSlide>
           ))}
@@ -97,54 +109,28 @@ const HomeReels = () => {
   );
 };
 
-// ==================== INDIVIDUAL REEL CARD (MEMOIZED) ====================
+// ==================== REEL CARD (THUMBNAIL SWAP LOGIC) ====================
 const ReelCard = memo(({ reel, isCurrent, onPlay, onPause }) => {
-  const videoRef = useRef(null);
+  // We use local state 'isPlaying' to determine if we render <video> or <img>
   const [isPlaying, setIsPlaying] = useState(false);
 
-  // Effect: Watch for changes in 'isCurrent' to pause OTHERS
+  // Watch for changes in 'isCurrent' (parent control)
+  // If this slide is swiped away, FORCE it to revert to thumbnail
   useEffect(() => {
-    if (!isCurrent && isPlaying && videoRef.current) {
-      videoRef.current.pause();
+    if (!isCurrent && isPlaying) {
       setIsPlaying(false);
     }
   }, [isCurrent, isPlaying]);
 
-  const togglePlay = async () => {
-    const video = videoRef.current;
-    if (!video) return;
-
+  const handleToggle = () => {
     if (isPlaying) {
-      video.pause();
-      setIsPlaying(false);
-      onPause();
+      // Logic: User clicks to PAUSE
+      setIsPlaying(false); // Revert to Thumbnail
+      onPause(); // Notify parent
     } else {
-      // [!code warning] CRITICAL FIX: Do NOT call onPlay() yet. 
-      // Calling it triggers a re-render which cancels the play request on iOS.
-
-      // 1. Prepare the video first
-      video.muted = false;
-      video.currentTime = 0; // Optional: Restart video from beginning if needed
-      video.volume = 1.0;
-
-      try {
-        // 2. Await the play command DIRECTLY
-        // This ensures the browser links the "click" to the "play" action
-        await video.play();
-
-        // 3. ONLY update state after video is successfully playing
-        setIsPlaying(true);
-        onPlay(reel.id); // Now it's safe to tell parent to pause others
-      } catch (error) {
-        console.error("Playback failed:", error);
-        // iOS Fallback: If unmuted play fails, try muted (rarely needed on click, but good safety)
-        if (error.name === 'NotAllowedError') {
-             video.muted = true;
-             await video.play();
-             setIsPlaying(true);
-             onPlay(reel.id);
-        }
-      }
+      // Logic: User clicks to PLAY
+      setIsPlaying(true); // Swap to Video
+      onPlay(reel.id); // Notify parent (to close others)
     }
   };
 
@@ -152,32 +138,43 @@ const ReelCard = memo(({ reel, isCurrent, onPlay, onPause }) => {
     <div 
       className="group relative aspect-9/16 bg-zinc-950 rounded-2xl overflow-hidden border border-zinc-800 shadow-lg hover:shadow-red-900/10 transition-all duration-500 hover:border-red-700/50"
     >
-      <video
-        ref={videoRef}
-        src={reel.videoUrl}
-        className="w-full h-full object-cover bg-black"
-        // [!code ++] Add explicit React boolean attributes
-        playsInline={true}
-        webkit-playsinline="true" // [!code ++] Vital for older iOS versions
-        loop
-        preload="metadata"
-        onClick={togglePlay}
-        onEnded={() => {
-            setIsPlaying(false);
-            onPause();
-        }}
-      />
+      {/* [!code ++] CONDITIONAL RENDERING: VIDEO vs IMAGE */}
+      {isPlaying ? (
+        <video
+          src={reel.videoUrl}
+          className="w-full h-full object-cover bg-black"
+          playsInline={true}
+          webkit-playsinline="true"
+          autoPlay={true} // Autoplay allowed because it replaced an image on user click
+          loop
+          onClick={handleToggle}
+          onEnded={() => {
+             setIsPlaying(false);
+             onPause();
+          }}
+        />
+      ) : (
+        <img 
+          src={reel.thumbUrl}
+          alt="Reel Thumbnail"
+          className="w-full h-full object-cover bg-black cursor-pointer"
+          onClick={handleToggle}
+        />
+      )}
 
-      {/* Rest of your UI (Overlays, Icons, etc.) remains exactly the same */}
+      {/* --- OVERLAYS (Play Button, Gradients) --- */}
+      
+      {/* Darken Overlay (Visible when paused/thumbnail) */}
       <div 
         className={`absolute inset-0 bg-black/20 transition-opacity duration-300 pointer-events-none ${isPlaying ? "opacity-0" : "opacity-100"}`}
       ></div>
 
+      {/* Play/Pause Button Icon */}
       <div 
         className={`absolute inset-0 flex items-center justify-center transition-all duration-300 cursor-pointer z-10
           ${isPlaying ? "opacity-0 hover:opacity-100 bg-black/10" : "opacity-100"}
         `}
-        onClick={togglePlay}
+        onClick={handleToggle}
       >
         <div className={`
             w-16 h-16 rounded-full flex items-center justify-center text-white shadow-2xl 
