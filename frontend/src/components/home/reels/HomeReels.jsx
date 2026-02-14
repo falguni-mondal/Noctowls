@@ -39,7 +39,9 @@ import thumb13 from "../../../assets/thumb/reel13.jpg";
 import thumb14 from "../../../assets/thumb/reel14.jpg";
 import thumb15 from "../../../assets/thumb/reel15.jpg";
 
-// [!code ++] MERGED DATA: Combining Video + Thumbnail into one object
+// [!code ++] IMPORT LOADER GIF
+import loadingGif from "../../../assets/loader/loading.gif";
+
 const REELS_DATA = [
   { id: 1, videoUrl: video1, thumbUrl: thumb1 },
   { id: 2, videoUrl: video2, thumbUrl: thumb2 },
@@ -109,28 +111,30 @@ const HomeReels = () => {
   );
 };
 
-// ==================== REEL CARD (THUMBNAIL SWAP LOGIC) ====================
+// ==================== REEL CARD ====================
 const ReelCard = memo(({ reel, isCurrent, onPlay, onPause }) => {
-  // We use local state 'isPlaying' to determine if we render <video> or <img>
   const [isPlaying, setIsPlaying] = useState(false);
+  // [!code ++] New state for buffering
+  const [isBuffering, setIsBuffering] = useState(false);
 
-  // Watch for changes in 'isCurrent' (parent control)
-  // If this slide is swiped away, FORCE it to revert to thumbnail
   useEffect(() => {
     if (!isCurrent && isPlaying) {
       setIsPlaying(false);
+      setIsBuffering(false); // Reset buffer if forced close
     }
   }, [isCurrent, isPlaying]);
 
   const handleToggle = () => {
     if (isPlaying) {
-      // Logic: User clicks to PAUSE
-      setIsPlaying(false); // Revert to Thumbnail
-      onPause(); // Notify parent
+      // Pause
+      setIsPlaying(false);
+      setIsBuffering(false);
+      onPause();
     } else {
-      // Logic: User clicks to PLAY
-      setIsPlaying(true); // Swap to Video
-      onPlay(reel.id); // Notify parent (to close others)
+      // Play
+      setIsPlaying(true);
+      setIsBuffering(true); // [!code ++] Start buffering immediately when we swap to video
+      onPlay(reel.id);
     }
   };
 
@@ -138,7 +142,6 @@ const ReelCard = memo(({ reel, isCurrent, onPlay, onPause }) => {
     <div 
       className="group relative aspect-9/16 bg-zinc-950 rounded-2xl overflow-hidden border border-zinc-800 shadow-lg hover:shadow-red-900/10 transition-all duration-500 hover:border-red-700/50"
     >
-      {/* [!code ++] CONDITIONAL RENDERING: VIDEO vs IMAGE */}
       {isPlaying ? (
         <video
           src={reel.videoUrl}
@@ -149,6 +152,10 @@ const ReelCard = memo(({ reel, isCurrent, onPlay, onPause }) => {
           autoPlay={true}
           loop
           onClick={handleToggle}
+          // [!code ++] Event: Video needs more data (Net slow)
+          onWaiting={() => setIsBuffering(true)} 
+          // [!code ++] Event: Video is actually playing (Buffer done)
+          onPlaying={() => setIsBuffering(false)} 
           onEnded={() => {
              setIsPlaying(false);
              onPause();
@@ -163,17 +170,26 @@ const ReelCard = memo(({ reel, isCurrent, onPlay, onPause }) => {
         />
       )}
 
-      {/* --- OVERLAYS (Play Button, Gradients) --- */}
+      {/* --- OVERLAYS --- */}
       
-      {/* Darken Overlay (Visible when paused/thumbnail) */}
+      {/* 1. Darken Overlay (Only when PAUSED) */}
       <div 
         className={`absolute inset-0 bg-black/20 transition-opacity duration-300 pointer-events-none ${isPlaying ? "opacity-0" : "opacity-100"}`}
       ></div>
 
-      {/* Play/Pause Button Icon */}
+      {/* 2. Loader Overlay (Only when PLAYING + BUFFERING) */}
+      {/* [!code ++] This is your Loader logic adapted for the card */}
+      {isPlaying && isBuffering && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-xs">
+             <img className='w-8 aspect-square opacity-80' src={loadingGif} alt="loading..." />
+        </div>
+      )}
+
+      {/* 3. Play Button (Only when NOT PLAYING and NOT BUFFERING) */}
       <div 
         className={`absolute inset-0 flex items-center justify-center transition-all duration-300 cursor-pointer z-10
           ${isPlaying ? "opacity-0 hover:opacity-100 bg-black/10" : "opacity-100"}
+          ${isBuffering ? "hidden" : ""} 
         `}
         onClick={handleToggle}
       >
