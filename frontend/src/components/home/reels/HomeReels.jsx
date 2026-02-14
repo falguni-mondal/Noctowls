@@ -1,63 +1,27 @@
-import { useState, useRef, useEffect, useCallback, memo } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Virtual } from 'swiper/modules';
 import "swiper/css";
 import "swiper/css/virtual"; 
 import { Icon } from "@iconify/react";
-
-// --- IMPORT YOUR REELS HERE ---
-import video1 from "../../../assets/reels/reel1.mp4";
-import video2 from "../../../assets/reels/reel2.mp4";
-import video3 from "../../../assets/reels/reel3.mp4";
-import video4 from "../../../assets/reels/reel4.mp4";
-import video5 from "../../../assets/reels/reel5.mp4";
-import video6 from "../../../assets/reels/reel6.mp4";
-import video7 from "../../../assets/reels/reel7.mp4";
-import video8 from "../../../assets/reels/reel8.mp4";
-import video9 from "../../../assets/reels/reel9.mp4";
-import video10 from "../../../assets/reels/reel10.mp4";
-import video11 from "../../../assets/reels/reel11.mp4";
-import video12 from "../../../assets/reels/reel12.mp4";
-import video13 from "../../../assets/reels/reel13.mp4";
-import video14 from "../../../assets/reels/reel14.mp4";
-import video15 from "../../../assets/reels/reel15.mp4";
-
-// --- IMPORT YOUR THUMBNAILS HERE ---
-import thumb1 from "../../../assets/thumb/reel1.jpg";
-import thumb2 from "../../../assets/thumb/reel2.jpg";
-import thumb3 from "../../../assets/thumb/reel3.jpg";
-import thumb4 from "../../../assets/thumb/reel4.jpg";
-import thumb5 from "../../../assets/thumb/reel5.jpg";
-import thumb6 from "../../../assets/thumb/reel6.jpg";
-import thumb7 from "../../../assets/thumb/reel7.jpg";
-import thumb8 from "../../../assets/thumb/reel8.jpg";
-import thumb9 from "../../../assets/thumb/reel9.jpg";
-import thumb10 from "../../../assets/thumb/reel10.jpg";
-import thumb11 from "../../../assets/thumb/reel11.jpg";
-import thumb12 from "../../../assets/thumb/reel12.jpg";
-import thumb13 from "../../../assets/thumb/reel13.jpg";
-import thumb14 from "../../../assets/thumb/reel14.jpg";
-import thumb15 from "../../../assets/thumb/reel15.jpg";
-
-// [!code ++] IMPORT LOADER GIF
 import loadingGif from "../../../assets/loader/loading.gif";
 
 const REELS_DATA = [
-  { id: 1, videoUrl: video1, thumbUrl: thumb1 },
-  { id: 2, videoUrl: video2, thumbUrl: thumb2 },
-  { id: 3, videoUrl: video3, thumbUrl: thumb3 },
-  { id: 4, videoUrl: video4, thumbUrl: thumb4 },
-  { id: 5, videoUrl: video5, thumbUrl: thumb5 },
-  { id: 6, videoUrl: video6, thumbUrl: thumb6 },
-  { id: 7, videoUrl: video7, thumbUrl: thumb7 },
-  { id: 8, videoUrl: video8, thumbUrl: thumb8 },
-  { id: 9, videoUrl: video9, thumbUrl: thumb9 },
-  { id: 10, videoUrl: video10, thumbUrl: thumb10 },
-  { id: 11, videoUrl: video11, thumbUrl: thumb11 },
-  { id: 12, videoUrl: video12, thumbUrl: thumb12 },
-  { id: 13, videoUrl: video13, thumbUrl: thumb13 },
-  { id: 14, videoUrl: video14, thumbUrl: thumb14 },
-  { id: 15, videoUrl: video15, thumbUrl: thumb15 },
+  { id: 1, videoUrl: "/reels/reel1.mp4", thumbUrl: "/thumb/reel1.jpg" },
+  { id: 2, videoUrl: "/reels/reel2.mp4", thumbUrl: "/thumb/reel2.jpg" },
+  { id: 3, videoUrl: "/reels/reel3.mp4", thumbUrl: "/thumb/reel3.jpg" },
+  { id: 4, videoUrl: "/reels/reel4.mp4", thumbUrl: "/thumb/reel4.jpg" },
+  { id: 5, videoUrl: "/reels/reel5.mp4", thumbUrl: "/thumb/reel5.jpg" },
+  { id: 6, videoUrl: "/reels/reel6.mp4", thumbUrl: "/thumb/reel6.jpg" },
+  { id: 7, videoUrl: "/reels/reel7.mp4", thumbUrl: "/thumb/reel7.jpg" },
+  { id: 8, videoUrl: "/reels/reel8.mp4", thumbUrl: "/thumb/reel8.jpg" },
+  { id: 9, videoUrl: "/reels/reel9.mp4", thumbUrl: "/thumb/reel9.jpg" },
+  { id: 10, videoUrl: "/reels/reel10.mp4", thumbUrl: "/thumb/reel10.jpg" },
+  { id: 11, videoUrl: "/reels/reel11.mp4", thumbUrl: "/thumb/reel11.jpg" },
+  { id: 12, videoUrl: "/reels/reel12.mp4", thumbUrl: "/thumb/reel12.jpg" },
+  { id: 13, videoUrl: "/reels/reel13.mp4", thumbUrl: "/thumb/reel13.jpg" },
+  { id: 14, videoUrl: "/reels/reel14.mp4", thumbUrl: "/thumb/reel14.jpg" },
+  { id: 15, videoUrl: "/reels/reel15.mp4", thumbUrl: "/thumb/reel15.jpg" },
 ];
 
 const HomeReels = () => {
@@ -114,26 +78,26 @@ const HomeReels = () => {
 // ==================== REEL CARD ====================
 const ReelCard = memo(({ reel, isCurrent, onPlay, onPause }) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  // [!code ++] New state for buffering
   const [isBuffering, setIsBuffering] = useState(false);
 
   useEffect(() => {
+    // Force close if swiped away
     if (!isCurrent && isPlaying) {
       setIsPlaying(false);
-      setIsBuffering(false); // Reset buffer if forced close
+      setIsBuffering(false);
     }
   }, [isCurrent, isPlaying]);
 
   const handleToggle = () => {
     if (isPlaying) {
-      // Pause
+      // Pause logic
       setIsPlaying(false);
       setIsBuffering(false);
       onPause();
     } else {
-      // Play
+      // Play logic
       setIsPlaying(true);
-      setIsBuffering(true); // [!code ++] Start buffering immediately when we swap to video
+      setIsBuffering(true); // Assume buffering starts immediately
       onPlay(reel.id);
     }
   };
@@ -151,9 +115,7 @@ const ReelCard = memo(({ reel, isCurrent, onPlay, onPause }) => {
           autoPlay={true}
           loop
           onClick={handleToggle}
-          // [!code ++] Event: Video needs more data (Net slow)
           onWaiting={() => setIsBuffering(true)} 
-          // [!code ++] Event: Video is actually playing (Buffer done)
           onPlaying={() => setIsBuffering(false)} 
           onEnded={() => {
              setIsPlaying(false);
@@ -171,13 +133,12 @@ const ReelCard = memo(({ reel, isCurrent, onPlay, onPause }) => {
 
       {/* --- OVERLAYS --- */}
       
-      {/* 1. Darken Overlay (Only when PAUSED) */}
+      {/* 1. Darken Overlay (Only when PAUSED/THUMBNAIL) */}
       <div 
         className={`absolute inset-0 bg-black/20 transition-opacity duration-300 pointer-events-none ${isPlaying ? "opacity-0" : "opacity-100"}`}
       ></div>
 
       {/* 2. Loader Overlay (Only when PLAYING + BUFFERING) */}
-      {/* [!code ++] This is your Loader logic adapted for the card */}
       {isPlaying && isBuffering && (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-xs">
              <img className='w-8 aspect-square opacity-80' src={loadingGif} alt="loading..." />

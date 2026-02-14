@@ -95,7 +95,7 @@ const App = () => {
       {
         !admin &&
         <div className='whatsapp-container lg:hidden fixed bottom-20 right-3 text-5xl z-99999 print:hidden'>
-          <a href="https://wa.me/8348341112" target='_blank' className='block text-green-700 backdrop-blur-lg rounded-lg bg-black/25 overflow-hidden'>
+          <a href="https://wa.me/+918348341112" target='_blank' className='block text-green-700 backdrop-blur-lg rounded-lg bg-black/25 overflow-hidden'>
             <Icon icon="uil:whatsapp-alt" className='pointer-events-none'/>
           </a>
         </div>
