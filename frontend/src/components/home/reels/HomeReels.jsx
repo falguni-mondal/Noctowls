@@ -1,6 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, memo } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
+// [!code ++] Import Virtual module and its CSS
+import { Virtual } from 'swiper/modules';
 import "swiper/css";
+import "swiper/css/virtual"; 
 import { Icon } from "@iconify/react";
 
 // --- IMPORT YOUR LOCAL VIDEOS HERE ---
@@ -42,6 +45,16 @@ const HomeReels = () => {
   // State to track which reel is currently active
   const [currentPlayingId, setCurrentPlayingId] = useState(null);
 
+  // [!code ++] Memoized handlers to prevent re-creating functions on every render
+  // This is crucial for React.memo to work in the child component
+  const handlePlay = useCallback((id) => {
+    setCurrentPlayingId(id);
+  }, []);
+
+  const handlePause = useCallback(() => {
+    setCurrentPlayingId(null);
+  }, []);
+
   return (
     <section className="home-reels-section pb-28 w-full relative border-t border-zinc-900/50 pt-10">
       <div className="max-w-[1440px] mx-auto px-4 md:px-8 mb-8 flex items-center justify-between">
@@ -52,10 +65,13 @@ const HomeReels = () => {
 
       <div className="w-full pl-4 md:pl-8">
         <Swiper
+          // [!code ++] Enable Virtual module
+          modules={[Virtual]}
+          virtual
           spaceBetween={16}
           slidesPerView={1.5}
           grabCursor={true}
-          loop={true}
+          loop={false} // [!code warning] Virtual slides + Loop can sometimes be tricky depending on version. If loop breaks, disable it.
           breakpoints={{
             480: { slidesPerView: 2.2, spaceBetween: 16 },
             768: { slidesPerView: 3.5, spaceBetween: 20 },
@@ -64,13 +80,14 @@ const HomeReels = () => {
           }}
           className="reels-swiper overflow-visible pb-4"
         >
-          {REELS_DATA.map((reel) => (
-            <SwiperSlide key={reel.id} className="h-auto">
+          {REELS_DATA.map((reel, index) => (
+            // [!code ++] Pass virtualIndex to SwiperSlide
+            <SwiperSlide key={reel.id} virtualIndex={index} className="h-auto">
               <ReelCard 
                 reel={reel} 
-                isCurrent={currentPlayingId === reel.id} // Is this the one playing?
-                onPlay={() => setCurrentPlayingId(reel.id)} // Function to set this as playing
-                onPause={() => setCurrentPlayingId(null)} // Function to clear playing state
+                isCurrent={currentPlayingId === reel.id} 
+                onPlay={handlePlay}   // [!code ++] Pass stable function
+                onPause={handlePause} // [!code ++] Pass stable function
               />
             </SwiperSlide>
           ))}
@@ -80,14 +97,15 @@ const HomeReels = () => {
   );
 };
 
-// ==================== INDIVIDUAL REEL CARD ====================
-const ReelCard = ({ reel, isCurrent, onPlay, onPause }) => {
+// ==================== INDIVIDUAL REEL CARD (MEMOIZED) ====================
+// [!code ++] Wrapped in memo to prevent re-rendering when other cards update
+const ReelCard = memo(({ reel, isCurrent, onPlay, onPause }) => {
   const videoRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
   // Effect: Watch for changes in 'isCurrent'. 
-  // If this card is NO LONGER the current one, pause it.
   useEffect(() => {
+    // If this card is NO LONGER the current one, pause it.
     if (!isCurrent && isPlaying && videoRef.current) {
       videoRef.current.pause();
       setIsPlaying(false);
@@ -100,10 +118,10 @@ const ReelCard = ({ reel, isCurrent, onPlay, onPause }) => {
     if (isPlaying) {
       videoRef.current.pause();
       setIsPlaying(false);
-      onPause(); // Notify parent that nothing is playing
+      onPause(); 
     } else {
-      // Notify parent FIRST to pause others
-      onPlay(); 
+      // [!code ++] Call with ID because we passed the generic handler
+      onPlay(reel.id); 
       
       videoRef.current.muted = false;
       videoRef.current.volume = 1.0;
@@ -127,7 +145,7 @@ const ReelCard = ({ reel, isCurrent, onPlay, onPause }) => {
         className="w-full h-full object-cover bg-black"
         playsInline
         loop
-        preload="metadata"
+        preload="metadata" // [!code ++] Ensure metadata only to save bandwidth
         onClick={togglePlay}
         onEnded={() => {
             setIsPlaying(false);
@@ -149,8 +167,8 @@ const ReelCard = ({ reel, isCurrent, onPlay, onPause }) => {
             w-16 h-16 rounded-full flex items-center justify-center text-white shadow-2xl 
             transition-all duration-300 border border-white/20
             ${isPlaying 
-                ? "bg-black/40 backdrop-blur-md scale-90" 
-                : "bg-white/10 backdrop-blur-md group-hover:scale-110 group-hover:bg-red-600/80 group-hover:border-red-500"}
+              ? "bg-black/40 backdrop-blur-md scale-90" 
+              : "bg-white/10 backdrop-blur-md group-hover:scale-110 group-hover:bg-red-600/80 group-hover:border-red-500"}
         `}>
           {isPlaying ? (
             <Icon icon="solar:pause-bold" className="text-2xl" />
@@ -181,6 +199,6 @@ const ReelCard = ({ reel, isCurrent, onPlay, onPause }) => {
       `}</style>
     </div>
   );
-};
+});
 
 export default HomeReels;
