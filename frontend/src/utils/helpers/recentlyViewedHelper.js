@@ -1,5 +1,5 @@
 const STORAGE_KEY = 'noctowls_recently_viewed';
-const MAX_ITEMS = 10;
+const MAX_ITEMS = 5;
 
 export const addToRecentlyViewed = (product) => {
     // Safety check for product and ID (support both .id and ._id)
