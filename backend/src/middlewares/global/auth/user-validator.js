@@ -7,8 +7,22 @@ import { randomUUID } from "crypto";
 const accessSecret = process.env.ACCESS_TOKEN_SECRET;
 const refreshSecret = process.env.REFRESH_TOKEN_SECRET;
 
-const refreshTokenSetup = async (req, res, next, refreshToken) => {
+// [!code ++] Helper to handle Optional Auth Failures (Fallback to Guest)
+const handleOptionalFallback = (req, res, next) => {
+  // Clear the invalid auth cookies so the browser stops sending them
+  res.clearCookie("accessToken", cookieOptions);
+  res.clearCookie("refreshToken", cookieOptions);
+  
+  // Set user to null so the controller knows to use 'deviceId'
+  req.user = null; 
+  return next();
+};
+
+// [!code change] Added 'isOptional' parameter
+const refreshTokenSetup = async (req, res, next, refreshToken, isOptional = false) => {
   if (!refreshToken) {
+    // [!code ++] Fallback if optional
+    if (isOptional) return handleOptionalFallback(req, res, next);
     return res.status(401).json({
       message: "Session Expired!",
     });
@@ -20,6 +34,9 @@ const refreshTokenSetup = async (req, res, next, refreshToken) => {
 
     // checking for Invalid SESSION in DB
     if (!refreshSession || refreshSession?.expiry_at <= new Date()) {
+      // [!code ++] Fallback if optional
+      if (isOptional) return handleOptionalFallback(req, res, next);
+
       return res.status(401).json({
         message: "Session Expired!",
       });
@@ -52,6 +69,9 @@ const refreshTokenSetup = async (req, res, next, refreshToken) => {
         })
         .clearCookie("device_id");
 
+      // [!code ++] Fallback if optional
+      if (isOptional) { req.user = null; return next(); }
+
       return res.status(401).json({
         message: "Session Expired!",
       });
@@ -82,6 +102,9 @@ const refreshTokenSetup = async (req, res, next, refreshToken) => {
         })
         .clearCookie("device_id");
 
+      // [!code ++] Fallback if optional
+      if (isOptional) { req.user = null; return next(); }
+
       return res.status(401).json({
         message: "Session Expired!",
       });
@@ -111,6 +134,9 @@ const refreshTokenSetup = async (req, res, next, refreshToken) => {
           ...cookieOptions,
         })
         .clearCookie("device_id");
+
+      // [!code ++] Fallback if optional
+      if (isOptional) { req.user = null; return next(); }
 
       return res.status(401).json({
         message: "Session Expired!",
@@ -172,6 +198,10 @@ const refreshTokenSetup = async (req, res, next, refreshToken) => {
     next();
   } catch (refreshTokenErr) {
     console.error(refreshTokenErr.message);
+    
+    // [!code ++] Fallback if optional (Catch block)
+    if (isOptional) return handleOptionalFallback(req, res, next);
+
     return res.status(401).json({
       message: "Session Expired!",
     });
@@ -183,6 +213,7 @@ const isValidUser = async (req, res, next) => {
   const refreshToken = req.cookies.refreshToken;
 
   if (!accessToken) {
+    // Strict auth: default isOptional=false
     return await refreshTokenSetup(req, res, next, refreshToken);
   } else {
     try {
@@ -221,7 +252,8 @@ export const optionalAuth = async (req, res, next) => {
 
   // If access token exists, try to verify it
   if (!accessToken) {
-    return await refreshTokenSetup(req, res, next, refreshToken);
+    // [!code change] Pass 'true' for isOptional
+    return await refreshTokenSetup(req, res, next, refreshToken, true);
   } else {
     try {
       const accessTokenData = jwt.verify(accessToken, accessSecret);
@@ -232,7 +264,8 @@ export const optionalAuth = async (req, res, next) => {
         "User Validation Error (auth mid): ",
         accessTokenErr.message
       );
-      return await refreshTokenSetup(req, res, next, refreshToken);
+      // [!code change] Pass 'true' for isOptional
+      return await refreshTokenSetup(req, res, next, refreshToken, true);
     }
   }
 };
