@@ -11,8 +11,13 @@ const options = {
 // Initialize Pixel
 export const initPixel = () => {
   if (pixelId) {
-    ReactPixel.init(pixelId, options);
-    ReactPixel.pageView(); // Track initial page view
+    // FIX: init takes 3 arguments: (ID, AdvancedMatching, Options)
+    // We pass {} as the second argument since we aren't sending user data on init
+    ReactPixel.init(pixelId, {}, options);
+    
+    // REMOVED: ReactPixel.pageView(); 
+    // Why? Because App.jsx already handles the PageView event on load.
+    // Keeping it here would double-count your traffic.
   } else {
     console.warn("⚠️ Meta Pixel ID is missing in .env file");
   }
