@@ -16,7 +16,7 @@ import { checkAdmin } from './store/features/admin/adminAuthSlice';
 import { getCart } from './store/features/user/cartSlice';
 import SocialLinks from './components/footer/footer-dets/SocialLinks';
 
-// [!code ++] IMPORT META PIXEL UTILS
+// IMPORT META PIXEL UTILS
 import { initPixel, trackEvent } from './utils/pixel/pixel';
 
 // IMPORT SEARCH ACTIONS AND SELECTORS
@@ -41,12 +41,12 @@ const App = () => {
   const searchResults = useSelector(selectSearchResults);
   const searchLoading = useSelector(selectSearchLoading);
 
-  // [!code ++] META PIXEL INITIALIZATION
+  // META PIXEL INITIALIZATION
   useEffect(() => {
     initPixel();
   }, []);
 
-  // [!code ++] TRACK PAGE VIEWS ON ROUTE CHANGE
+  // TRACK PAGE VIEWS ON ROUTE CHANGE
   useEffect(() => {
     trackEvent('PageView');
   }, [location]);
@@ -69,6 +69,13 @@ const App = () => {
     const delayDebounceFn = setTimeout(() => {
       if (query.trim()) {
         dispatch(searchProducts(query));
+        
+        // [!code ++] TRACK SEARCH EVENT
+        // Tracks what users are searching for (after they stop typing)
+        trackEvent('Search', { 
+            search_string: query 
+        });
+
       } else {
         dispatch(clearSearchResults());
       }
@@ -89,13 +96,27 @@ const App = () => {
     dispatch(clearSearchResults());
   };
 
+  // [!code ++] TRACK WHATSAPP CLICK
+  const handleWhatsAppClick = () => {
+    trackEvent('Contact', { 
+        content_name: 'WhatsApp Button',
+        type: 'chat'
+    });
+  };
+
   return (
     <div className='container'>
 
       {
         !admin &&
         <div className='whatsapp-container lg:hidden fixed bottom-20 right-3 text-5xl z-99999 print:hidden'>
-          <a href="https://wa.me/+918348341112" target='_blank' className='block text-green-700 backdrop-blur-lg rounded-lg bg-black/25 overflow-hidden'>
+          <a 
+            href="https://wa.me/+918348341112" 
+            target='_blank' 
+            // [!code ++] Add click handler here
+            onClick={handleWhatsAppClick}
+            className='block text-green-700 backdrop-blur-lg rounded-lg bg-black/25 overflow-hidden'
+          >
             <Icon icon="uil:whatsapp-alt" className='pointer-events-none'/>
           </a>
         </div>

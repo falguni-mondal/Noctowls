@@ -37,7 +37,7 @@ import Loader from "../utils/loader/Loader";
 import { toast } from "react-toastify";
 import toastControls from "../utils/global/toastControls";
 
-// [!code ++] IMPORT PIXEL TRACKING
+// IMPORT PIXEL TRACKING
 import { trackEvent } from "../utils/pixel/pixel";
 
 const Productpage = () => {
@@ -103,34 +103,38 @@ const Productpage = () => {
     // Effect 1: Initial Data
     useEffect(() => {
         dispatch(getOneProduct(productId));
-        dispatch(checkReviewEligibility(productId));
-
+        // We defer checking eligibility until we have the real product.id to avoid CastErrors
+        
         return () => {
             dispatch(clearStockValidation());
             dispatch(resetReviewState());
         };
     }, [dispatch, productId]);
 
-    // NEW EFFECT: Add to Recently Viewed when product loads
+    // NEW EFFECT: Add to Recently Viewed & Pixel Tracking when product loads
     useEffect(() => {
         if (product && !productLoading && !productError) {
             addToRecentlyViewed(product);
-            
-            // [!code ++] Track ViewContent Event
+
+            // FIX: Get price from the first size
+            const price = product.sizes?.[0]?.numPrice || 0;
+
+            // FIX: Use product.id (Real Database ID) for Pixel
             trackEvent('ViewContent', {
                 content_name: product.name,
-                content_ids: [product._id],
+                content_ids: [product.id], 
                 content_type: 'product',
-                value: product.price,
+                value: price,
                 currency: 'INR'
             });
-        }
-    }, [product, productLoading, productError]);
 
-    // Effect 2: Fetch RECENT Reviews
-    useEffect(() => {
-        dispatch(fetchRecentReviews({ productId, sortBy }));
-    }, [dispatch, productId, sortBy]);
+            // FIX: Fetch Reviews & Check Eligibility using Real ID
+            if (product.id) {
+                dispatch(fetchRecentReviews({ productId: product.id, sortBy }));
+                dispatch(checkReviewEligibility(product.id));
+            }
+        }
+    }, [product, productLoading, productError, sortBy, dispatch]);
 
     useEffect(() => {
         if (product?.sizes) {
@@ -195,10 +199,12 @@ const Productpage = () => {
         }
         return cart.items.some(item => {
             const itemProductId = item.product?._id || item.product;
-            return itemProductId === productId &&
+            // Robust check: match against product.id if loaded, else fallback to param
+            const currentId = product?.id || productId;
+            return itemProductId === currentId &&
                 item.size?.value.toLowerCase() === selectedSize?.toLowerCase();
         });
-    }, [cart, productId, selectedSize]);
+    }, [cart, productId, selectedSize, product]);
 
     const isInCart = isProductInCart();
 
@@ -216,19 +222,21 @@ const Productpage = () => {
 
         try {
             await dispatch(addToCart({
-                productId,
+                productId: product?.id || productId, // Use safe ID
                 sizeValue: selectedSize,
                 quantity: quantity
             })).unwrap();
-            
-            // [!code ++] Track AddToCart
+
+            const itemPrice = currentSizeData?.numPrice || 0;
+
+            // FIX: Use product.id for AddToCart
             trackEvent('AddToCart', {
                 content_name: product.name,
-                content_ids: [productId],
+                content_ids: [product.id],
                 content_type: 'product',
-                value: product.price,
+                value: itemPrice,
                 currency: 'INR',
-                contents: [{ id: productId, quantity: quantity }]
+                contents: [{ id: product.id, quantity: quantity }]
             });
 
             toast.success("Added to cart!", toastControls);
@@ -239,13 +247,15 @@ const Productpage = () => {
 
     const buyNowHandler = async () => {
         if (!canPurchase || cartActionLoading) return;
-        
-        // [!code ++] Track InitiateCheckout (Buy Now)
+
+        const itemPrice = currentSizeData?.numPrice || 0;
+
+        // FIX: Use product.id for InitiateCheckout
         trackEvent('InitiateCheckout', {
             content_name: product.name,
-            content_ids: [productId],
+            content_ids: [product.id],
             content_type: 'product',
-            value: product.price * quantity,
+            value: itemPrice * quantity,
             currency: 'INR',
             num_items: quantity
         });
@@ -253,7 +263,7 @@ const Productpage = () => {
         try {
             if (!isInCart) {
                 await dispatch(addToCart({
-                    productId,
+                    productId: product?.id || productId,
                     sizeValue: selectedSize,
                     quantity: quantity
                 })).unwrap();
@@ -274,15 +284,18 @@ const Productpage = () => {
         if (wishlistActionLoading) return;
 
         try {
-            const result = await dispatch(toggleWishlist(productId)).unwrap();
-            
-            // [!code ++] Track AddToWishlist (Only when adding)
+            const idToToggle = product?.id || productId;
+            const result = await dispatch(toggleWishlist(idToToggle)).unwrap();
+
+            // FIX: Use product.id for AddToWishlist
             if (result.isInWishlist) {
+                const price = product.sizes?.[0]?.numPrice || 0;
+
                 trackEvent('AddToWishlist', {
                     content_name: product.name,
-                    content_ids: [productId],
+                    content_ids: [idToToggle],
                     content_type: 'product',
-                    value: product.price,
+                    value: price,
                     currency: 'INR'
                 });
             }
@@ -327,7 +340,7 @@ const Productpage = () => {
         <div className="product-page-wrapper pb-10 bg-black min-h-screen text-zinc-100 font-sans">
             {isReviewModalOpen && (
                 <ReviewModal
-                    productId={productId}
+                    productId={product?.id || productId}
                     onClose={() => setIsReviewModalOpen(false)}
                     userName={user?.name}
                 />
