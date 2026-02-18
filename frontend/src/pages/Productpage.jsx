@@ -115,13 +115,15 @@ const Productpage = () => {
     useEffect(() => {
         if (product && !productLoading && !productError) {
             addToRecentlyViewed(product);
-            
-            // [!code ++] Track ViewContent Event
+
+            // [!code ++] FIX: Get price from the first size
+            const price = product.sizes?.[0]?.numPrice || 0;
+
             trackEvent('ViewContent', {
                 content_name: product.name,
                 content_ids: [product._id],
                 content_type: 'product',
-                value: product.price,
+                value: price,
                 currency: 'INR'
             });
         }
@@ -220,13 +222,14 @@ const Productpage = () => {
                 sizeValue: selectedSize,
                 quantity: quantity
             })).unwrap();
-            
-            // [!code ++] Track AddToCart
+
+            const itemPrice = currentSizeData?.numPrice || 0;
+
             trackEvent('AddToCart', {
                 content_name: product.name,
                 content_ids: [productId],
                 content_type: 'product',
-                value: product.price,
+                value: itemPrice,
                 currency: 'INR',
                 contents: [{ id: productId, quantity: quantity }]
             });
@@ -239,13 +242,14 @@ const Productpage = () => {
 
     const buyNowHandler = async () => {
         if (!canPurchase || cartActionLoading) return;
-        
-        // [!code ++] Track InitiateCheckout (Buy Now)
+
+        const itemPrice = currentSizeData?.numPrice || 0;
+
         trackEvent('InitiateCheckout', {
             content_name: product.name,
             content_ids: [productId],
             content_type: 'product',
-            value: product.price * quantity,
+            value: itemPrice * quantity,
             currency: 'INR',
             num_items: quantity
         });
@@ -275,14 +279,15 @@ const Productpage = () => {
 
         try {
             const result = await dispatch(toggleWishlist(productId)).unwrap();
-            
-            // [!code ++] Track AddToWishlist (Only when adding)
+
             if (result.isInWishlist) {
+                const price = product.sizes?.[0]?.numPrice || 0;
+
                 trackEvent('AddToWishlist', {
                     content_name: product.name,
                     content_ids: [productId],
                     content_type: 'product',
-                    value: product.price,
+                    value: price,
                     currency: 'INR'
                 });
             }

@@ -19,6 +19,13 @@ const SIZE_VALUES_BY_PRODUCT = {
   "anime-katana": ["miniature", "kids-short", "full-length"],
 };
 
+// [!code ++] 1. ADDED: Define dimensions map
+const DESKMAT_DIMENSIONS = {
+  l: "60cm x 30cm",
+  xl: "80cm x 33cm",
+  xxl: "90cm x 40cm"
+};
+
 const ALL_SIZE_VALUES = [
   ...new Set(Object.values(SIZE_VALUES_BY_PRODUCT).flat()),
 ];
@@ -32,7 +39,7 @@ const IMAGE_COUNTS = {
 
 // ---------- GST Mapping ----------
 const GST_MAPPING = {
-  deskmat: { hsn: "6307", gstRate: 12 },
+  deskmat: { hsn: "6307", gstRate: 18 },
   "anime-keychain": { hsn: "3926", gstRate: 18 },
   "anime-figure": { hsn: "9503", gstRate: 18 },
   "anime-katana": { hsn: "8306", gstRate: 18 },
@@ -78,8 +85,22 @@ const sizeSchema = new mongoose.Schema(
 
     salesCount: { type: Number, default: 0, min: 0 },
   },
-  { _id: false }
+  // [!code ++] 2. ADDED: Enable Virtuals
+  { 
+    _id: false,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+  }
 );
+
+// [!code ++] 3. ADDED: Virtual Logic for Dimensions
+sizeSchema.virtual("dimensions").get(function () {
+  const product = this.ownerDocument ? this.ownerDocument() : this.parent();
+  if (product && product.category === 'deskmat') {
+    return DESKMAT_DIMENSIONS[this.value] || "";
+  }
+  return "";
+});
 
 sizeSchema.pre("validate", function () {
   if (this.originalPrice !== undefined) {

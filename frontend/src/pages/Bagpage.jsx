@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react'; // [!code ++] Import useRef
 import { useDispatch, useSelector } from 'react-redux';
 import { getCart, selectCart, selectCartLoading, selectCartError } from '../store/features/user/cartSlice';
 import BagItem from '../components/bag/BagItem';
@@ -7,7 +7,7 @@ import Loader from '../utils/loader/Loader';
 import { Link, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react/dist/iconify.js';
 
-// [!code ++] IMPORT PIXEL TRACKING
+// IMPORT PIXEL TRACKING
 import { trackEvent } from '../utils/pixel/pixel';
 
 const Bagpage = () => {
@@ -19,35 +19,43 @@ const Bagpage = () => {
   const user = useSelector(state => state.auth.user);
   const admin = useSelector(state => state.adminAuth.admin);
 
+  // [!code ++] Ref to ensure ViewCart only fires once per page visit
+  const viewCartFired = useRef(false);
+
   useEffect(() => {
     dispatch(getCart());
   }, [dispatch, user, admin]);
 
-  // [!code ++] TRACK ViewCart EVENT ON LOAD
+  // [!code ++] TRACK ViewCart EVENT (Optimized)
   useEffect(() => {
-    if (cart && cart.items && cart.items.length > 0) {
+    // Only fire if: Cart loaded, has items, and hasn't fired yet
+    if (!loading && cart && cart.items && cart.items.length > 0 && !viewCartFired.current) {
         
-        // Helper to safely get Product ID
+        // 1. Filter out Free Gifts for Pixel (to avoid Catalog Mismatch errors)
+        const pixelItems = cart.items.filter(item => !item.isFreeGift);
+        
+        // 2. Helper to get clean ID
         const getProductId = (item) => {
             if (item.product && item.product._id) return item.product._id;
-            // Fallback for Free Gifts which have product: null
-            return item.size?.skuCode || item._id; 
+            return item.product; // Fallback if not populated
         };
 
         trackEvent('ViewCart', {
             currency: 'INR',
-            value: cart.summary.total,
-            // [!code ++] FIX: Safe access for content_ids
-            content_ids: cart.items.map(item => getProductId(item)),
+            value: Number(cart.summary.total), // Ensure it's a Number
+            content_ids: pixelItems.map(item => getProductId(item)), // Only real products
             content_type: 'product',
-            // [!code ++] FIX: Safe access for contents array
-            contents: cart.items.map(item => ({
+            contents: pixelItems.map(item => ({
                 id: getProductId(item),
-                quantity: item.quantity
+                quantity: item.quantity,
+                item_price: item.price // Helpful for advanced matching
             }))
         });
+
+        // Mark as fired so it doesn't fire again on quantity updates
+        viewCartFired.current = true;
     }
-  }, [cart]);
+  }, [cart, loading]);
 
   // Filter purchased items
   const purchasedItems = cart?.items?.filter(item => !item.isFreeGift) || [];
@@ -65,21 +73,28 @@ const Bagpage = () => {
     : [];
 
   const handleCheckout = () => {
-    if (cart) {
-        // Helper to safely get Product ID (Same as above)
+    if (cart && cart.items.length > 0) {
+        // [!code ++] TRACK InitiateCheckout EVENT (Optimized)
+        
+        // Filter out free gifts for pixel accuracy
+        const pixelItems = cart.items.filter(item => !item.isFreeGift);
+        
         const getProductId = (item) => {
             if (item.product && item.product._id) return item.product._id;
-            return item.size?.skuCode || item._id;
+            return item.product;
         };
 
-        // [!code ++] TRACK InitiateCheckout EVENT
         trackEvent('InitiateCheckout', {
             currency: 'INR',
-            value: cart.summary.total,
+            value: Number(cart.summary.total),
             num_items: cart.summary.totalQuantity,
-            // [!code ++] FIX: Safe access for content_ids
-            content_ids: cart.items.map(item => getProductId(item)),
-            content_type: 'product'
+            content_ids: pixelItems.map(item => getProductId(item)),
+            content_type: 'product',
+            contents: pixelItems.map(item => ({
+                id: getProductId(item),
+                quantity: item.quantity,
+                item_price: item.price
+            }))
         });
     }
     navigate("/checkout");
