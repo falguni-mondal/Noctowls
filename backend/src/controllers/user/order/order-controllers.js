@@ -769,46 +769,85 @@ export const handleRazorpayWebhook = async (req, res) => {
         await generateInvoiceSafe(order);
       }
 
-      // SEND ADMIN EMAIL
+      // ==================== SEND EMAILS (WEBHOOK) ====================
       try {
+        // 1. Get Customer Email (Check Guest Info first, then User DB)
+        let customerEmail = order.guestInfo?.email;
+        if (!customerEmail && order.user) {
+          const userDoc = await User.findById(order.user);
+          if (userDoc) customerEmail = userDoc.email;
+        }
+
+        // 2. Generate Item List HTML (Including Size)
+        const itemsHtml = order.items.map(item => `
+          <div style="border-bottom: 1px solid #eee; padding: 10px 0; display: flex; align-items: center;">
+            <img src="${item.productImage}" alt="${item.productName}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin-right: 15px;">
+            <div>
+              <p style="margin: 0; font-size: 14px; font-weight: bold; color: #333;">${item.productName}</p>
+              <p style="margin: 2px 0 0; font-size: 12px; color: #666;">
+                Size: <strong>${item.size.label || item.size.value}</strong> | Qty: ${item.quantity}
+              </p>
+              <p style="margin: 2px 0 0; font-size: 12px; color: #333;">₹${item.itemTotal}</p>
+            </div>
+          </div>
+        `).join('');
+
         const customerName = order.shippingAddress.fullName || "Customer";
         const orderDate = new Date().toLocaleDateString('en-IN', {
-          weekday: 'short',
-          month: 'short',
-          day: 'numeric'
+          weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
         });
 
-        const firstItemName = order.items[0]?.productName || "Product";
-        const extraItems = order.items.length - 1;
-        const itemSummary = extraItems > 0
-          ? `${firstItemName} + ${extraItems} other item(s)`
-          : firstItemName;
-
-        await sendEmail({
-          to: process.env.ADMIN_MAIL,
-          subject: `[Noctowls] Order #${order.orderNumber} placed by ${customerName}`,
-          html: `
-            <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; max-width: 600px;">
-              <h2 style="color: #333; margin-bottom: 10px;">${itemSummary}</h2>
-              <p style="color: #666; margin-top: 0;">${order.items.length} item(s) from Noctowls</p>
-              
-              <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-              
-              <h3 style="color: #333;">Order placed</h3>
-              <p style="margin: 5px 0;"><strong>Placed on:</strong> ${orderDate}</p>
-              <p style="margin: 5px 0;"><strong>Order number:</strong> #${order.orderNumber}</p>
+        // 3. Define Email Template
+        const getEmailHtml = (title, showAdminDetails = false) => `
+          <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333; margin-bottom: 5px;">${title}</h2>
+            <p style="color: #666; margin-top: 0;">Order #${order.orderNumber}</p>
+            
+            <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+              <p style="margin: 5px 0;"><strong>Date:</strong> ${orderDate}</p>
+              <p style="margin: 5px 0;"><strong>Status:</strong> <span style="color: green;">Paid & Confirmed</span></p>
               <p style="margin: 5px 0;"><strong>Total Amount:</strong> ₹${order.pricing.finalTotal}</p>
-              
-              <div style="margin-top: 20px;">
-                <a href="${process.env.CLIENT_URL}/admin/orders/${order._id}" style="background-color: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-size: 14px;">View Order</a>
-              </div>
+              ${showAdminDetails ? `<p style="margin: 5px 0;"><strong>Customer:</strong> ${customerName} (${customerEmail || 'N/A'})</p>` : ''}
             </div>
-          `,
-        });
-        console.log(`📧 Admin notification sent for Order: ${order.orderNumber}`);
+
+            <h3 style="color: #333; border-bottom: 2px solid #000; padding-bottom: 5px;">Order Summary</h3>
+            ${itemsHtml}
+
+            <div style="margin-top: 25px; text-align: center;">
+              <a href="https://noctowls.com/${showAdminDetails?'admin/orders/':'orders/'}${order._id}" 
+                 style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-size: 14px; display: inline-block;">
+                View Order Details
+              </a>
+            </div>
+          </div>
+        `;
+
+        // 4. Send to Admin
+        if (process.env.ADMIN_MAIL) {
+          await sendEmail({
+            to: process.env.ADMIN_MAIL,
+            subject: `[New Order] #${order.orderNumber} by ${customerName}`,
+            html: getEmailHtml('New Order Received', true),
+          });
+          console.log(`📧 Admin email sent for Order: ${order.orderNumber}`);
+        }
+
+        // 5. Send to Customer
+        if (customerEmail) {
+          await sendEmail({
+            to: customerEmail,
+            subject: `Order Confirmed: #${order.orderNumber} - Noctowls`,
+            html: getEmailHtml(`Thank you for your order, ${customerName.split(' ')[0]}!`),
+          });
+          console.log(`📧 Customer email sent to ${customerEmail}`);
+        } else {
+          console.warn(`⚠️ No customer email found for Order ${order.orderNumber}`);
+        }
+
       } catch (emailError) {
-        console.error("Failed to send admin email:", emailError.message);
+        console.error("Failed to send order emails (Webhook):", emailError.message);
       }
+      // ===============================================================
 
       console.log(`Webhook verified payment for Order: ${order.orderNumber}`);
       return res.status(200).json({ status: "ok" });
@@ -908,46 +947,85 @@ export const verifyPayment = async (req, res) => {
       await generateInvoiceSafe(order);
     }
 
-    // SEND ADMIN EMAIL
+    // ==================== SEND EMAILS (VERIFY PAYMENT) ====================
     try {
+      // 1. Get Customer Email (Check Guest Info first, then User DB)
+      let customerEmail = order.guestInfo?.email;
+      if (!customerEmail && order.user) {
+        const userDoc = await User.findById(order.user);
+        if (userDoc) customerEmail = userDoc.email;
+      }
+
+      // 2. Generate Item List HTML (Including Size)
+      const itemsHtml = order.items.map(item => `
+        <div style="border-bottom: 1px solid #eee; padding: 10px 0; display: flex; align-items: center;">
+          <img src="${item.productImage}" alt="${item.productName}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin-right: 15px;">
+          <div>
+            <p style="margin: 0; font-size: 14px; font-weight: bold; color: #333;">${item.productName}</p>
+            <p style="margin: 2px 0 0; font-size: 12px; color: #666;">
+              Size: <strong>${item.size.label || item.size.value}</strong> | Qty: ${item.quantity}
+            </p>
+            <p style="margin: 2px 0 0; font-size: 12px; color: #333;">₹${item.itemTotal}</p>
+          </div>
+        </div>
+      `).join('');
+
       const customerName = order.shippingAddress.fullName || "Customer";
       const orderDate = new Date().toLocaleDateString('en-IN', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric'
+        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
       });
 
-      const firstItemName = order.items[0]?.productName || "Product";
-      const extraItems = order.items.length - 1;
-      const itemSummary = extraItems > 0
-        ? `${firstItemName} + ${extraItems} other item(s)`
-        : firstItemName;
-
-      await sendEmail({
-        to: process.env.ADMIN_MAIL,
-        subject: `[Noctowls] Order #${order.orderNumber} placed by ${customerName}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; max-width: 600px;">
-            <h2 style="color: #333; margin-bottom: 10px;">${itemSummary}</h2>
-            <p style="color: #666; margin-top: 0;">${order.items.length} item(s) from Noctowls</p>
-            
-            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-            
-            <h3 style="color: #333;">Order placed</h3>
-            <p style="margin: 5px 0;"><strong>Placed on:</strong> ${orderDate}</p>
-            <p style="margin: 5px 0;"><strong>Order number:</strong> #${order.orderNumber}</p>
+      // 3. Define Email Template
+      const getEmailHtml = (title, showAdminDetails = false) => `
+        <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333; margin-bottom: 5px;">${title}</h2>
+          <p style="color: #666; margin-top: 0;">Order #${order.orderNumber}</p>
+          
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Date:</strong> ${orderDate}</p>
+            <p style="margin: 5px 0;"><strong>Status:</strong> <span style="color: green;">Paid & Confirmed</span></p>
             <p style="margin: 5px 0;"><strong>Total Amount:</strong> ₹${order.pricing.finalTotal}</p>
-            
-            <div style="margin-top: 20px;">
-              <a href="${process.env.CLIENT_URL}/admin/orders/${order._id}" style="background-color: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-size: 14px;">View Order</a>
-            </div>
+            ${showAdminDetails ? `<p style="margin: 5px 0;"><strong>Customer:</strong> ${customerName} (${customerEmail || 'N/A'})</p>` : ''}
           </div>
-        `,
-      });
-      console.log(`📧 Admin notification sent for Order: ${order.orderNumber}`);
+
+          <h3 style="color: #333; border-bottom: 2px solid #000; padding-bottom: 5px;">Order Summary</h3>
+          ${itemsHtml}
+
+          <div style="margin-top: 25px; text-align: center;">
+            <a href="https://noctowls.com/${showAdminDetails?'admin/orders/':'orders/'}${order._id}" 
+               style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-size: 14px; display: inline-block;">
+              View Order Details
+            </a>
+          </div>
+        </div>
+      `;
+
+      // 4. Send to Admin
+      if (process.env.ADMIN_MAIL) {
+        await sendEmail({
+          to: process.env.ADMIN_MAIL,
+          subject: `[New Order] #${order.orderNumber} by ${customerName}`,
+          html: getEmailHtml('New Order Received', true),
+        });
+        console.log(`📧 Admin email sent for Order: ${order.orderNumber}`);
+      }
+
+      // 5. Send to Customer
+      if (customerEmail) {
+        await sendEmail({
+          to: customerEmail,
+          subject: `Order Confirmed: #${order.orderNumber} - Noctowls`,
+          html: getEmailHtml(`Thank you for your order, ${customerName.split(' ')[0]}!`),
+        });
+        console.log(`📧 Customer email sent to ${customerEmail}`);
+      } else {
+        console.warn(`⚠️ No customer email found for Order ${order.orderNumber}`);
+      }
+
     } catch (emailError) {
-      console.error("Failed to send admin email:", emailError.message);
+      console.error("Failed to send order emails (Verify):", emailError.message);
     }
+    // ======================================================================
 
     return res.status(200).json({
       success: true,
