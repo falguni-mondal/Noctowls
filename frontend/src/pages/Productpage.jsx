@@ -73,6 +73,9 @@ const Productpage = () => {
 
     const validationTimerRef = useRef(null);
     const sortRef = useRef(null);
+    
+    // Ref to prevent duplicate Pixel firing
+    const viewContentFired = useRef(false);
 
     // --- Review Stats Calculation ---
     const calculateDistribution = (reviews) => {
@@ -111,9 +114,14 @@ const Productpage = () => {
         };
     }, [dispatch, productId]);
 
-    // NEW EFFECT: Add to Recently Viewed & Pixel Tracking when product loads
+    // Reset Pixel ref if user navigates to a new product
     useEffect(() => {
-        if (product && !productLoading && !productError) {
+        viewContentFired.current = false;
+    }, [productId]);
+
+    // EFFECT 2: Add to Recently Viewed & Pixel Tracking (Fires exactly ONCE)
+    useEffect(() => {
+        if (product && !productLoading && !productError && !viewContentFired.current) {
             addToRecentlyViewed(product);
 
             // FIX: Get price from the first size
@@ -128,13 +136,18 @@ const Productpage = () => {
                 currency: 'INR'
             });
 
-            // FIX: Fetch Reviews & Check Eligibility using Real ID
-            if (product.id) {
-                dispatch(fetchRecentReviews({ productId: product.id, sortBy }));
-                dispatch(checkReviewEligibility(product.id));
-            }
+            // Mark as fired so it doesn't run again when sorting reviews
+            viewContentFired.current = true;
         }
-    }, [product, productLoading, productError, sortBy, dispatch]);
+    }, [product, productLoading, productError]);
+
+    // EFFECT 3: Fetch Reviews & Check Eligibility (Separated so it safely reacts to sortBy changes)
+    useEffect(() => {
+        if (product && product.id) {
+            dispatch(fetchRecentReviews({ productId: product.id, sortBy }));
+            dispatch(checkReviewEligibility(product.id));
+        }
+    }, [dispatch, product?.id, sortBy]);
 
     useEffect(() => {
         if (product?.sizes) {
