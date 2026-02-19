@@ -6,7 +6,7 @@ import { toast } from "react-toastify";
 import toastControls from "../../../utils/global/toastControls";
 
 const MainDets = ({ selectedSize, setselectedSize, dets }) => {
-  const { name, description, sizes, reviewCount } = dets;
+  const { name, description, category, sizes, reviewCount } = dets;
   const [price, setPrice] = useState({
     original: "",
     discounted: "",
@@ -142,6 +142,15 @@ const MainDets = ({ selectedSize, setselectedSize, dets }) => {
             })
           }
         </div>
+
+        {/* --- SIZE DETAILS CONTAINER --- */}
+        {category?.toLowerCase() === "deskmat" && (
+          <div className="size-details-container mt-3 text-xs text-zinc-400 font-medium tracking-wide">
+            {selectedSize?.toLowerCase() === "l" && "60cm x 30cm"}
+            {selectedSize?.toLowerCase() === "xl" && "80cm x 33cm"}
+            {selectedSize?.toLowerCase() === "xxl" && "90cm x 40cm"}
+          </div>
+        )}
 
         {!isSizeInStock(selectedSize) && (
           <p className="text-red-500 text-xs mt-3 font-bold uppercase tracking-wide flex items-center gap-1">
