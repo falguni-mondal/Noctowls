@@ -74,8 +74,8 @@ const Productpage = () => {
     const validationTimerRef = useRef(null);
     const sortRef = useRef(null);
     
-    // Ref to prevent duplicate Pixel firing
-    const viewContentFired = useRef(false);
+    // [!code ++] Smarter Ref: Store the ID of the product we just tracked
+    const trackedProductId = useRef(null);
 
     // --- Review Stats Calculation ---
     const calculateDistribution = (reviews) => {
@@ -114,30 +114,27 @@ const Productpage = () => {
         };
     }, [dispatch, productId]);
 
-    // Reset Pixel ref if user navigates to a new product
+    // EFFECT 2: Add to Recently Viewed & Pixel Tracking (Fires exactly ONCE per product)
     useEffect(() => {
-        viewContentFired.current = false;
-    }, [productId]);
+        if (product && !productLoading && !productError) {
+            
+            // [!code ++] Only track if we haven't tracked THIS SPECIFIC product ID yet
+            if (trackedProductId.current !== product.id) {
+                addToRecentlyViewed(product);
 
-    // EFFECT 2: Add to Recently Viewed & Pixel Tracking (Fires exactly ONCE)
-    useEffect(() => {
-        if (product && !productLoading && !productError && !viewContentFired.current) {
-            addToRecentlyViewed(product);
+                const price = product.sizes?.[0]?.numPrice || 0;
 
-            // FIX: Get price from the first size
-            const price = product.sizes?.[0]?.numPrice || 0;
+                trackEvent('ViewContent', {
+                    content_name: product.name,
+                    content_ids: [product.id], 
+                    content_type: 'product',
+                    value: price,
+                    currency: 'INR'
+                });
 
-            // FIX: Use product.id (Real Database ID) for Pixel
-            trackEvent('ViewContent', {
-                content_name: product.name,
-                content_ids: [product.id], 
-                content_type: 'product',
-                value: price,
-                currency: 'INR'
-            });
-
-            // Mark as fired so it doesn't run again when sorting reviews
-            viewContentFired.current = true;
+                // Mark THIS product ID as tracked
+                trackedProductId.current = product.id; 
+            }
         }
     }, [product, productLoading, productError]);
 
