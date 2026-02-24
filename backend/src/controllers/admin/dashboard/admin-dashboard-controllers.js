@@ -27,7 +27,7 @@ export const getDashboardStats = async (req, res) => {
         $match: { 
           // Filter financials for the current month
           createdAt: { $gte: startOfCurrentMonth },
-          orderStatus: { $nin: ["cancelled", "returned"] } 
+          orderStatus: { $nin: ["cancelled", "returned", "pending"] } 
         } 
       },
       {
@@ -51,7 +51,7 @@ export const getDashboardStats = async (req, res) => {
       {
         $match: {
           createdAt: { $gte: startOfCurrentMonth }, 
-          orderStatus: { $nin: ["cancelled"] }
+          orderStatus: { $nin: ["cancelled", "returned", "pending"] }
         }
       },
       {
@@ -76,7 +76,7 @@ export const getDashboardStats = async (req, res) => {
     const categoryStats = await Order.aggregate([
       { 
         $match: { 
-            orderStatus: { $nin: ["cancelled"] } 
+            orderStatus: { $nin: ["cancelled", "returned", "pending"] } 
         } 
       },
       { $unwind: "$items" },
@@ -101,7 +101,7 @@ export const getDashboardStats = async (req, res) => {
     const topProducts = await Order.aggregate([
         { 
             $match: { 
-                orderStatus: { $nin: ["cancelled"] } 
+                orderStatus: { $nin: ["cancelled", "returned", "pending"] } 
             } 
         },
         { $unwind: "$items" },

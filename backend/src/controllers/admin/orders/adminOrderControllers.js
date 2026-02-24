@@ -67,6 +67,56 @@ const calculateOrderWeight = (items, freeGiftsData) => {
   return totalGrams;
 };
 
+// ==================== HELPER: DIMENSIONS CALCULATOR ====================
+const calculateOrderDimensions = (items, freeGiftsData) => {
+  let totalItemsCount = 0;
+
+  if (items && Array.isArray(items)) {
+    items.forEach((item) => {
+      totalItemsCount += item.quantity || 1;
+    });
+  }
+
+  if (freeGiftsData && freeGiftsData.gifts && Array.isArray(freeGiftsData.gifts)) {
+    freeGiftsData.gifts.forEach((gift) => {
+      totalItemsCount += gift.quantity || 1;
+    });
+  }
+
+  // Fallback to 1 if empty
+  totalItemsCount = totalItemsCount > 0 ? totalItemsCount : 1;
+
+  // Rule: Only length is multiplied by the number of products. Breadth and Height remain same.
+  return {
+    length: 11 * totalItemsCount,
+    breadth: 11,
+    height: 42
+  };
+};
+
+// ==================== HELPER: GET PRODUCT DESCRIPTION FOR INVOICE ====================
+const getInvoiceProductDescription = (items) => {
+  if (!items || items.length === 0) return "Apparel/Merchandise";
+
+  const descArray = items.map(item => {
+    const name = item.productName || "Item";
+    const sizeVal = item.size?.label || item.size?.value || "";
+    const sizeStr = sizeVal ? ` - ${sizeVal}` : "";
+    const skuStr = item.size?.skuCode ? ` SKU:${item.size.skuCode}` : "";
+
+    return `${name}${sizeStr}${skuStr}`;
+  });
+
+  let productsDescText = descArray.join(" | ");
+
+  // Delhivery API limits products_desc. Safely truncate if it gets too long.
+  if (productsDescText.length > 200) {
+    productsDescText = productsDescText.substring(0, 197) + "...";
+  }
+
+  return productsDescText;
+};
+
 // ==================== HELPER: CREATE REVERSE PICKUP (PRIVATE) ====================
 const createReversePickup = async (order) => {
   try {
@@ -78,6 +128,12 @@ const createReversePickup = async (order) => {
     console.log(`[Delhivery] Attempting Reverse Pickup for ${order.orderNumber}`);
 
     const weightGrams = calculateOrderWeight(order.items, order.freeGifts);
+    const dimensions = calculateOrderDimensions(order.items, order.freeGifts);
+
+    // Using the same detailed product description for reverse pickup
+    const detailedDesc = getInvoiceProductDescription(order.items);
+    let returnDesc = `Return: ${detailedDesc}`;
+    if (returnDesc.length > 200) returnDesc = returnDesc.substring(0, 197) + "...";
 
     const payload = {
       "shipments": [
@@ -92,9 +148,12 @@ const createReversePickup = async (order) => {
           "pin": order.shippingAddress.pincode,
           "phone": order.shippingAddress.phone,
           "payment_mode": "Prepaid",
-          "products_desc": "Return: Anime Merchandise",
+          "products_desc": returnDesc,
           "quantity": order.items.length,
           "weight": weightGrams,
+          "length": dimensions.length,
+          "breadth": dimensions.breadth,
+          "height": dimensions.height,
           "return_name": process.env.DELHIVERY_PICKUP_NAME,
           "return_add": process.env.DELHIVERY_PICKUP_ADD,
           "return_city": process.env.DELHIVERY_PICKUP_CITY,
@@ -165,6 +224,8 @@ const syncToDelhivery = async (order) => {
     console.log(`[Delhivery] Attempting ship from Location: "${process.env.DELHIVERY_PICKUP_NAME}"`);
 
     const totalWeightGrams = calculateOrderWeight(order.items, order.freeGifts);
+    const dimensions = calculateOrderDimensions(order.items, order.freeGifts);
+    const invoiceProductsDesc = getInvoiceProductDescription(order.items);
 
     const shipmentData = {
       "shipments": [
@@ -180,12 +241,15 @@ const syncToDelhivery = async (order) => {
           "payment_mode": order.payment.method === "COD" ? "COD" : "Prepaid",
           "return_pin": process.env.DELHIVERY_PICKUP_PIN,
           "return_name": process.env.DELHIVERY_PICKUP_NAME,
-          "products_desc": "Apparel/Merchandise",
+          "products_desc": invoiceProductsDesc,
           "cod_amount": order.payment.method === "COD" ? (order.pricing.finalTotal - order.payment.amountPaidOnline) : 0,
           "order_date": order.createdAt,
           "total_amount": order.pricing.finalTotal,
           "quantity": order.items.length,
           "weight": totalWeightGrams,
+          "length": dimensions.length,
+          "breadth": dimensions.breadth,
+          "height": dimensions.height,
           "waybill": "",
         }
       ],
