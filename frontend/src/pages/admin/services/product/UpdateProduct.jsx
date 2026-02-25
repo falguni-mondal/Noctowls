@@ -70,16 +70,6 @@ const UpdateProduct = () => {
   const mainImageInputRefs = useRef([]);
   const highlightImageInputRefs = useRef([]);
   const formRef = useRef(null);
-  
-  // Refs for Cleanup tracking
-  const latestMainImages = useRef(mainImages);
-  const latestHighlightImages = useRef(highlightImages);
-
-  // Keep refs synced with state for proper memory cleanup on unmount
-  useEffect(() => {
-    latestMainImages.current = mainImages;
-    latestHighlightImages.current = highlightImages;
-  }, [mainImages, highlightImages]);
 
   // ==================== HELPER FUNCTIONS ====================
 
@@ -277,6 +267,7 @@ const UpdateProduct = () => {
         sizeErrors.push('Original price must be greater than 0');
       }
 
+      // ✅ UPDATE: Validate numPrice instead of discount
       if (size.numPrice === undefined || size.numPrice === null || size.numPrice < 0) {
         sizeErrors.push('Discounted price is required and cannot be negative');
       } else if (size.numPrice > size.originalPrice) {
@@ -335,15 +326,10 @@ const UpdateProduct = () => {
     formData.append('status', prodStatus);
     formData.append('sizes', JSON.stringify(sizes));
 
-    // ✅ FIX: Slice arrays to match the CURRENT category limits, preventing hidden/ghost image uploads
-    const validMainImages = mainImages.slice(0, mainImageCount);
-    const validHighlightImages = highlightImages.slice(0, highlightImageCount);
-
     const existingMainImages = [];
     const existingHighlightImages = [];
 
-    // Process Main Images
-    validMainImages.forEach((img, index) => {
+    mainImages.forEach((img, index) => {
       if (img && img.type === 'existing' && !mainImagesChanged[index]) {
         existingMainImages.push({
           index,
@@ -351,14 +337,10 @@ const UpdateProduct = () => {
           imageId: img.imageId,
           alt: img.alt
         });
-      } else if (img && img.type === 'new' && img.file && mainImagesChanged[index]) {
-        formData.append('mainImages', img.file);
-        formData.append('mainImagesIndices', index.toString());
       }
     });
 
-    // Process Highlight Images
-    validHighlightImages.forEach((img, index) => {
+    highlightImages.forEach((img, index) => {
       if (img && img.type === 'existing' && !highlightImagesChanged[index]) {
         existingHighlightImages.push({
           index,
@@ -366,14 +348,25 @@ const UpdateProduct = () => {
           imageId: img.imageId,
           alt: img.alt
         });
-      } else if (img && img.type === 'new' && img.file && highlightImagesChanged[index]) {
-        formData.append('highlightImages', img.file);
-        formData.append('highlightImagesIndices', index.toString());
       }
     });
 
     formData.append('existingMainImages', JSON.stringify(existingMainImages));
     formData.append('existingHighlightImages', JSON.stringify(existingHighlightImages));
+
+    mainImages.forEach((img, index) => {
+      if (img && img.type === 'new' && img.file && mainImagesChanged[index]) {
+        formData.append('mainImages', img.file);
+        formData.append('mainImagesIndices', index.toString());
+      }
+    });
+
+    highlightImages.forEach((img, index) => {
+      if (img && img.type === 'new' && img.file && highlightImagesChanged[index]) {
+        formData.append('highlightImages', img.file);
+        formData.append('highlightImagesIndices', index.toString());
+      }
+    });
 
     const validationErrors = validateForm();
     const hasErrors =
@@ -487,17 +480,16 @@ const UpdateProduct = () => {
     }
   }, [error, dispatch]);
 
-  // ✅ FIX: Use Refs for proper memory cleanup of object URLs on component unmount
   useEffect(() => {
     return () => {
       dispatch(resetUpdateProductState());
 
-      latestMainImages.current.forEach(img => {
+      mainImages.forEach(img => {
         if (img?.type === 'new' && img?.preview) {
           URL.revokeObjectURL(img.preview);
         }
       });
-      latestHighlightImages.current.forEach(img => {
+      highlightImages.forEach(img => {
         if (img?.type === 'new' && img?.preview) {
           URL.revokeObjectURL(img.preview);
         }
@@ -516,7 +508,7 @@ const UpdateProduct = () => {
         .map(v => ({
           value: v,
           originalPrice: 0,
-          numPrice: 0,
+          numPrice: 0, // ✅ ADD THIS
           discount: 0,
           stock: 0,
           skuCode: "",
