@@ -35,15 +35,38 @@ export const getCart = async (req, res) => {
     const { userId, deviceId } = getCartIdentifier(req, res);
 
     if (!userId && !deviceId) {
-      return res.status(400).json({
-        success: false,
-        message: "Unable to identify cart. Please refresh the page.",
+      return res.status(400).json({ success: false, message: "Unable to identify cart. Please refresh the page." });
+    }
+
+    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+    await Cart.deleteMany({
+      items: { $size: 0 },
+      createdAt: { $lte: twoMinutesAgo }
+    });
+
+    const cart = await Cart.findOne(
+      userId ? { user: userId } : { deviceId }
+    ).populate("items.product");
+
+    if (!cart) {
+      return res.status(200).json({
+        success: true,
+        cart: {
+          items: [],
+          coupon: { isApplied: false },
+          freeGifts: { eligible: false, gifts: [] },
+          summary: { totalQuantity: 0, itemsCount: 0, subtotal: 0, couponDiscount: 0, total: 0 }
+        },
+        isGuest: !userId,
+        freeGiftsDescription: "Add more items to unlock free gifts!",
+        nextTierInfo: {
+          itemsNeeded: 1,
+          nextTier: 1,
+          message: "Add 1 item to get 1 Anime Keychain + 5 Stickers FREE!"
+        }
       });
     }
 
-    const cart = await Cart.getOrCreateCart({ userId, deviceId });
-
-    // ✅ NEW: Clean invalid items on every cart fetch
     await cart.cleanInvalidItems();
 
     return res.status(200).json({
@@ -55,11 +78,7 @@ export const getCart = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching cart:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch cart",
-      error: error.message,
-    });
+    return res.status(500).json({ success: false, message: "Failed to fetch cart", error: error.message });
   }
 };
 
