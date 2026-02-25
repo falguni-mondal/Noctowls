@@ -21,11 +21,14 @@ const isUpdateProductFormValid = (req, res, next) => {
 
     const newMainImages = req.files?.["mainImages"] || [];
     const newHighlightImages = req.files?.["highlightImages"] || [];
+    
+    // Normalize indices to arrays
     const mainImagesIndices = req.body.mainImagesIndices
       ? Array.isArray(req.body.mainImagesIndices)
         ? req.body.mainImagesIndices
         : [req.body.mainImagesIndices]
       : [];
+      
     const highlightImagesIndices = req.body.highlightImagesIndices
       ? Array.isArray(req.body.highlightImagesIndices)
         ? req.body.highlightImagesIndices
@@ -63,7 +66,6 @@ const isUpdateProductFormValid = (req, res, next) => {
       errors.general.push("Invalid product category");
     }
 
-    // ✅ ADD: STATUS VALIDATION
     const validStatuses = ["published", "archived"];
     if (!status) {
       errors.others.push("Product status is required");
@@ -178,7 +180,6 @@ const isUpdateProductFormValid = (req, res, next) => {
         }
       });
 
-      // Check for duplicate SKU codes
       const skuCodes = parsedSizes
         .map((s) => s.skuCode?.trim())
         .filter(Boolean);
@@ -205,75 +206,77 @@ const isUpdateProductFormValid = (req, res, next) => {
       highlight: 3,
     };
 
-    // Parse existing images
     let parsedExistingMainImages = [];
     let parsedExistingHighlightImages = [];
 
     try {
-      parsedExistingMainImages = existingMainImages
-        ? JSON.parse(existingMainImages)
-        : [];
-      parsedExistingHighlightImages = existingHighlightImages
-        ? JSON.parse(existingHighlightImages)
-        : [];
+      parsedExistingMainImages = existingMainImages ? JSON.parse(existingMainImages) : [];
+      parsedExistingHighlightImages = existingHighlightImages ? JSON.parse(existingHighlightImages) : [];
     } catch (error) {
       errors.general.push("Invalid existing images data");
     }
 
-    // Calculate total images
-    const totalMainImages =
-      parsedExistingMainImages.length + newMainImages.length;
+    // ✅ NEW: Validate Indices Match
+    if (newMainImages.length !== mainImagesIndices.length) {
+      errors.images.push("Mismatch between uploaded main images and their target indices");
+    }
+    if (newHighlightImages.length !== highlightImagesIndices.length) {
+      errors.highlightImg.push("Mismatch between uploaded highlight images and their target indices");
+    }
+
+    // ✅ NEW: Validate Indices Range
+    mainImagesIndices.forEach(idx => {
+      const parsedIdx = parseInt(idx);
+      if (isNaN(parsedIdx) || parsedIdx < 0 || parsedIdx >= expectedCounts.main) {
+        errors.images.push(`Invalid main image index: ${idx}. Must be between 0 and ${expectedCounts.main - 1}`);
+      }
+    });
+
+    highlightImagesIndices.forEach(idx => {
+      const parsedIdx = parseInt(idx);
+      if (isNaN(parsedIdx) || parsedIdx < 0 || parsedIdx >= expectedCounts.highlight) {
+        errors.highlightImg.push(`Invalid highlight image index: ${idx}. Must be between 0 and ${expectedCounts.highlight - 1}`);
+      }
+    });
+
+    const totalMainImages = parsedExistingMainImages.length + newMainImages.length;
     if (totalMainImages !== expectedCounts.main) {
       errors.images.push(
         `Total of ${expectedCounts.main} product images required (currently ${totalMainImages})`
       );
     }
 
-    const totalHighlightImages =
-      parsedExistingHighlightImages.length + newHighlightImages.length;
+    const totalHighlightImages = parsedExistingHighlightImages.length + newHighlightImages.length;
     if (totalHighlightImages !== expectedCounts.highlight) {
       errors.highlightImg.push(
         `Total of ${expectedCounts.highlight} highlight images required (currently ${totalHighlightImages})`
       );
     }
 
-    // Validate new images
     const allowedImageTypes = ["image/png", "image/webp", "image/jpeg"];
     const maxFileSize = 10 * 1024 * 1024;
 
     newMainImages.forEach((image, index) => {
       if (!allowedImageTypes.includes(image.mimetype)) {
-        errors.images.push(
-          `New product image ${index + 1} must be PNG, WEBP, or JPEG format`
-        );
+        errors.images.push(`New product image ${index + 1} must be PNG, WEBP, or JPEG format`);
       }
       if (image.size > maxFileSize) {
-        errors.images.push(
-          `New product image ${index + 1} must be less than 10MB`
-        );
+        errors.images.push(`New product image ${index + 1} must be less than 10MB`);
       }
       if (!image.buffer || image.buffer.length === 0) {
-        errors.images.push(
-          `New product image ${index + 1} is empty or corrupted`
-        );
+        errors.images.push(`New product image ${index + 1} is empty or corrupted`);
       }
     });
 
     newHighlightImages.forEach((image, index) => {
       if (!allowedImageTypes.includes(image.mimetype)) {
-        errors.highlightImg.push(
-          `New highlight image ${index + 1} must be PNG, WEBP, or JPEG format`
-        );
+        errors.highlightImg.push(`New highlight image ${index + 1} must be PNG, WEBP, or JPEG format`);
       }
       if (image.size > maxFileSize) {
-        errors.highlightImg.push(
-          `New highlight image ${index + 1} must be less than 10MB`
-        );
+        errors.highlightImg.push(`New highlight image ${index + 1} must be less than 10MB`);
       }
       if (!image.buffer || image.buffer.length === 0) {
-        errors.highlightImg.push(
-          `New highlight image ${index + 1} is empty or corrupted`
-        );
+        errors.highlightImg.push(`New highlight image ${index + 1} is empty or corrupted`);
       }
     });
 

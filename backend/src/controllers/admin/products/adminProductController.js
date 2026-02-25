@@ -130,7 +130,7 @@ const productAdder = async (req, res) => {
 };
 
 const productUpdater = async (req, res) => {
-  // Track ONLY newly uploaded images for rollback (don't delete existing ones on error)
+  // Track ONLY newly uploaded images for rollback
   let uploadedImagesRecord = [];
 
   try {
@@ -142,12 +142,12 @@ const productUpdater = async (req, res) => {
       sizes,
       inventory,
       status,
-      newMainImages,
-      newHighlightImages,
-      mainImagesIndices,
-      highlightImagesIndices,
-      existingMainImages,
-      existingHighlightImages,
+      newMainImages = [],
+      newHighlightImages = [],
+      mainImagesIndices = [],
+      highlightImagesIndices = [],
+      existingMainImages = [],
+      existingHighlightImages = [],
     } = req.product;
 
     const folderName = sanitizeFolderName(name);
@@ -161,51 +161,45 @@ const productUpdater = async (req, res) => {
       });
     }
 
-    // STORE ORIGINAL IMAGES (Snapshot for comparison)
+    // STORE ORIGINAL IMAGES (Snapshot for comparison & cleanup)
     const originalMainImages = product.images ? [...product.images] : [];
-    const originalHighlightImages = product.highlightImages
-      ? [...product.highlightImages]
-      : [];
+    const originalHighlightImages = product.highlightImages ? [...product.highlightImages] : [];
 
-    // ==================== PROCESS NEW MAIN IMAGES ====================
-    const processedMainPromises = newMainImages.map((file) =>
-      processAndUploadImage(
-        file,
-        `/products/${category}/${folderName}/main`
-      )
-    );
+    // ==================== 1. PROCESS NEW MAIN IMAGES (If Any) ====================
+    let formattedNewMainImages = [];
+    if (newMainImages && newMainImages.length > 0) {
+      const processedMainPromises = newMainImages.map((file) =>
+        processAndUploadImage(file, `/products/${category}/${folderName}/main`)
+      );
 
-    const processedMainImages = await Promise.all(processedMainPromises);
-    
-    // Track for rollback
-    uploadedImagesRecord = [...uploadedImagesRecord, ...processedMainImages];
+      const processedMainImages = await Promise.all(processedMainPromises);
+      uploadedImagesRecord = [...uploadedImagesRecord, ...processedMainImages];
 
-    const formattedNewMainImages = processedMainImages.map((img) => ({
-      url: img.url,
-      imageId: img.imageId,
-      alt: folderName,
-    }));
+      formattedNewMainImages = processedMainImages.map((img) => ({
+        url: img.url,
+        imageId: img.imageId,
+        alt: folderName,
+      }));
+    }
 
-    // ==================== PROCESS NEW HIGHLIGHT IMAGES ====================
-    const processedHighlightPromises = newHighlightImages.map((file) =>
-      processAndUploadImage(
-        file,
-        `/products/${category}/${folderName}/highlight`
-      )
-    );
+    // ==================== 2. PROCESS NEW HIGHLIGHT IMAGES (If Any) ====================
+    let formattedNewHighlightImages = [];
+    if (newHighlightImages && newHighlightImages.length > 0) {
+      const processedHighlightPromises = newHighlightImages.map((file) =>
+        processAndUploadImage(file, `/products/${category}/${folderName}/highlight`)
+      );
 
-    const processedHighlightImages = await Promise.all(processedHighlightPromises);
-    
-    // Track for rollback
-    uploadedImagesRecord = [...uploadedImagesRecord, ...processedHighlightImages];
+      const processedHighlightImages = await Promise.all(processedHighlightPromises);
+      uploadedImagesRecord = [...uploadedImagesRecord, ...processedHighlightImages];
 
-    const formattedNewHighlightImages = processedHighlightImages.map((img) => ({
-      url: img.url,
-      imageId: img.imageId,
-      alt: folderName,
-    }));
+      formattedNewHighlightImages = processedHighlightImages.map((img) => ({
+        url: img.url,
+        imageId: img.imageId,
+        alt: folderName,
+      }));
+    }
 
-    // ==================== MERGE EXISTING AND NEW IMAGES ====================
+    // ==================== 3. MERGE EXISTING AND NEW IMAGES ====================
     const IMAGE_COUNTS = {
       deskmat: { main: 7, highlight: 6 },
       "anime-keychain": { main: 4, highlight: 3 },
@@ -213,88 +207,82 @@ const productUpdater = async (req, res) => {
       "anime-katana": { main: 4, highlight: 3 },
     };
 
-    const counts = IMAGE_COUNTS[category] || { main: 4, highlight: 3 }; // Fallback safety
+    const counts = IMAGE_COUNTS[category] || { main: 4, highlight: 3 };
 
-    // Initialize arrays
     const finalMainImages = new Array(counts.main);
     const finalHighlightImages = new Array(counts.highlight);
 
-    // 1. Place existing images (User kept these)
+    // Place existing images back in their original slots
     existingMainImages.forEach((img) => {
-      finalMainImages[img.index] = {
-        url: img.url,
-        imageId: img.imageId,
-        alt: img.alt || folderName,
-      };
+      if (img && img.index !== undefined) {
+        finalMainImages[img.index] = {
+          url: img.url,
+          imageId: img.imageId,
+          alt: img.alt || folderName,
+        };
+      }
     });
 
     existingHighlightImages.forEach((img) => {
-      finalHighlightImages[img.index] = {
-        url: img.url,
-        imageId: img.imageId,
-        alt: img.alt || folderName,
-      };
+      if (img && img.index !== undefined) {
+        finalHighlightImages[img.index] = {
+          url: img.url,
+          imageId: img.imageId,
+          alt: img.alt || folderName,
+        };
+      }
     });
 
-    // TRACK OLD IMAGES TO DELETE (Cleanup of replaced/removed images)
-    const imagesToDelete = [];
-
-    // 2. Place NEW main images & identify replaced ones
+    // Place newly uploaded images in their target slots
     formattedNewMainImages.forEach((img, idx) => {
       const targetIndex = parseInt(mainImagesIndices[idx]);
-
-      // Check what was at this slot before
-      if (originalMainImages[targetIndex]?.imageId) {
-        const oldImageId = originalMainImages[targetIndex].imageId;
-
-        // Only delete if it's not being moved/kept elsewhere
-        const isKept = existingMainImages.some(
-          (existing) => existing.imageId === oldImageId
-        );
-
-        if (!isKept) {
-          imagesToDelete.push(oldImageId);
-        }
+      if (!isNaN(targetIndex)) {
+        finalMainImages[targetIndex] = img;
       }
-
-      finalMainImages[targetIndex] = img;
     });
 
-    // 3. Place NEW highlight images & identify replaced ones
     formattedNewHighlightImages.forEach((img, idx) => {
       const targetIndex = parseInt(highlightImagesIndices[idx]);
-
-      if (originalHighlightImages[targetIndex]?.imageId) {
-        const oldImageId = originalHighlightImages[targetIndex].imageId;
-
-        const isKept = existingHighlightImages.some(
-          (existing) => existing.imageId === oldImageId
-        );
-
-        if (!isKept) {
-          imagesToDelete.push(oldImageId);
-        }
+      if (!isNaN(targetIndex)) {
+        finalHighlightImages[targetIndex] = img;
       }
-
-      finalHighlightImages[targetIndex] = img;
     });
 
-    // ==================== DELETE OLD IMAGES (CLEANUP) ====================
+    // ==================== 4. IDENTIFY IMAGES TO DELETE FROM IMAGEKIT ====================
+    const imagesToDelete = [];
+
+    // If an original image ID is NO LONGER in the existingMainImages array from the frontend, 
+    // it means the user either replaced it or deleted it. We must clear it from ImageKit.
+    originalMainImages.forEach((origImg) => {
+      if (origImg && origImg.imageId) {
+        const isKept = existingMainImages.some(keptImg => keptImg.imageId === origImg.imageId);
+        if (!isKept) imagesToDelete.push(origImg.imageId);
+      }
+    });
+
+    originalHighlightImages.forEach((origImg) => {
+      if (origImg && origImg.imageId) {
+        const isKept = existingHighlightImages.some(keptImg => keptImg.imageId === origImg.imageId);
+        if (!isKept) imagesToDelete.push(origImg.imageId);
+      }
+    });
+
+    // Fire & forget ImageKit deletion (doesn't block the API response time)
     if (imagesToDelete.length > 0) {
       console.log(`Deleting ${imagesToDelete.length} replaced/removed images...`);
-      // Non-blocking delete to speed up response
       Promise.allSettled(imagesToDelete.map((id) => deleteWithRetry(id)));
     }
 
-    // ==================== UPDATE PRODUCT ====================
+    // ==================== 5. UPDATE PRODUCT IN DB ====================
     product.name = name;
     product.description = description;
     product.category = category;
     product.sizes = sizes;
     product.inventory = inventory;
     product.status = status;
-    // Filter nulls (in case array has holes, though logic prevents it)
-    product.images = finalMainImages.filter(Boolean); 
+    
+    // Filter out nulls/undefined in case there are empty slots in the array
+    product.images = finalMainImages.filter(Boolean);
     product.highlightImages = finalHighlightImages.filter(Boolean);
 
     await product.save();
@@ -308,7 +296,7 @@ const productUpdater = async (req, res) => {
   } catch (error) {
     console.error("PRODUCT UPDATE ERROR:", error);
 
-    // ✅ ROLLBACK: Delete newly uploaded images if DB update fails
+    // ROLLBACK: Delete newly uploaded images if MongoDB update fails
     if (uploadedImagesRecord.length > 0) {
       await cleanupUploadedImages(uploadedImagesRecord);
     }

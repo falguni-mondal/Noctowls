@@ -32,7 +32,7 @@ const IMAGE_COUNTS = {
 
 // ---------- GST Mapping ----------
 const GST_MAPPING = {
-  deskmat: { hsn: "6307", gstRate: 12 },
+  deskmat: { hsn: "6307", gstRate: 18 },
   "anime-keychain": { hsn: "3926", gstRate: 18 },
   "anime-figure": { hsn: "9503", gstRate: 18 },
   "anime-katana": { hsn: "8306", gstRate: 18 },
