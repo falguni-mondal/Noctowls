@@ -630,7 +630,8 @@ const OrderDetailsPage = () => {
                 <p className="font-bold text-black text-sm">
                   Noctowls Properties
                 </p>
-                <p>2nd Floor, Arushi Complex, Muchipara</p>
+                <p>1st Floor, Office Building</p>
+                <p>Shri Bhumi Park, Bidhannagar</p>
                 <p>Durgapur-713212, West Bengal, India</p>
                 <p className="mt-1 font-semibold">GSTIN: 19BNYPG7506F1ZJ</p>
                 <p>Email: help.noctowls@gmail.com</p>

@@ -33,7 +33,7 @@ const AddProduct = () => {
     inventory: false,
   });
   const [prodCategory, setProdCategory] = useState("deskmat");
-  const [prodInventory, setProdInventory] = useState("Sanmilan, Yuri Gagarin Path, Muchipara");
+  const [prodInventory, setProdInventory] = useState("Shri Bhumi Park, Bidhannagar");
   const [sizes, setSizes] = useState([]);
 
   // Image state
@@ -84,7 +84,7 @@ const AddProduct = () => {
     const defaultCategory = "deskmat";
 
     setProdCategory(defaultCategory);
-    setProdInventory("Sanmilan, Yuri Gagarin Path, Muchipara");
+    setProdInventory("Shri Bhumi Park, Bidhannagar");
     setSizes(initializeSizesForCategory(defaultCategory));
     setMainImages(Array(IMAGE_COUNTS_BY_CATEGORY[defaultCategory].main).fill(null));
     setHighlightImages(Array(IMAGE_COUNTS_BY_CATEGORY[defaultCategory].highlight).fill(null));

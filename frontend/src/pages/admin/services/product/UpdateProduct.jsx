@@ -43,7 +43,7 @@ const UpdateProduct = () => {
     status: false,
   });
   const [prodCategory, setProdCategory] = useState("deskmat");
-  const [prodInventory, setProdInventory] = useState("Sanmilan, Yuri Gagarin Path, Muchipara");
+  const [prodInventory, setProdInventory] = useState("Shri Bhumi Park, Bidhannagar");
   const [prodStatus, setProdStatus] = useState("published");
   const [sizes, setSizes] = useState([]);
   const [productName, setProductName] = useState("");
@@ -398,7 +398,7 @@ const UpdateProduct = () => {
       setProductName(adminProduct.name || "");
       setProductDescription(adminProduct.description || "");
       setProdCategory(adminProduct.category || "deskmat");
-      setProdInventory(adminProduct.inventory || "Sanmilan, Yuri Gagarin Path, Muchipara");
+      setProdInventory(adminProduct.inventory || "Shri Bhumi Park, Bidhannagar");
       setProdStatus(adminProduct.status || "published");
 
       if (adminProduct.sizes && Array.isArray(adminProduct.sizes)) {
