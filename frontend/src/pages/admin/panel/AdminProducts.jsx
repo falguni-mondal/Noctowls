@@ -2,29 +2,86 @@ import { Link } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useDispatch, useSelector } from "react-redux";
 import { useEffect } from "react";
-import { getAllAdminProducts } from "../../../store/features/admin/adminProductSlice";
+import { getAllAdminProducts, exportInventory, resetExportState } from "../../../store/features/admin/adminProductSlice";
 import Loader from "../../../utils/loader/Loader";
+import { toast } from "react-toastify";
+import toastControls from "../../../utils/global/toastControls";
+import * as XLSX from "xlsx"; // ✅ Import SheetJS
 
-// Helper for Desktop Action Buttons
-const ActionButton = ({ to, icon, label, colorClass }) => (
-  <div className="relative group">
-    <button className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all pointer-events-none ${colorClass}`}>
+// Helper for Desktop Action Buttons (Updated to support onClick)
+const ActionButton = ({ to, onClick, icon, label, colorClass, disabled }) => {
+  const content = (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+        to ? 'pointer-events-none' : 'cursor-pointer'
+      } ${colorClass} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+    >
       <Icon icon={icon} className="text-xl" />
       <span>{label}</span>
     </button>
-    {/* Interaction Fix */}
-    <Link to={to} className="absolute inset-0 z-10 cursor-pointer" />
-  </div>
-);
+  );
+
+  if (to) {
+    return (
+      <div className="relative group">
+        {content}
+        <Link to={to} className="absolute inset-0 z-10 cursor-pointer" />
+      </div>
+    );
+  }
+
+  return <div className="relative group">{content}</div>;
+};
 
 const AdminProducts = () => {
   const dispatch = useDispatch();
-  const { adminProducts: products, loading } = useSelector(state => state.adminProducts);
+  
+  // Pull in the export state as well
+  const { adminProducts: products, loading, export: exportState } = useSelector(state => state.adminProducts);
 
   useEffect(() => {
     dispatch(getAllAdminProducts());
   }, [dispatch]);
 
+  // NEW: Handle Export Logic
+  const handleExport = async () => {
+    try {
+      // 1. Fetch data from backend
+      const resultAction = await dispatch(exportInventory()).unwrap();
+      const exportData = resultAction.data;
+
+      if (!exportData || Object.keys(exportData).length === 0) {
+        toast.error("No inventory data found to export.", toastControls);
+        return;
+      }
+
+      // 2. Create a new Excel Workbook
+      const wb = XLSX.utils.book_new();
+
+      // 3. Iterate over each category and create a separate tab (worksheet)
+      Object.keys(exportData).forEach((category) => {
+        const sheetData = exportData[category];
+        const ws = XLSX.utils.json_to_sheet(sheetData);
+        
+        // Append sheet to workbook (Category names as tab names)
+        XLSX.utils.book_append_sheet(wb, ws, category.toUpperCase());
+      });
+
+      // 4. Generate Excel file and trigger browser download
+      const fileName = `Noctowls_Inventory_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      
+      toast.success("Inventory exported successfully!", toastControls);
+      
+      // Reset Redux state
+      dispatch(resetExportState());
+    } catch (error) {
+      toast.error(error || "Failed to export inventory", toastControls);
+      dispatch(resetExportState());
+    }
+  };
 
   if (loading) {
     return (
@@ -46,6 +103,14 @@ const AdminProducts = () => {
 
         {/* Desktop Actions */}
         <div className="hidden lg:flex items-center gap-3">
+          {/* NEW EXPORT BUTTON */}
+          <ActionButton
+            onClick={handleExport}
+            disabled={exportState?.loading}
+            icon={exportState?.loading ? "eos-icons:loading" : "material-symbols:download-rounded"}
+            label={exportState?.loading ? "Exporting..." : "Export"}
+            colorClass="bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20"
+          />
           <ActionButton
             to="/admin/reviews"
             icon="material-symbols-light:inbox-text-asterisk"
@@ -108,6 +173,17 @@ const AdminProducts = () => {
 
       {/* --- MOBILE FLOATING ACTION BUTTONS --- */}
       <div className="fixed bottom-20 lg:bottom-6 right-4 z-40 flex flex-col gap-3 lg:hidden">
+        {/* NEW EXPORT MOBILE BUTTON */}
+        <div className="w-12 h-12 rounded-xl relative shadow-lg shadow-amber-900/20">
+          <button
+            onClick={handleExport}
+            disabled={exportState?.loading}
+            className="w-full h-full flex justify-center items-center bg-amber-600 text-white rounded-xl active:bg-amber-700 disabled:opacity-70 transition-colors cursor-pointer z-20 relative"
+          >
+            <Icon icon={exportState?.loading ? "eos-icons:loading" : "material-symbols:download-rounded"} className="text-xl" />
+          </button>
+        </div>
+
         <div className="w-12 h-12 rounded-xl relative group shadow-lg shadow-blue-900/20">
           <div className="w-full h-full flex justify-center items-center bg-blue-600 text-white rounded-xl pointer-events-none">
             <Icon icon="material-symbols-light:inbox-text-asterisk" className="text-xl" />

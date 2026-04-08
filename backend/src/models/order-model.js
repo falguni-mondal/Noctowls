@@ -310,7 +310,7 @@ const cancellationSchema = new mongoose.Schema(
     },
     cancelledBy: {
       type: String,
-      enum: ["user", "guest", "admin"],
+      enum: ["user", "guest", "admin", "system"],
       default: null,
     },
     cancelledAt: {

@@ -111,10 +111,10 @@ const Bagpage = () => {
     <div className='py-10 min-h-[80vh] bg-black text-zinc-100' id='bag-page'>
       
       {/* Main Container */}
-      <div className="max-w-7xl mx-auto px-4 md:px-8">
+      <div className="max-w-[1600px] mx-auto">
         
         {/* Header */}
-        <div className="page-header mb-8 lg:mb-10 border-b border-zinc-800 pb-4">
+        <div className="page-header mb-8 lg:mb-10 border-b border-zinc-800 pb-4 px-5 md:px-10">
           <h1 className="page-heading text-2xl md:text-3xl font-bold uppercase tracking-wide">
             Your Bag
           </h1>
@@ -152,7 +152,7 @@ const Bagpage = () => {
             </Link>
           </div>
         ) : (
-          <div className="flex flex-col lg:flex-row gap-8 xl:gap-12 relative">
+          <div className="flex px-5 md:px-10 flex-col lg:flex-row gap-8 xl:gap-12 relative">
             
             {/* --- LEFT COLUMN: ITEMS --- */}
             <div className="w-full lg:w-2/3 space-y-8">

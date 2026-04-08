@@ -8,7 +8,7 @@ const HomeProductSection = () => {
 
   return (
     // Added md:px-8 lg:px-16 for responsive horizontal padding
-    <section className='w-full px-4 bg-black' id='home-product-section'>
+    <section className='w-full px-5 lg:px-10 bg-black' id='home-product-section'>
       {
         products &&
         products.map((group, index) => (
@@ -28,7 +28,7 @@ const HomeProductSection = () => {
                 - Mobile: gap-x-4 gap-y-8 (Unchanged)
                 - Tablet/Desktop: gap-x-6 gap-y-10
             */}
-            <ul className={`homepage-product-list-container grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-2 gap-y-4 md:gap-x-4 md:gap-y-8`}>
+            <ul className={`homepage-product-list-container grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-2 gap-y-4 md:gap-x-5 md:gap-y-20`}>
               {
                 group.products.map(product => (
                   <Link key={`home-product-${product.id}`} to={`/products/${product.id}`}>

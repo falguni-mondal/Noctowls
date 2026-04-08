@@ -105,7 +105,7 @@ const App = () => {
   };
 
   return (
-    <div className='container'>
+    <div className='w-full'>
 
       {
         !admin &&
@@ -156,7 +156,7 @@ const App = () => {
         <PageRouter />
       </main>
       
-      <footer className='pt-10 w-full flex flex-col' id='footer'>
+      <footer className='pt-10 w-full flex flex-col px-5 lg:px-10' id='footer'>
         <div className="upper-footer w-full lg:flex lg:flex-col border-b-[0.5px] border-zinc-700 lg:px-5">
           <div className="upper-footer-dets w-full lg:flex lg:justify-between">
             <FooterLogo />

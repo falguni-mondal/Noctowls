@@ -78,6 +78,21 @@ export const updateProduct = createAsyncThunk(
   }
 );
 
+// Async Thunk for Inventory Export
+export const exportInventory = createAsyncThunk(
+  "adminProducts/exportInventory",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await adminApi.get("/products/export");
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to export inventory"
+      );
+    }
+  }
+);
+
 // ==================== SLICE ====================
 
 const adminProductSlice = createSlice({
@@ -109,6 +124,13 @@ const adminProductSlice = createSlice({
     update: {
       loading: false,
       success: null,
+      error: null,
+    },
+
+    // EXPORT INVENTORY State
+    export: {
+      loading: false,
+      data: null,
       error: null,
     },
   },
@@ -145,6 +167,13 @@ const adminProductSlice = createSlice({
       state.update.loading = false;
       state.update.success = null;
       state.update.error = null;
+    },
+
+    // Clear Export Inventory State
+    resetExportState: (state) => {
+      state.export.loading = false;
+      state.export.data = null;
+      state.export.error = null;
     },
   },
 
@@ -240,6 +269,25 @@ const adminProductSlice = createSlice({
           errors: null,
         };
       });
+
+    // EXPORT INVENTORY
+    builder
+      .addCase(exportInventory.pending, (state) => {
+        state.export.loading = true;
+        state.export.data = null;
+        state.export.error = null;
+      })
+      .addCase(exportInventory.fulfilled, (state, action) => {
+        state.export.loading = false;
+        // The backend sends { success: true, message: "...", data: exportedData }
+        state.export.data = action.payload.data;
+        state.export.error = null;
+      })
+      .addCase(exportInventory.rejected, (state, action) => {
+        state.export.loading = false;
+        state.export.data = null;
+        state.export.error = action.payload || "Failed to export inventory";
+      });
   },
 });
 
@@ -252,6 +300,7 @@ export const {
   clearErrors,
   resetAddProductState,
   resetUpdateProductState,
+  resetExportState, // ✅ Export the new reset action
 } = adminProductSlice.actions;
 
 // Reducer

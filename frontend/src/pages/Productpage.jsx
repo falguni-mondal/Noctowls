@@ -12,7 +12,6 @@ import ReviewCard from "../components/product/product-review/ReviewCard";
 import ReviewModal from "../components/product/product-review/ReviewModal";
 import ProductSpecs from "../components/product/product-specs/ProductSpecs";
 import BestSelling from "../components/product/best-selling/BestSelling";
-// NEW IMPORTS
 import RecentlyViewed from "../components/product/recently-viewed/RecentlyViewed";
 import { addToRecentlyViewed } from "../utils/helpers/recentlyViewedHelper";
 
@@ -46,6 +45,15 @@ const Productpage = () => {
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
     const [isSortOpen, setIsSortOpen] = useState(false);
 
+    // Zoom state now accepts a dynamic CSS style object
+    const [zoomState, setZoomState] = useState({
+        show: false,
+        url: "",
+        x: 0,
+        y: 0,
+        style: {}
+    });
+
     const [sortBy, setSortBy] = useState("Featured");
 
     const dispatch = useDispatch();
@@ -74,16 +82,16 @@ const Productpage = () => {
     const validationTimerRef = useRef(null);
     const sortRef = useRef(null);
     
-    // [!code ++] Smarter Ref: Store the ID of the product we just tracked
     const trackedProductId = useRef(null);
+
+    // Reference to capture the exact layout dimensions of the right column
+    const rightColRef = useRef(null);
 
     // --- Review Stats Calculation ---
     const calculateDistribution = (reviews) => {
         const dist = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-        // Use stats from backend if available for accurate total distribution
         if (reviewStats) return reviewStats.distribution;
 
-        // Fallback for visual display if stats not yet loaded
         if (!reviews) return dist;
         reviews.forEach(r => {
             const rating = Math.round(r.rating);
@@ -103,10 +111,44 @@ const Productpage = () => {
         setIsSortOpen(false);
     };
 
+    //  Hover Logic separated to capture DOM layout on Enter
+    const handleMouseEnter = (e, url) => {
+        const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+        const x = ((e.clientX - left) / width) * 100;
+        const y = ((e.clientY - top) / height) * 100;
+
+        let style = {};
+        if (rightColRef.current) {
+            // Get exact coordinates of the details column
+            const rightRect = rightColRef.current.getBoundingClientRect();
+            style = {
+                position: 'fixed',
+                top: '96px', // Pin it below your header (matches 'top-24')
+                left: `${rightRect.left}px`, // Perfectly align horizontally
+                width: `${rightRect.width}px`, // Match column width exactly
+                height: 'calc(100vh - 150px)',
+                maxHeight: '750px',
+                zIndex: 100
+            };
+        }
+        setZoomState({ show: true, url, x, y, style });
+    };
+
+    const handleMouseMove = (e) => {
+        if (!zoomState.show) return;
+        const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+        const x = ((e.clientX - left) / width) * 100;
+        const y = ((e.clientY - top) / height) * 100;
+        setZoomState(prev => ({ ...prev, x, y }));
+    };
+
+    const handleMouseLeave = () => {
+        setZoomState({ show: false, url: "", x: 0, y: 0, style: {} });
+    };
+
     // Effect 1: Initial Data
     useEffect(() => {
         dispatch(getOneProduct(productId));
-        // We defer checking eligibility until we have the real product.id to avoid CastErrors
         
         return () => {
             dispatch(clearStockValidation());
@@ -114,11 +156,8 @@ const Productpage = () => {
         };
     }, [dispatch, productId]);
 
-    // EFFECT 2: Add to Recently Viewed & Pixel Tracking (Fires exactly ONCE per product)
     useEffect(() => {
         if (product && !productLoading && !productError) {
-            
-            // [!code ++] Only track if we haven't tracked THIS SPECIFIC product ID yet
             if (trackedProductId.current !== product.id) {
                 addToRecentlyViewed(product);
 
@@ -132,13 +171,11 @@ const Productpage = () => {
                     currency: 'INR'
                 });
 
-                // Mark THIS product ID as tracked
                 trackedProductId.current = product.id; 
             }
         }
     }, [product, productLoading, productError]);
 
-    // EFFECT 3: Fetch Reviews & Check Eligibility (Separated so it safely reacts to sortBy changes)
     useEffect(() => {
         if (product && product.id) {
             dispatch(fetchRecentReviews({ productId: product.id, sortBy }));
@@ -209,7 +246,6 @@ const Productpage = () => {
         }
         return cart.items.some(item => {
             const itemProductId = item.product?._id || item.product;
-            // Robust check: match against product.id if loaded, else fallback to param
             const currentId = product?.id || productId;
             return itemProductId === currentId &&
                 item.size?.value.toLowerCase() === selectedSize?.toLowerCase();
@@ -232,14 +268,13 @@ const Productpage = () => {
 
         try {
             await dispatch(addToCart({
-                productId: product?.id || productId, // Use safe ID
+                productId: product?.id || productId,
                 sizeValue: selectedSize,
                 quantity: quantity
             })).unwrap();
 
             const itemPrice = currentSizeData?.numPrice || 0;
 
-            // FIX: Use product.id for AddToCart
             trackEvent('AddToCart', {
                 content_name: product.name,
                 content_ids: [product.id],
@@ -260,7 +295,6 @@ const Productpage = () => {
 
         const itemPrice = currentSizeData?.numPrice || 0;
 
-        // FIX: Use product.id for InitiateCheckout
         trackEvent('InitiateCheckout', {
             content_name: product.name,
             content_ids: [product.id],
@@ -285,7 +319,9 @@ const Productpage = () => {
         }
     };
 
-    const handleWishlistToggle = async () => {
+    const handleWishlistToggle = async (e) => {
+        if (e) e.stopPropagation(); 
+        
         if (!isLoggedInUser) {
             toast.info(`${isAdmin ? "Please logout from admin account!" : "Please login to add items to your wishlist!"}`, toastControls);
             navigate('/account/signin', { state: { from: `/products/${productId}` } });
@@ -297,7 +333,6 @@ const Productpage = () => {
             const idToToggle = product?.id || productId;
             const result = await dispatch(toggleWishlist(idToToggle)).unwrap();
 
-            // FIX: Use product.id for AddToWishlist
             if (result.isInWishlist) {
                 const price = product.sizes?.[0]?.numPrice || 0;
 
@@ -356,6 +391,24 @@ const Productpage = () => {
                 />
             )}
 
+            {/* Render the Overlay outside of the document flow structure */}
+            {zoomState.show && (
+                <div 
+                    className="hidden lg:block bg-zinc-950 rounded-lg shadow-2xl border border-zinc-800 overflow-hidden pointer-events-none"
+                    style={zoomState.style}
+                >
+                    <div
+                        className="w-full h-full"
+                        style={{
+                            backgroundImage: `url(${zoomState.url})`,
+                            backgroundPosition: `${zoomState.x}% ${zoomState.y}%`,
+                            backgroundSize: "400%",
+                            backgroundRepeat: "no-repeat"
+                        }}
+                    />
+                </div>
+            )}
+
             {/* MAIN CONTENT SECTION */}
             <div className="lg:flex lg:gap-10 xl:gap-14 relative max-w-[1600px] mx-auto md:px-8 lg:px-12 xl:px-16 md:py-10">
                 {/* LEFT: IMAGES */}
@@ -373,9 +426,15 @@ const Productpage = () => {
                         {images.map((img, idx) => {
                             if (idx === 0) {
                                 return (
-                                    <div key={`prod-img-${idx}`} className="w-full relative group overflow-hidden rounded-lg border border-zinc-900">
-                                        <img src={img.url} alt={`${name}-${idx}`} className="w-full h-auto object-cover hover:scale-105 transition-transform duration-700 cursor-zoom-in" />
-                                        <div onClick={handleWishlistToggle} className={`absolute top-6 left-6 z-20 w-12 aspect-square rounded-full flex justify-center items-center text-2xl cursor-pointer transition border border-zinc-700 backdrop-blur-sm ${isInWishlist ? 'bg-red-600 text-white border-red-600' : 'bg-black/60 text-white hover:bg-zinc-800'}`}>
+                                    <div 
+                                      key={`prod-img-${idx}`} 
+                                      className="w-full relative group overflow-hidden rounded-lg border border-zinc-900 bg-zinc-950 cursor-crosshair"
+                                      onMouseEnter={(e) => handleMouseEnter(e, img.url)}
+                                      onMouseMove={handleMouseMove}
+                                      onMouseLeave={handleMouseLeave}
+                                    >
+                                        <img src={img.url} alt={`${name}-${idx}`} className="w-full h-auto object-cover" />
+                                        <div onClick={handleWishlistToggle} onMouseMove={(e) => e.stopPropagation()} className={`absolute top-6 left-6 z-20 w-12 aspect-square rounded-full flex justify-center items-center text-2xl cursor-pointer transition border border-zinc-700 backdrop-blur-sm ${isInWishlist ? 'bg-red-600 text-white border-red-600' : 'bg-black/60 text-white hover:bg-zinc-800'}`}>
                                             <Icon icon={isInWishlist ? "mdi:heart" : "mdi:heart-outline"} />
                                         </div>
                                     </div>
@@ -385,8 +444,14 @@ const Productpage = () => {
                         })}
                         <div className="grid grid-cols-2 gap-4">
                             {images.slice(1).map((img, idx) => (
-                                <div key={`prod-img-grid-${idx}`} className="w-full overflow-hidden rounded-lg border border-zinc-900 bg-zinc-950">
-                                    <img src={img.url} alt={`detail-${idx}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-700 cursor-zoom-in" />
+                                <div 
+                                  key={`prod-img-grid-${idx}`} 
+                                  className="w-full overflow-hidden rounded-lg border border-zinc-900 bg-zinc-950 relative cursor-crosshair"
+                                  onMouseEnter={(e) => handleMouseEnter(e, img.url)}
+                                  onMouseMove={handleMouseMove}
+                                  onMouseLeave={handleMouseLeave}
+                                >
+                                    <img src={img.url} alt={`detail-${idx}`} className="w-full h-full object-cover" />
                                 </div>
                             ))}
                         </div>
@@ -394,8 +459,10 @@ const Productpage = () => {
                 </div>
 
                 {/* RIGHT: DETAILS */}
-                <div className="product-right-col w-full lg:w-[40%] md:pt-0 relative">
+                {/* ✅ FIXED: Attach the Ref here to dynamically capture the layout coordinates */}
+                <div ref={rightColRef} className="product-right-col w-full lg:w-[40%] md:pt-0 relative">
                     <div className="sticky top-24 h-fit pb-10">
+                        
                         <div className="product-dets-container">
                             <MainDets selectedSize={selectedSize} setselectedSize={setselectedSize} dets={{ name, description, category, sizes, reviewCount: rating?.count || 0 }} />
                             <ProductQuantity quantitySetter={quantitySetter} quantity={quantity} stockValidation={stockValidation} isValidating={stockValidation.loading} />

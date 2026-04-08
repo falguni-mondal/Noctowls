@@ -100,7 +100,7 @@ const Navbar = ({
     ];
 
     return (
-        <header className='sticky top-0 left-0 z-999 bg-black flex justify-between items-center text-2xl w-full py-4 border-t border-zinc-700 px-5 print:hidden' id="mobile-navbar">
+        <header className='sticky top-0 left-0 z-999 bg-black flex justify-between items-center text-2xl w-full py-4 border-t border-zinc-700 px-5 lg:px-10 print:hidden' id="mobile-navbar">
 
             {/* Hamburger: Hidden on Large Screens */}
             <div className="nav-icon w-[30%] lg:hidden relative">

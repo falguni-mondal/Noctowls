@@ -626,6 +626,25 @@ export const createOrder = async (req, res) => {
       { session }
     );
 
+    // ==================== INVENTORY RESERVATION ====================
+    // Deduct stock immediately to prevent overselling race conditions
+    for (const item of orderItems) {
+      await Product.findOneAndUpdate(
+        {
+          _id: item.product,
+          sizes: { $elemMatch: { value: item.size.value } },
+        },
+        {
+          $inc: {
+            "sizes.$.stock": -item.quantity,
+            totalStock: -item.quantity,
+          },
+        },
+        { session } // Ties it to the transaction. Rolls back safely if aborted!
+      );
+    }
+    // ===============================================================
+
     await session.commitTransaction();
 
     return res.status(201).json({
@@ -726,7 +745,8 @@ export const handleRazorpayWebhook = async (req, res) => {
         razorpaySignature: "webhook_verified_signature",
       });
 
-      // Deduct Stock
+      // ==================== SALES CONFIRMATION ====================
+      // Increment Sales Count (Stock was already deducted during checkout)
       for (const item of order.items) {
         await Product.findOneAndUpdate(
           {
@@ -735,14 +755,13 @@ export const handleRazorpayWebhook = async (req, res) => {
           },
           {
             $inc: {
-              "sizes.$.stock": -item.quantity,
               "sizes.$.salesCount": item.quantity,
-              totalStock: -item.quantity,
               totalSales: item.quantity,
             },
           }
         );
       }
+      // ============================================================
 
       // Coupon Usage
       if (order.coupon && order.coupon.code) {
@@ -914,7 +933,8 @@ export const verifyPayment = async (req, res) => {
     // Complete Payment
     await order.completePayment({ razorpayPaymentId, razorpaySignature });
 
-    // Deduct Stock
+    // ==================== SALES CONFIRMATION ====================
+    // Increment Sales Count (Stock was already deducted during checkout)
     for (const item of order.items) {
       await Product.findOneAndUpdate(
         {
@@ -923,14 +943,13 @@ export const verifyPayment = async (req, res) => {
         },
         {
           $inc: {
-            "sizes.$.stock": -item.quantity,
             "sizes.$.salesCount": item.quantity,
-            totalStock: -item.quantity,
             totalSales: item.quantity,
           },
         }
       );
     }
+    // ============================================================
 
     // Coupon
     if (order.coupon && order.coupon.code) {
@@ -1763,7 +1782,7 @@ export const requestReturn = async (req, res) => {
       if (daysDiff > 7) return res.status(400).json({ message: "Return period has expired" });
     }
 
-    // [!code highlight] 4. MANDATORY BANK DETAILS CHECK FOR COD REFUNDS
+    // 4. MANDATORY BANK DETAILS CHECK FOR COD REFUNDS
     if (order.payment.method === "COD" && type === "refund") {
       if (
         !bankDetails ||

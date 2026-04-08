@@ -493,10 +493,72 @@ const getOneAdminProduct = async (req, res) => {
   }
 };
 
+const inventoryExporter = async (req, res) => {
+  try {
+    // Fetch all products, lean() makes it a plain JS object for faster processing
+    const products = await productModel.find().lean();
+
+    if (!products || products.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No products found to export",
+      });
+    }
+
+    const exportedData = {};
+
+    products.forEach((product) => {
+      const category = product.category;
+
+      // Initialize the category array if it doesn't exist yet
+      if (!exportedData[category]) {
+        exportedData[category] = [];
+      }
+
+      // Flatten the product by creating a separate row for each size variant
+      if (product.sizes && Array.isArray(product.sizes)) {
+        product.sizes.forEach((size) => {
+          exportedData[category].push({
+            "Product ID": product._id.toString(),
+            "Product Name": product.name,
+            "Category": product.category.toUpperCase(),
+            "Status": product.status.toUpperCase(),
+            "Size Variant": size.label || size.value.toUpperCase(),
+            "SKU Code": size.skuCode.toUpperCase(),
+            "Stock Quantity": size.stock,
+            "Original Price (₹)": size.originalPrice,
+            "Selling Price (₹)": size.numPrice,
+            "Discount (%)": size.discount || 0,
+            "HSN Code": product.hsnCode.toUpperCase(),
+            "GST Rate (%)": product.gstRate,
+            "Units Sold": size.salesCount || 0,
+            // "Warehouse Location": product.inventory
+          });
+        });
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Inventory data successfully formatted for export",
+      data: exportedData,
+    });
+
+  } catch (err) {
+    console.error("Inventory Export Error:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to export inventory data",
+      error: process.env.NODE_ENV === "development" ? err.message : undefined,
+    });
+  }
+};
+
 export {
   productAdder,
   productUpdater,
   productDeleter,
   getAllAdminProducts,
   getOneAdminProduct,
+  inventoryExporter,
 };

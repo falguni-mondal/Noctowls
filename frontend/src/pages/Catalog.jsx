@@ -37,19 +37,19 @@ const Catalog = () => {
           products.map((group, index) => (
             <section 
               key={`user-${group.category}-product-list-key`} 
-              className={`w-full py-10 md:py-16 px-4 md:px-8 ${index < products.length - 1 && "border-b border-zinc-800"}`} 
+              className={`w-full py-10 md:py-16 px-5 md:px-10 ${index < products.length - 1 && "border-b border-zinc-800"}`} 
               id={`user-${group.category}-product-list-section`}
             >
               
               {/* Category Heading */}
-              <div className="flex items-center gap-4 mb-6 md:mb-10">
+              <div className="flex items-center gap-4 mb-6 md:mb-10 pl-4 border-l-4 border-red-600">
                 <h2 className='uppercase font-semibold tracking-wider text-xl lg:text-2xl'>
                   {group.category}s
                 </h2>
               </div>
 
               {/* Responsive Grid */}
-              <ul className={`catalog-product-list-container grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-2 gap-y-4 md:gap-x-4 md:gap-y-8`}>
+              <ul className={`catalog-product-list-container grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-2 gap-y-4 md:gap-x-5 md:gap-y-20`}>
                 {
                   group.products.map(product => (
                     <Link key={`catalog-product-${product.id}`} to={`/products/${product.id}`}>

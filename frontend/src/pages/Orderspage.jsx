@@ -93,8 +93,8 @@ const Orderspage = () => {
     <div className="min-h-screen bg-zinc-950 text-zinc-100 pb-20">
       
       {/* --- HEADER --- */}
-      <div className="bg-zinc-900/50 border-b border-zinc-800 pt-6 pb-6 px-4 md:px-8">
-        <div className="max-w-5xl mx-auto">
+      <div className="bg-zinc-900/50 border-b border-zinc-800 pt-6 pb-6 px-5 md:px-10">
+        <div className="max-w-[1600px] mx-auto">
           <div className="flex items-center gap-2 text-sm text-zinc-500 mb-2">
             <Link to="/" className="hover:text-white transition">Home</Link>
             <Icon icon="solar:alt-arrow-right-linear" />
@@ -105,10 +105,9 @@ const Orderspage = () => {
       </div>
 
       {/* --- TABS & CONTENT --- */}
-      <div className="max-w-5xl mx-auto px-4 md:px-8 mt-6">
-        
+      <div className="max-w-[1600px] mx-auto mt-6">
         {/* Scrollable Tabs */}
-        <div className="flex overflow-x-auto gap-2 pb-4 mb-4 scrollbar-hide border-b border-zinc-800/50">
+        <div className="flex overflow-x-auto gap-2 pb-4 mb-4 scrollbar-hide border-b border-zinc-800/50 px-5 md:px-10">
           {tabs.map((tab) => (
             <button
               key={tab.id}
