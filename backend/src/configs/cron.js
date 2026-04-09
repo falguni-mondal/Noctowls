@@ -8,7 +8,7 @@ const startCronJobs = () => {
     cron.schedule('*/5 * * * *', async () => {
         try {
             // 1. Calculate the time 15 minutes ago
-            const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
+            const fifteenMinsAgo = new Date(Date.now() - 10 * 60 * 1000);
 
             // 2. Find all orders stuck in "pending" that are older than 15 mins
             const abandonedOrders = await Order.find({
