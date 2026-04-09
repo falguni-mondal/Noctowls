@@ -35,6 +35,32 @@ export const getAllAdminOrders = createAsyncThunk(
   }
 );
 
+// Export Orders (No Pagination, Fully Filtered)
+export const exportAdminOrders = createAsyncThunk(
+  "adminOrders/exportOrders",
+  async (
+    { status = "", returnStatus = "", search = "", startDate = "", endDate = "", exportType = "all" },
+    { rejectWithValue }
+  ) => {
+    try {
+      const params = new URLSearchParams();
+      if (status) params.append("status", status);
+      if (returnStatus) params.append("returnStatus", returnStatus);
+      if (search) params.append("search", search);
+      if (startDate) params.append("startDate", startDate);
+      if (endDate) params.append("endDate", endDate);
+      params.append("exportType", exportType); // 'all' or 'profit'
+
+      const response = await adminApi.get(`/orders/export?${params.toString()}`);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to export orders"
+      );
+    }
+  }
+);
+
 // 2. Get Single Order Details
 export const getAdminOrderById = createAsyncThunk(
   "adminOrders/getById",
@@ -68,7 +94,7 @@ export const updateAdminOrderStatus = createAsyncThunk(
   }
 );
 
-// 4. [!code ++] MANUAL SHIP ORDER (With Error Parsing)
+// 4. MANUAL SHIP ORDER (With Error Parsing)
 export const shipAdminOrder = createAsyncThunk(
   "adminOrders/shipOrder",
   async (orderId, { rejectWithValue }) => {
@@ -170,6 +196,13 @@ const initialState = {
   // Feedback
   error: null,
   successMessage: null,
+
+  // Export State
+  export: {
+    loading: false,
+    data: null,
+    error: null,
+  },
 };
 
 // ==================== SLICE ====================
@@ -186,6 +219,14 @@ const adminOrderSlice = createSlice({
     },
     clearCurrentAdminOrder: (state) => {
       state.currentOrder = null;
+    },
+    // Clear Export State
+    resetOrderExportState: (state) => {
+      state.export = {
+        loading: false,
+        data: null,
+        error: null,
+      };
     },
   },
   extraReducers: (builder) => {
@@ -205,6 +246,24 @@ const adminOrderSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
         state.orders = [];
+      });
+
+    // --- EXPORT ORDERS ---
+    builder
+      .addCase(exportAdminOrders.pending, (state) => {
+        state.export.loading = true;
+        state.export.error = null;
+        state.export.data = null;
+      })
+      .addCase(exportAdminOrders.fulfilled, (state, action) => {
+        state.export.loading = false;
+        state.export.data = action.payload.orders;
+        state.export.error = null;
+      })
+      .addCase(exportAdminOrders.rejected, (state, action) => {
+        state.export.loading = false;
+        state.export.error = action.payload || "Failed to export orders";
+        state.export.data = null;
       });
 
     // --- GET SINGLE ORDER ---
@@ -260,10 +319,6 @@ const adminOrderSlice = createSlice({
         state.actionLoading = false;
         state.successMessage = action.payload.message;
 
-        // Note: The backend doesn't return the full order object here, 
-        // it returns { success, message, awb }.
-        // Ideally, we should update the local state manually or re-fetch.
-        // Here we update the AWB and Status optimistically if currentOrder matches.
         if (state.currentOrder && action.meta.arg === state.currentOrder._id) {
             state.currentOrder.orderStatus = "shipped";
             state.currentOrder.tracking = {
@@ -273,12 +328,9 @@ const adminOrderSlice = createSlice({
             };
         }
         
-        // Update in the list as well
         const index = state.orders.findIndex((o) => o._id === action.meta.arg);
         if (index !== -1) {
             state.orders[index].orderStatus = "shipped";
-            // We don't have the full tracking object to update the list view perfectly
-            // but status change is enough for the UI to reflect "Shipped"
         }
       })
       .addCase(shipAdminOrder.rejected, (state, action) => {
@@ -297,7 +349,6 @@ const adminOrderSlice = createSlice({
         state.actionLoading = false;
         state.successMessage = action.payload.message;
 
-        // Update in list
         const index = state.orders.findIndex(
           (o) => o._id === action.payload.order._id
         );
@@ -305,7 +356,6 @@ const adminOrderSlice = createSlice({
           state.orders[index] = action.payload.order;
         }
 
-        // Update in details view
         if (state.currentOrder?._id === action.payload.order._id) {
           state.currentOrder = action.payload.order;
         }
@@ -361,6 +411,7 @@ export const {
   clearAdminOrderErrors,
   clearAdminSuccessMessage,
   clearCurrentAdminOrder,
+  resetOrderExportState,
 } = adminOrderSlice.actions;
 
 export const selectAdminOrders = (state) => state.adminOrders.orders;

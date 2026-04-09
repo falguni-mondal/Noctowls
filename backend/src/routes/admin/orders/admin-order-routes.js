@@ -6,7 +6,8 @@ import {
   deleteOrder,
   getOrderStats,
   manageReturnRequest,
-  shipOrder, // <--- 1. Import the new Ship controller
+  shipOrder,
+  ordersExporter,
 } from "../../../controllers/admin/orders/adminOrderControllers.js";
 
 // Import middlewares
@@ -25,6 +26,9 @@ router.get("/stats", isValidUser, isAdmin, getOrderStats);
 // 2. Get All Orders (with Pagination/Search)
 router.get("/", isValidUser, isAdmin, getAllAdminOrders);
 
+//  Export Orders (Must be before /:orderId)
+router.get("/export", isValidUser, isAdmin, ordersExporter);
+
 // 3. Single Order Operations
 router
   .route("/:orderId")
@@ -33,7 +37,7 @@ router
   .delete(isValidUser, isAdmin, deleteOrder);        // Delete Order (Cancelled only)
 
 // 4. Specific Action Routes
-// [!code ++] Route for Manual Shipping (Trigger Delhivery Sync)
+// Route for Manual Shipping (Trigger Delhivery Sync)
 router.post("/:orderId/ship", isValidUser, isAdmin, shipOrder);
 
 // Route for Managing Returns (Approve/Reject)

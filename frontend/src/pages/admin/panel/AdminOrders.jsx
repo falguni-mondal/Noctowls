@@ -10,7 +10,9 @@ import {
   selectAdminOrderStats,
   shipAdminOrder,
   updateAdminOrderStatus, 
-  clearAdminOrderErrors 
+  clearAdminOrderErrors,
+  exportAdminOrders,        // <--- IMPORTED EXPORT THUNK
+  resetOrderExportState     // <--- IMPORTED RESET STATE
 } from '../../../store/features/admin/adminOrderSlice';
 
 // --- SIMPLE ERROR POPUP COMPONENT ---
@@ -57,7 +59,7 @@ const AdminOrders = () => {
   const [currentPage, setCurrentPage] = useState(1);
   
   // REDUX STATE
-  const { orders, loading, pagination, error } = useSelector(state => state.adminOrders);
+  const { orders, loading, pagination, error, export: exportState } = useSelector(state => state.adminOrders);
   const stats = useSelector(selectAdminOrderStats);
 
   // LOCAL STATE FOR POPUPS
@@ -93,7 +95,6 @@ const AdminOrders = () => {
   const handleCancelOrder = async (orderId) => {
     if(!window.confirm("Are you sure you want to cancel this order? This will restock items.")) return;
     setActiveActionMenu(null);
-    // Call the update status thunk with 'cancelled'
     await dispatch(updateAdminOrderStatus({ orderId, status: 'cancelled' }));
   };
 
@@ -134,112 +135,122 @@ const AdminOrders = () => {
       }
   };
 
-  // --- EXPORT FUNCTION ---
-  const handleExport = (type = 'all') => {
-    if (!orders || orders.length === 0) return;
+  // --- EXPORT FUNCTION (UPDATED TO USE BACKEND) ---
+  const handleExport = async (type = 'all') => {
+    setShowExportMenu(false); // Close dropdown menu immediately
 
-    let ordersToExport = orders;
+    try {
+        // 1. Fetch full unpaginated dataset from the backend
+        const resultAction = await dispatch(exportAdminOrders({
+            status: statusFilter,
+            returnStatus: returnStatus,
+            search: searchQuery,
+            startDate,
+            endDate,
+            exportType: type // 'all' or 'profit'
+        })).unwrap();
 
-    // Filter Logic for Profit Export
-    if (type === 'profit') {
-        ordersToExport = orders.filter(order => {
-            const hasActiveReturn = order.returnInfo?.status && order.returnInfo.status !== 'none';
-            const isReturnedStatus = order.orderStatus === 'returned';
-            const isCancelled = order.orderStatus === 'cancelled';
-            const isPaymentComplete = order.payment?.status === 'completed';
+        const ordersList = resultAction.orders;
 
-            // Only include if payment is complete AND not returned/cancelled
-            return !hasActiveReturn && !isReturnedStatus && !isCancelled && isPaymentComplete;
+        if (!ordersList || ordersList.length === 0) {
+            alert(type === 'profit' ? "No profitable orders found based on current filters." : "No orders found.");
+            dispatch(resetOrderExportState());
+            return;
+        }
+
+        // 2. Exact same formatting and mathematical logic
+        let totalSubtotal = 0;
+        let totalDiscount = 0;
+        let totalShipping = 0;
+        let totalCodFee = 0;
+        let totalGst = 0;
+        let totalCgst = 0;
+        let totalSgst = 0;
+        let totalIgst = 0;
+        let grandTotalSum = 0;
+
+        const toNum = (val) => Number(Number(val || 0).toFixed(2));
+
+        const excelData = ordersList.map(order => {
+            const itemsSummary = order.items
+                .map(item => `${item.productName} (x${item.quantity})`)
+                .join(', ');
+
+            const subtotal = toNum(order.pricing.productsSubtotal);
+            const discount = toNum(order.pricing.couponDiscount);
+            const shipping = toNum(order.pricing.shippingCharges);
+            const codFee = toNum(order.pricing.codFee);
+            const gst = toNum(order.totalGST);
+            const cgst = toNum(order.totalCGST);
+            const sgst = toNum(order.totalSGST);
+            const igst = toNum(order.totalIGST);
+            const finalTotal = toNum(order.pricing.finalTotal);
+
+            totalSubtotal += subtotal;
+            totalDiscount += discount;
+            totalShipping += shipping;
+            totalCodFee += codFee;
+            totalGst += gst;
+            totalCgst += cgst;
+            totalSgst += sgst;
+            totalIgst += igst;
+            grandTotalSum += finalTotal;
+
+            return {
+                "Order ID": order.orderNumber,
+                "Date": new Date(order.createdAt).toLocaleDateString(),
+                "Customer Name": order.user ? order.user.name : order.guestInfo?.name || "Guest",
+                "Customer Email": order.user ? order.user.email : order.guestInfo?.email,
+                "Phone": order.shippingAddress?.phone || "N/A",
+                "State": order.shippingAddress?.state || "N/A",
+                "Order Status": order.orderStatus,
+                "Return Status": order.returnInfo?.status !== 'none' ? order.returnInfo?.status : 'N/A',
+                "Payment Method": order.payment.method,
+                "Payment Status": order.payment.status,
+                "Subtotal (Excl. Tax)": subtotal,
+                "Discount": discount,
+                "Shipping": shipping,
+                "COD Fee": codFee,
+                "Total Tax (GST)": gst,
+                "CGST": cgst,
+                "SGST": sgst,
+                "IGST": igst,
+                "Grand Total": finalTotal,
+                "Items Purchased": itemsSummary
+            };
         });
-    }
 
-    if (ordersToExport.length === 0) {
-        alert(type === 'profit' ? "No profitable orders found (Paid & Not Returned/Cancelled)." : "No orders found.");
-        return;
-    }
-
-    let totalSubtotal = 0;
-    let totalDiscount = 0;
-    let totalShipping = 0;
-    let totalCodFee = 0;
-    let totalGst = 0;
-    let totalCgst = 0;
-    let totalSgst = 0;
-    let totalIgst = 0;
-    let grandTotalSum = 0;
-
-    const toNum = (val) => Number(Number(val || 0).toFixed(2));
-
-    const excelData = ordersToExport.map(order => {
-        const itemsSummary = order.items
-            .map(item => `${item.productName} (x${item.quantity})`)
-            .join(', ');
-
-        const subtotal = toNum(order.pricing.productsSubtotal);
-        const discount = toNum(order.pricing.couponDiscount);
-        const shipping = toNum(order.pricing.shippingCharges);
-        const codFee = toNum(order.pricing.codFee);
-        const gst = toNum(order.totalGST);
-        const cgst = toNum(order.totalCGST);
-        const sgst = toNum(order.totalSGST);
-        const igst = toNum(order.totalIGST);
-        const finalTotal = toNum(order.pricing.finalTotal);
-
-        totalSubtotal += subtotal;
-        totalDiscount += discount;
-        totalShipping += shipping;
-        totalCodFee += codFee;
-        totalGst += gst;
-        totalCgst += cgst;
-        totalSgst += sgst;
-        totalIgst += igst;
-        grandTotalSum += finalTotal;
-
-        return {
-            "Order ID": order.orderNumber,
-            "Date": new Date(order.createdAt).toLocaleDateString(),
-            "Customer Name": order.user ? order.user.name : order.guestInfo?.name || "Guest",
-            "Customer Email": order.user ? order.user.email : order.guestInfo?.email,
-            "Phone": order.shippingAddress?.phone || "N/A",
-            "State": order.shippingAddress?.state || "N/A",
-            "Order Status": order.orderStatus,
-            "Return Status": order.returnInfo?.status !== 'none' ? order.returnInfo?.status : 'N/A',
-            "Payment Method": order.payment.method,
-            "Payment Status": order.payment.status,
-            "Subtotal (Excl. Tax)": subtotal,
-            "Discount": discount,
-            "Shipping": shipping,
-            "COD Fee": codFee,
-            "Total Tax (GST)": gst,
-            "CGST": cgst,
-            "SGST": sgst,
-            "IGST": igst,
-            "Grand Total": finalTotal,
-            "Items Purchased": itemsSummary
+        const totalsRow = {
+            "Order ID": "TOTALS",
+            "Subtotal (Excl. Tax)": toNum(totalSubtotal),
+            "Discount": toNum(totalDiscount),
+            "Shipping": toNum(totalShipping),
+            "COD Fee": toNum(totalCodFee),
+            "Total Tax (GST)": toNum(totalGst),
+            "CGST": toNum(totalCgst),
+            "SGST": toNum(totalSgst),
+            "IGST": toNum(totalIgst),
+            "Grand Total": toNum(grandTotalSum),
         };
-    });
 
-    const totalsRow = {
-        "Order ID": "TOTALS",
-        "Subtotal (Excl. Tax)": toNum(totalSubtotal),
-        "Discount": toNum(totalDiscount),
-        "Shipping": toNum(totalShipping),
-        "COD Fee": toNum(totalCodFee),
-        "Total Tax (GST)": toNum(totalGst),
-        "CGST": toNum(totalCgst),
-        "SGST": toNum(totalSgst),
-        "IGST": toNum(totalIgst),
-        "Grand Total": toNum(grandTotalSum),
-    };
+        excelData.push({}, totalsRow);
 
-    excelData.push({}, totalsRow);
+        // 3. Generate SheetJS
+        const worksheet = XLSX.utils.json_to_sheet(excelData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
+        
+        const fileName = `Orders_${type === 'profit' ? 'Profit' : 'All'}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        XLSX.writeFile(workbook, fileName);
 
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
-    
-    const fileName = `Orders_${type === 'profit' ? 'Profit' : 'All'}_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    XLSX.writeFile(workbook, fileName);
+        // 4. Cleanup
+        dispatch(resetOrderExportState());
+
+    } catch (error) {
+        setErrorMessage(typeof error === 'string' ? error : "Failed to export orders.");
+        setShowErrorPopup(true);
+        dispatch(resetOrderExportState());
+    }
   };
 
   const getStatusColor = (status) => {
@@ -337,11 +348,17 @@ const AdminOrders = () => {
           <div className="relative">
             <button 
                 onClick={(e) => { e.stopPropagation(); setShowExportMenu(!showExportMenu); }}
-                disabled={orders.length === 0}
+                disabled={orders.length === 0 || exportState?.loading}
                 className="flex items-center gap-2 bg-green-700 hover:bg-green-600 disabled:bg-zinc-800 disabled:text-zinc-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
             >
-                <Icon icon="file-icons:microsoft-excel" className="text-lg" />
-                <span className="hidden md:inline">Export</span>
+                {exportState?.loading ? (
+                    <Icon icon="eos-icons:loading" className="text-lg" />
+                ) : (
+                    <Icon icon="file-icons:microsoft-excel" className="text-lg" />
+                )}
+                <span className="hidden md:inline">
+                    {exportState?.loading ? "Exporting..." : "Export"}
+                </span>
                 <Icon icon="fluent:chevron-down-12-filled" className="text-xs" />
             </button>
 

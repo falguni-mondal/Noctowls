@@ -768,3 +768,90 @@ export const getOrderStats = async (req, res) => {
     });
   }
 };
+
+// ==================== EXPORT ORDERS (ADMIN) ====================
+export const ordersExporter = async (req, res) => {
+  try {
+    const {
+      status,
+      returnStatus,
+      search,
+      startDate,
+      endDate,
+      exportType // Will be 'all' or 'profit' from the frontend
+    } = req.query;
+
+    const query = {};
+
+    // --- 1. APPLY STANDARD FILTERS (Identical to getAllAdminOrders) ---
+    if (status && status !== "" && status !== "all") {
+      query.orderStatus = status;
+    }
+
+    if (returnStatus) {
+      if (returnStatus === 'active') {
+        query["returnInfo.status"] = { $in: ['requested', 'approved', 'picked', 'received', 'qc_passed'] };
+      } else if (returnStatus === 'history') {
+        query["returnInfo.status"] = { $in: ['completed', 'rejected'] };
+      } else if (returnStatus !== 'all' && returnStatus !== '') {
+        query["returnInfo.status"] = returnStatus;
+      } else if (returnStatus === 'all') {
+        query["returnInfo.status"] = { $ne: 'none' };
+      }
+    }
+
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      query.createdAt = {
+        $gte: start,
+        $lte: end,
+      };
+    }
+
+    if (search) {
+      const searchRegex = new RegExp(search, "i");
+      query.$or = [
+        { orderNumber: searchRegex },
+        { "guestInfo.email": searchRegex },
+        { "guestInfo.name": searchRegex },
+        { "shippingAddress.phone": searchRegex },
+        { "shippingAddress.fullName": searchRegex },
+      ];
+    }
+
+    // --- 2. THE PROFIT FLAG LOGIC ---
+    if (exportType === 'profit') {
+      query["payment.status"] = "completed"; // Must actually have the money
+      query.orderStatus = { $nin: ["cancelled", "returned"] }; // Must not be dead orders
+      query["returnInfo.isReturnActive"] = { $ne: true }; // Must not be in the middle of a return dispute
+    }
+
+    // --- 3. FETCH FULL DATASET (NO PAGINATION) ---
+    const orders = await Order.find(query)
+      .populate("user", "name email phone")
+      .sort({ createdAt: -1 });
+
+    if (!orders || orders.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No orders found matching the specified criteria for export."
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Orders fetched successfully for export",
+      orders, // Sending the raw, full array for the frontend to format
+    });
+  } catch (error) {
+    console.error("Orders Exporter Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to export orders",
+      error: error.message,
+    });
+  }
+};
