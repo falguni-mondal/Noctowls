@@ -1087,11 +1087,10 @@ export const getOrders = async (req, res) => {
       query.deviceId = deviceId;
     }
 
-    // [MODIFICATION]: Smart Filter for "Ghost Orders".
-    // We want to hide ONLINE orders that are abandoned (payment pending).
-    // Logic: Show order IF Payment Status is NOT pending.
+    // Show the order if payment is NOT pending, OR if payment method is COD.
     query.$or = [
-      { "payment.status": { $ne: "pending" } }
+      { "payment.status": { $ne: "pending" } },
+      { "payment.method": "COD" }
     ];
 
     // If a specific status is requested (e.g. "delivered"), add it to the query
@@ -1099,7 +1098,6 @@ export const getOrders = async (req, res) => {
       query.orderStatus = status;
     }
 
-    // [NOTE]: Removed .lean() to allow virtuals (e.g. canBeReturned) to work
     const orders = await Order.find(query)
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))

@@ -235,16 +235,21 @@ export const optionalAuth = async (req, res, next) => {
   const refreshToken = req.cookies.refreshToken;
   const reqDeviceId = req.cookies.device_id;
   
-
   // If no tokens at all, continue as guest
   if (!accessToken && !refreshToken) {
     req.user = null;
     if(!reqDeviceId){
       const deviceId = randomUUID();
+      
+      // [MODIFICATION]: Added strict cross-origin cookie rules here!
       res.cookie("device_id", deviceId, {
         ...cookieOptions,
         maxAge: 365 * 24 * 60 * 60 * 1000,
+        domain: ".noctowls.com",
+        secure: true,
+        sameSite: "none"
       });
+      
       req.cookies.device_id = deviceId;
     }
     return next();
@@ -252,7 +257,6 @@ export const optionalAuth = async (req, res, next) => {
 
   // If access token exists, try to verify it
   if (!accessToken) {
-    // [!code change] Pass 'true' for isOptional
     return await refreshTokenSetup(req, res, next, refreshToken, true);
   } else {
     try {
@@ -264,7 +268,6 @@ export const optionalAuth = async (req, res, next) => {
         "User Validation Error (auth mid): ",
         accessTokenErr.message
       );
-      // [!code change] Pass 'true' for isOptional
       return await refreshTokenSetup(req, res, next, refreshToken, true);
     }
   }
