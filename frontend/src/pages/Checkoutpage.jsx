@@ -3,7 +3,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
-// ✅ Order slice imports
 import {
   createOrder,
   verifyPayment,
@@ -37,6 +36,9 @@ import {
 import { selectIsAuthenticated } from '../store/features/user/authSlice';
 
 import toastControls from '../utils/global/toastControls';
+
+// IMPORT GOOGLE PIXEL TRACKING
+import { fireGooglePurchasePixel } from '../utils/googleTracking';
 
 // IMPORT META PIXEL TRACKING
 import { trackEvent } from '../utils/pixel/pixel';
@@ -352,7 +354,6 @@ const CheckoutPage = () => {
 
     const productsSubtotal = orderSummary.productsSubtotal || 0;
     const couponDiscount = orderSummary.couponDiscount || 0;
-    // ✅ CHANGED: Round to integer
     const subtotalAfterCoupon = Math.round(productsSubtotal - couponDiscount);
     const codFee = paymentMethod === 'COD' ? 49 : 0;
     const finalTotal = subtotalAfterCoupon + codFee;
@@ -414,7 +415,7 @@ const CheckoutPage = () => {
             })
           ).unwrap();
 
-          // TRACK PURCHASE EVENT
+          // TRACK PURCHASE EVENT (META)
           trackEvent('Purchase', {
             content_name: `Order #${verifyResult.order.orderNumber}`,
             content_ids: orderSummary?.items?.map((item) => item.product._id) || [],
@@ -423,6 +424,15 @@ const CheckoutPage = () => {
             currency: 'INR',
             order_id: verifyResult.order.orderId,
             num_items: orderSummary?.items?.length
+          });
+
+          // TRACK PURCHASE EVENT (GOOGLE)
+          fireGooglePurchasePixel({
+            orderNumber: verifyResult.order.orderNumber,
+            finalTotal: totals.finalTotal,
+            items: orderSummary?.items,
+            email: isGuest ? guestInfo.email : '',
+            phone: getShippingAddress()?.phone || ''
           });
 
           toast.success('Payment successful! Order confirmed.', toastControls);
