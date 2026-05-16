@@ -785,23 +785,30 @@ orderSchema.pre("save", async function () {
   }
 });
 
-// 3. Auto-calculate pricing totals (Existing)
+// 3. Auto-calculate pricing totals
 orderSchema.pre("save", function () {
+  if (!this.isModified("items") && !this.isModified("coupon") && !this.isNew) {
+    return;
+  }
+
   if (!this.pricing) this.pricing = {};
 
+  // Use inclusive price (priceWithGST) instead of base price (itemTotal)
   this.pricing.productsSubtotal = this.items.reduce(
-    (sum, item) => sum + item.itemTotal,
+    (sum, item) => sum + (item.priceWithGST || item.itemTotal),
     0
   );
 
   const discount = this.pricing.couponDiscount || 0;
-  this.pricing.subtotalAfterCoupon = this.pricing.productsSubtotal - discount;
+  
+  // Math.max prevents the value from ever dropping below 0
+  this.pricing.subtotalAfterCoupon = Math.max(0, this.pricing.productsSubtotal - discount);
 
+  // Final total (Do not double-add tax here, as productsSubtotal is already inclusive)
   this.pricing.finalTotal =
     this.pricing.subtotalAfterCoupon +
     (this.pricing.codFee || 0) +
-    (this.pricing.shippingCharges || 0) +
-    (this.pricing.tax || 0);
+    (this.pricing.shippingCharges || 0);
 });
 
 // 4. Update status timestamps
@@ -860,6 +867,7 @@ orderSchema.methods.cancelOrder = async function (cancelledBy, reason) {
         "out-for-delivery",
         "delivered",
         "returned",
+        "cancelled",
       ];
       
       if (nonRefundableStatuses.includes(this.orderStatus)) {
