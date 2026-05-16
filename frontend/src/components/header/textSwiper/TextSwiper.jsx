@@ -13,7 +13,7 @@ const TextSwiper = () => {
   const texts = [
     "MADE IN INDIA",
     "POWERED BY TECHBOX HINDI ON YOUTUBE",
-    "ASSURED GIFT FOR THE FIRST 150 ORDERS",
+    "ASSURED GIFT FOR EVERY ORDER",
   ];
 
   return (
