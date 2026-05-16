@@ -3,9 +3,9 @@ import Marquee from 'react-fast-marquee';
 const HomeMarquee = () => {
     const titles = [
         "🔥live now",
-        "✨*first 150 orders get a keychain*",
-        "🎊*buy 2 and get a free anime figure (worth ₹300)*",
-        "🎉*buy 3 and get a free anime-style katana (worth ₹600)*",
+        "✨*Get a keychain on every order*",
+        "🎊*Buy 2 and get a free anime figure (worth ₹300)*",
+        "🎉*Buy 3 and get a free anime-style katana (worth ₹600)*",
     ]
     return (
         <div className='w-full overflow-x-hidden uppercase font-semibold text-sm bg-red-600 text-zinc-100 relative' id='home-marquee'>
