@@ -12,7 +12,7 @@ const FooterAbout = () => {
             <div className="footer-contact">
                 <h3 className='footer-section-heading font-semibold tracking-wider mt-3 capitalize'>contact us</h3>
                 <div className='contact-det'>
-                    <p>Whatsapp: 8348341112 (Not for Calling).</p>
+                    <p>Whatsapp: 8348341116 (Whatsapp Only).</p>
                     <p>Email: help.noctowls@gmail.com</p>
                 </div>
             </div>
