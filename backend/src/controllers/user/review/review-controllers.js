@@ -1,6 +1,6 @@
 import Review from "../../../models/review-model.js";
-import Order from "../../../models/order-model.js";
-// ✅ CHANGED: Imported processAndUploadImage from the new utility file
+// Uncomment the line below if you decide to re-enable purchase verification later
+// import Order from "../../../models/order-model.js"; 
 import { processAndUploadImage, cleanupUploadedImages } from "../../../utils/imageUtils.js";
 import { deleteWithRetry } from "../../../configs/imagekit.js";
 import { updateProductRating } from "../../../utils/helpers/rating-helper.js";
@@ -26,6 +26,11 @@ export const checkReviewEligibility = async (req, res) => {
       });
     }
 
+    /* 
+    // ==========================================
+    // VERIFIED PURCHASE CHECK (COMMENTED OUT)
+    // Uncomment this block to enforce that only users who bought the product can review
+    // ==========================================
     const query = {
       "items.product": productId,
       orderStatus: "delivered",
@@ -42,6 +47,8 @@ export const checkReviewEligibility = async (req, res) => {
         message: "Verified purchase required.",
       });
     }
+    // ==========================================
+    */
 
     return res.status(200).json({
       canReview: true,
@@ -65,6 +72,11 @@ export const createReview = async (req, res) => {
     const deviceId = req.cookies.device_id;
     const files = req.files;
 
+    /*
+    // ==========================================
+    // VERIFIED PURCHASE CHECK (COMMENTED OUT)
+    // Uncomment this block to enforce that only users who bought the product can review
+    // ==========================================
     const purchaseQuery = { "items.product": productId, orderStatus: "delivered" };
     if (userId) purchaseQuery.user = userId;
     else purchaseQuery.deviceId = deviceId;
@@ -73,12 +85,14 @@ export const createReview = async (req, res) => {
     if (!hasPurchased) {
       return res.status(403).json({ success: false, message: "Purchase verification failed." });
     }
+    // ==========================================
+    */
 
     let reviewImages = [];
     if (files && files.length > 0) {
       const filesToUpload = files.slice(0, 5);
       
-      // ✅ CHANGED: Use Promise.all with processAndUploadImage
+      // Use Promise.all with processAndUploadImage
       const uploadPromises = filesToUpload.map((file) =>
         processAndUploadImage(file, `reviews/${productId}`)
       );
@@ -111,7 +125,7 @@ export const createReview = async (req, res) => {
       review: newReview,
     });
   } catch (error) {
-    // ✅ ADDED: Rollback logic (Cleanup images if DB save fails)
+    // Rollback logic (Cleanup images if DB save fails)
     if (uploadedImagesRecord.length > 0) {
       await cleanupUploadedImages(uploadedImagesRecord);
     }
@@ -238,7 +252,7 @@ export const updateReview = async (req, res) => {
 
     let newUploadedImages = [];
     if (newFiles.length > 0) {
-      // ✅ CHANGED: Use Promise.all with processAndUploadImage
+      // Use Promise.all with processAndUploadImage
       const uploadPromises = newFiles.map((file) => 
         processAndUploadImage(file, `reviews/${review.product}`)
       );
@@ -267,7 +281,7 @@ export const updateReview = async (req, res) => {
   } catch (error) {
     console.error("Update Review Error:", error);
 
-    // ✅ ADDED: Rollback new images if update fails
+    // Rollback new images if update fails
     if (uploadedImagesRecord.length > 0) {
       await cleanupUploadedImages(uploadedImagesRecord);
     }
