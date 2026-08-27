@@ -39,7 +39,7 @@ const Phase00 = () => {
     dispatch(
       getProductsByGroupAndCategory({
         category: "deskmat",
-        group: "anime",
+        group: "phase-00",
       })
     );
     return () => dispatch(clearFilteredProducts());
