@@ -10,17 +10,13 @@ import {
   resetUpdateProductState
 } from '../../../../store/features/admin/adminProductSlice';
 
-// Shared Components
 import GeneralInputs from '../../../../components/admin/product/add&update/GeneralInputs';
 import SizingInputs from '../../../../components/admin/product/add&update/SizingInputs';
 import OtherInputs from '../../../../components/admin/product/add&update/OtherInputs';
-
-// Update-Specific Components
 import UpdateMainImages from '../../../../components/admin/product/add&update/UpdateMainImages';
 import UpdateHighlightImages from '../../../../components/admin/product/add&update/UpdateHighlightImages';
 import StatusInput from '../../../../components/admin/product/add&update/StatusInput';
 
-// Constants
 import {
   SIZE_VALUES_BY_PRODUCT,
   ALLOWED_IMAGE_TYPES,
@@ -32,24 +28,24 @@ const UpdateProduct = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  // Redux state
   const { adminProduct, adminProductLoading } = useSelector(state => state.adminProducts);
   const { loading, success, error } = useSelector(state => state.adminProducts.update);
 
   // Form state
   const [reveal, setReveal] = useState({
     category: false,
+    group: false,
     inventory: false,
     status: false,
   });
   const [prodCategory, setProdCategory] = useState("deskmat");
+  const [prodGroup, setProdGroup] = useState("General");
   const [prodInventory, setProdInventory] = useState("Shri Bhumi Park, Bidhannagar");
   const [prodStatus, setProdStatus] = useState("published");
   const [sizes, setSizes] = useState([]);
   const [productName, setProductName] = useState("");
   const [productDescription, setProductDescription] = useState("");
 
-  // Image state
   const mainImageCount = IMAGE_COUNTS_BY_CATEGORY[prodCategory].main;
   const highlightImageCount = IMAGE_COUNTS_BY_CATEGORY[prodCategory].highlight;
   const [mainImages, setMainImages] = useState(Array(mainImageCount).fill(null));
@@ -57,7 +53,6 @@ const UpdateProduct = () => {
   const [mainImagesChanged, setMainImagesChanged] = useState(Array(mainImageCount).fill(false));
   const [highlightImagesChanged, setHighlightImagesChanged] = useState(Array(highlightImageCount).fill(false));
 
-  // Error state
   const [errors, setErrors] = useState({
     general: [],
     size: {},
@@ -66,12 +61,9 @@ const UpdateProduct = () => {
     others: []
   });
 
-  // Refs
   const mainImageInputRefs = useRef([]);
   const highlightImageInputRefs = useRef([]);
   const formRef = useRef(null);
-
-  // ==================== HELPER FUNCTIONS ====================
 
   const updateSize = (value, field, val) => {
     setSizes(prev =>
@@ -267,7 +259,6 @@ const UpdateProduct = () => {
         sizeErrors.push('Original price must be greater than 0');
       }
 
-      // ✅ UPDATE: Validate numPrice instead of discount
       if (size.numPrice === undefined || size.numPrice === null || size.numPrice < 0) {
         sizeErrors.push('Discounted price is required and cannot be negative');
       } else if (size.numPrice > size.originalPrice) {
@@ -322,6 +313,7 @@ const UpdateProduct = () => {
     formData.append('name', productName);
     formData.append('description', productDescription);
     formData.append('category', prodCategory);
+    formData.append('group', prodGroup.toLowerCase().replace(/\s+/g, '-'));
     formData.append('inventory', prodInventory);
     formData.append('status', prodStatus);
     formData.append('sizes', JSON.stringify(sizes));
@@ -385,8 +377,6 @@ const UpdateProduct = () => {
     await dispatch(updateProduct({ productId, formData }));
   };
 
-  // ==================== EFFECTS ====================
-
   useEffect(() => {
     if (productId) {
       dispatch(getOneAdminProduct(productId));
@@ -398,6 +388,7 @@ const UpdateProduct = () => {
       setProductName(adminProduct.name || "");
       setProductDescription(adminProduct.description || "");
       setProdCategory(adminProduct.category || "deskmat");
+      setProdGroup(adminProduct.group || "General");
       setProdInventory(adminProduct.inventory || "Shri Bhumi Park, Bidhannagar");
       setProdStatus(adminProduct.status || "published");
 
@@ -483,16 +474,11 @@ const UpdateProduct = () => {
   useEffect(() => {
     return () => {
       dispatch(resetUpdateProductState());
-
       mainImages.forEach(img => {
-        if (img?.type === 'new' && img?.preview) {
-          URL.revokeObjectURL(img.preview);
-        }
+        if (img?.type === 'new' && img?.preview) URL.revokeObjectURL(img.preview);
       });
       highlightImages.forEach(img => {
-        if (img?.type === 'new' && img?.preview) {
-          URL.revokeObjectURL(img.preview);
-        }
+        if (img?.type === 'new' && img?.preview) URL.revokeObjectURL(img.preview);
       });
     };
   }, [dispatch]);
@@ -502,13 +488,12 @@ const UpdateProduct = () => {
 
     setSizes(prev => {
       const filtered = prev.filter(s => allowedSizes.includes(s.value));
-
       const missing = allowedSizes
         .filter(v => !filtered.some(s => s.value === v))
         .map(v => ({
           value: v,
           originalPrice: 0,
-          numPrice: 0, // ✅ ADD THIS
+          numPrice: 0,
           discount: 0,
           stock: 0,
           skuCode: "",
@@ -517,8 +502,6 @@ const UpdateProduct = () => {
       return [...filtered, ...missing];
     });
   }, [prodCategory]);
-
-  // ==================== RENDER ====================
 
   if (adminProductLoading) {
     return (
@@ -545,11 +528,12 @@ const UpdateProduct = () => {
       </h1>
 
       <form id='update-product-form' onSubmit={handleSubmit} ref={formRef}>
-        {/* General Inputs */}
         <GeneralInputs
           mode="update"
           prodCategory={prodCategory}
           setProdCategory={setProdCategory}
+          prodGroup={prodGroup}
+          setProdGroup={setProdGroup}
           productName={productName}
           setProductName={setProductName}
           productDescription={productDescription}
@@ -559,14 +543,12 @@ const UpdateProduct = () => {
           setReveal={setReveal}
         />
 
-        {/* Sizing Inputs */}
         <SizingInputs
           sizes={sizes}
           updateSize={updateSize}
           errors={errors}
         />
 
-        {/* Main Images */}
         <UpdateMainImages
           mainImages={mainImages}
           mainImagesChanged={mainImagesChanged}
@@ -577,7 +559,6 @@ const UpdateProduct = () => {
           errors={errors}
         />
 
-        {/* Highlight Images */}
         <UpdateHighlightImages
           highlightImages={highlightImages}
           highlightImagesChanged={highlightImagesChanged}
@@ -588,7 +569,6 @@ const UpdateProduct = () => {
           errors={errors}
         />
 
-        {/* Other Inputs (with Status) */}
         <OtherInputs
           mode="update"
           prodInventory={prodInventory}
@@ -597,7 +577,6 @@ const UpdateProduct = () => {
           reveal={reveal}
           setReveal={setReveal}
         >
-          {/* Status Input (update-only) */}
           <StatusInput
             prodStatus={prodStatus}
             setProdStatus={setProdStatus}
@@ -606,7 +585,6 @@ const UpdateProduct = () => {
           />
         </OtherInputs>
 
-        {/* Submit Buttons */}
         <section className="update-product-btns w-full mt-10 flex gap-3">
           <button
             type='button'

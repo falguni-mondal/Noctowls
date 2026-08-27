@@ -3,8 +3,11 @@ import Homepage from '../pages/Homepage';
 import Account from '../pages/auth/Account';
 import Productpage from '../pages/Productpage';
 import Catalog from '../pages/Catalog';
+import Collection from '../pages/Collection';
 import PublicOnly from '../guards/PublicOnly';
 import AdminPublicOnly from '../guards/admin/AdminPublicOnly';
+
+
 import AdminOnly from '../guards/admin/AdminOnly';
 import AdminSignin from '../pages/admin/auth/AdminSignin';
 import AdminVerify from '../pages/admin/auth/AdminVerify';
@@ -39,6 +42,7 @@ import PrivacyPolicy from '../pages/policies/PrivacyPolicy';
 import CookiePolicy from '../pages/policies/CookiePolicy';
 import Disclaimer from '../pages/policies/Disclaimer';
 import OrderReturnPage from '../pages/OrderReturnPage';
+import Phase00 from '../pages/Phase00';
 
 
 const PageRouter = () => {
@@ -49,6 +53,8 @@ const PageRouter = () => {
       <Route path='/contact' element={<Contact />} />
       <Route path='/products/:productId' element={<Productpage />} />
       <Route path="/products/:productId/reviews" element={<AllReviews />} />
+      <Route path="/collection/:category/:group" element={<Collection />} />
+      <Route path="/phase-00" element={<Phase00 />} />
 
       {/* --- POLICY ROUTES --- */}
       <Route path="/policies/shipping-policy" element={<ShippingPolicy />} />

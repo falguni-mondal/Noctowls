@@ -249,12 +249,13 @@ export const searchProducts = async (req, res) => {
     // Create a case-insensitive regex
     const searchRegex = new RegExp(q, "i");
 
-    // Search in Name, Category, or Description
     const products = await Product.find({
       status: "published",
       $or: [
         { name: searchRegex },
         { category: searchRegex },
+        { group: searchRegex },
+        { type: searchRegex },
         { description: searchRegex },
       ],
     })
@@ -276,6 +277,59 @@ export const searchProducts = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to search products",
+      error: process.env.NODE_ENV === "development" ? err.message : undefined,
+    });
+  }
+};
+
+
+
+export const getProductsByGroupAndCategory = async (req, res) => {
+  try {
+    // Extract group and category from search params, defaulting category to "deskmat"
+    const { group, category } = req.query;
+
+    if (!group || group.trim() === "" || !category || category.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "Both group and category parameters are required",
+      });
+    }
+
+    // Case-insensitive exact match using regex boundaries
+    const query = {
+      status: "published",
+      group: new RegExp(`^${group.trim()}$`, "i"),
+      category: new RegExp(`^${category.trim()}$`, "i"),
+    };
+
+    const products = await Product.find(query).select("-__v").lean();
+
+    // Return empty array if none found (best practice for filters)
+    if (!products || products.length === 0) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        products: [],
+        message: "No products found for this group and category",
+      });
+    }
+
+    // Format the results
+    const formattedProducts = products.map((product) =>
+      productForList(product)
+    );
+
+    return res.status(200).json({
+      success: true,
+      count: formattedProducts.length,
+      products: formattedProducts,
+    });
+  } catch (err) {
+    console.error("Filter by group error:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch filtered products",
       error: process.env.NODE_ENV === "development" ? err.message : undefined,
     });
   }

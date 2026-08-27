@@ -31,6 +31,8 @@ export const productForAdminList = (product) => {
     name: product.name,
     slug: product.slug,
     category: product.category,
+    group: product.group,
+    type: product.type,
 
     image: product.images[0] || null,
 
@@ -63,6 +65,8 @@ export const productForAdminDetail = (product) => {
     slug: product.slug,
     description: product.description,
     category: product.category,
+    group: product.group,
+    type: product.type,
     status: product.status,
     inventory: product.inventory,
     
@@ -86,6 +90,8 @@ export const productForList = (product) => {
     id: product._id,
     name: product.name,
     category: product.category,
+    group: product.group,
+    type: product.type,
 
     images: [product.images?.[0], product.images?.[1]],
 
@@ -114,6 +120,8 @@ export const productForDetail = (product) => {
     name: product.name,
     description: product.description,
     category: product.category,
+    group: product.group,
+    type: product.type,
     
     // All images
     images: product.images || [],

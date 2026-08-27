@@ -77,9 +77,14 @@ const Navbar = ({
 
     // Main Navigation Links
     const links = [
-        { title: "home", link: "/" },
-        { title: "catalog", link: "/catalog" },
-        { title: "contact", link: "/contact" },
+        { title: "Anime", link: "/collection/deskmat/anime", isPhase: false },
+        { title: "Marvel", link: "/collection/deskmat/marvel", isPhase: false },
+        { title: "Games", link: "/collection/deskmat/games", isPhase: false },
+        { title: "Grid & Lines", link: "/collection/deskmat/grid-and-lines", isPhase: false },
+        { title: "Japanese Art", link: "/collection/deskmat/japanese-art", isPhase: false },
+        { title: "Fantasy", link: "/collection/deskmat/fantasy", isPhase: false },
+        { title: "phase 00", link: "/phase-00", isPhase: true },
+        { title: "contact", link: "/contact", isPhase: false },
     ];
 
     // User Dropdown Links
@@ -100,7 +105,7 @@ const Navbar = ({
     ];
 
     return (
-        <header className='sticky top-0 left-0 z-999 bg-black flex justify-between items-center text-2xl w-full py-4 border-t border-zinc-700 px-5 lg:px-10 print:hidden' id="mobile-navbar">
+        <header className='sticky top-0 left-0 z-[999] bg-black flex justify-between items-center text-2xl w-full py-4 border-t border-zinc-700 px-5 lg:px-10 print:hidden' id="mobile-navbar">
 
             {/* Hamburger: Hidden on Large Screens */}
             <div className="nav-icon w-[30%] lg:hidden relative">
@@ -121,10 +126,11 @@ const Navbar = ({
 
                 {/* Desktop Navigation Links */}
                 <ul className="hidden lg:flex items-center gap-8 text-sm font-medium text-zinc-300">
-                    {links.map(({ title, link }) => (
+                    {links.map(({ title, link, isPhase }) => (
                         <li key={`${title}-desktop-nav`} className="relative group">
+                            
                             {/* Visual Representation */}
-                            <span className="capitalize group-hover:text-white transition-colors pointer-events-none">
+                            <span className={`transition-colors pointer-events-none ${isPhase ? "phase-shine phase-txt uppercase" : "group-hover:text-white capitalize"}`}>
                                 {title}
                             </span>
                             
@@ -138,7 +144,7 @@ const Navbar = ({
                         </li>
                     ))}
 
-                    {/* [!code ++] Whatsapp Navigation (Desktop Only) */}
+                    {/* Whatsapp Navigation (Desktop Only) */}
                     <li className="relative group">
                         <a 
                             href="https://wa.me/+918348341112"

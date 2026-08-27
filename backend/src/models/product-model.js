@@ -159,6 +159,18 @@ const productSchema = new mongoose.Schema(
       enum: PRODUCT_CATEGORIES,
       lowercase: true,
     },
+    
+    type: {
+      type: String,
+      lowercase: true,
+      trim: true,
+    },
+
+    group: {
+      type: String,
+      default: "General",
+      trim: true,
+    },
 
     // ---------- GST & HSN Fields ----------
     hsnCode: {
@@ -260,9 +272,15 @@ productSchema.virtual("reviews", {
   foreignField: "product",
 });
 
-// ---------- Auto GST & HSN Assignment ----------
+// ---------- Auto Value Assignments (Type, GST, HSN) ----------
 // Note: Must be pre('validate') because fields are required
 productSchema.pre("validate", function () {
+  
+  // Auto-assign type based on category if not explicitly provided
+  if (this.category && !this.type) {
+    this.type = this.category;
+  }
+
   // If category is set and matches our mapping
   if (this.category && GST_MAPPING[this.category]) {
     const rules = GST_MAPPING[this.category];

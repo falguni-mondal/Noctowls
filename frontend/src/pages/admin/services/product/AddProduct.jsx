@@ -6,14 +6,12 @@ import MiniLoading from '../../../../utils/loader/MiniLoading';
 import toastControls from "../../../../utils/global/toastControls";
 import { addProduct, resetAddProductState } from '../../../../store/features/admin/adminProductSlice';
 
-// Components
 import GeneralInputs from '../../../../components/admin/product/add&update/GeneralInputs';
 import SizingInputs from '../../../../components/admin/product/add&update/SizingInputs';
 import MainImages from '../../../../components/admin/product/add&update/MainImages';
 import HighlightImages from '../../../../components/admin/product/add&update/HighlightImages';
 import OtherInputs from '../../../../components/admin/product/add&update/OtherInputs';
 
-// Constants
 import { 
   SIZE_VALUES_BY_PRODUCT, 
   ALLOWED_IMAGE_TYPES,
@@ -24,15 +22,16 @@ const AddProduct = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  // Redux state
   const { loading, success, error } = useSelector(state => state.adminProducts.add);
 
   // Form state
   const [reveal, setReveal] = useState({
     category: false,
+    group: false,
     inventory: false,
   });
   const [prodCategory, setProdCategory] = useState("deskmat");
+  const [prodGroup, setProdGroup] = useState("General");
   const [prodInventory, setProdInventory] = useState("Shri Bhumi Park, Bidhannagar");
   const [sizes, setSizes] = useState([]);
 
@@ -51,12 +50,9 @@ const AddProduct = () => {
     others: []
   });
 
-  // Refs
   const mainImageInputRefs = useRef([]);
   const highlightImageInputRefs = useRef([]);
   const formRef = useRef(null);
-
-  // ==================== HELPER FUNCTIONS ====================
 
   const initializeSizesForCategory = (category) => {
     const allowedSizes = SIZE_VALUES_BY_PRODUCT[category] || [];
@@ -84,6 +80,7 @@ const AddProduct = () => {
     const defaultCategory = "deskmat";
 
     setProdCategory(defaultCategory);
+    setProdGroup("General");
     setProdInventory("Shri Bhumi Park, Bidhannagar");
     setSizes(initializeSizesForCategory(defaultCategory));
     setMainImages(Array(IMAGE_COUNTS_BY_CATEGORY[defaultCategory].main).fill(null));
@@ -309,6 +306,7 @@ const AddProduct = () => {
     formData.append('name', formElement.name.value);
     formData.append('description', formElement.description.value);
     formData.append('category', prodCategory);
+    formData.append('group', prodGroup.toLowerCase().replace(/\s+/g, '-'));
     formData.append('inventory', prodInventory);
     formData.append('sizes', JSON.stringify(sizes));
 
@@ -340,8 +338,6 @@ const AddProduct = () => {
 
     await dispatch(addProduct(formData));
   };
-
-  // ==================== EFFECTS ====================
 
   useEffect(() => {
     if (success) {
@@ -433,8 +429,6 @@ const AddProduct = () => {
     };
   }, []);
 
-  // ==================== RENDER ====================
-
   return (
     <div className='px-3 py-10' id='add-product-page'>
       <h1 className='ad-product-heading text-2xl font-semibold mb-3'>
@@ -442,23 +436,22 @@ const AddProduct = () => {
       </h1>
 
       <form id='add-product-form' onSubmit={handleSubmit} ref={formRef}>
-        {/* General Inputs */}
         <GeneralInputs
           prodCategory={prodCategory}
           setProdCategory={setProdCategory}
+          prodGroup={prodGroup}
+          setProdGroup={setProdGroup}
           errors={errors}
           reveal={reveal}
           setReveal={setReveal}
         />
 
-        {/* Sizing Inputs */}
         <SizingInputs
           sizes={sizes}
           updateSize={updateSize}
           errors={errors}
         />
 
-        {/* Main Images */}
         <MainImages
           mainImages={mainImages}
           mainImageCount={mainImageCount}
@@ -468,7 +461,6 @@ const AddProduct = () => {
           errors={errors}
         />
 
-        {/* Highlight Images */}
         <HighlightImages
           highlightImages={highlightImages}
           highlightImageCount={highlightImageCount}
@@ -478,7 +470,6 @@ const AddProduct = () => {
           errors={errors}
         />
 
-        {/* Other Inputs */}
         <OtherInputs
           prodInventory={prodInventory}
           setProdInventory={setProdInventory}
@@ -487,7 +478,6 @@ const AddProduct = () => {
           setReveal={setReveal}
         />
 
-        {/* Submit Buttons */}
         <section className="w-full mt-10 flex flex-col gap-2" id='add-product-btns'>
           <button
             type='submit'

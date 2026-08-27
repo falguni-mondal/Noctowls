@@ -9,7 +9,7 @@ const isAddProductFormValid = (req, res, next) => {
     };
 
     // Extract data from request
-    const { name, description, category, sizes, inventory } = req.body;
+    const { name, description, category, group, sizes, inventory } = req.body;
     const mainImages = req.files?.["mainImages"] || [];
     const highlightImages = req.files?.["highlightImages"] || [];
 
@@ -46,6 +46,15 @@ const isAddProductFormValid = (req, res, next) => {
       errors.general.push("Product category is required");
     } else if (!validCategories.includes(category)) {
       errors.general.push("Invalid product category");
+    }
+
+    // Validate group
+    if (!group || typeof group !== "string") {
+      errors.general.push("Product group is required");
+    } else if (group.trim().length < 5) {
+      errors.general.push("Product group must be at least 5 characters long");
+    } else if (group.trim().length > 100) {
+      errors.general.push("Product group cannot exceed 100 characters");
     }
 
     // ==================== SIZE VALIDATIONS ====================
@@ -317,6 +326,7 @@ const isAddProductFormValid = (req, res, next) => {
       name: name.trim(),
       description: description.trim(),
       category,
+      group: group.trim(), // ✅ Correctly assigned for the controller
       sizes: parsedSizes,
       inventory,
       mainImages,

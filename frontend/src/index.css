@@ -25,3 +25,44 @@ input[type="number"] {
   appearance: textfield;
   -moz-appearance: textfield;
 }
+
+.phase-txt{
+  font-family: "Orbitron", sans-serif;
+}
+
+
+/* --- CUSTOM NAV SHINE ANIMATION --- */
+@property --color-base {
+  syntax: "<color>";
+  initial-value: #ef4444;
+  inherits: false;
+}
+
+@property --color-shine {
+  syntax: "<color>";
+  initial-value: #fecaca;
+  inherits: false;
+}
+
+.phase-shine {
+  --color-base: #ef4444;
+  --color-shine: #fecaca;
+  background: linear-gradient(45deg, var(--color-base) 0%, var(--color-base) 35%, var(--color-shine) 50%, var(--color-base) 65%, var(--color-base) 100%);
+  background-size: 270% 100%;
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shine 3s ease-in-out infinite;
+  transition: --color-base 0.4s ease, --color-shine 0.4s ease;
+}
+
+.group:hover .phase-shine {
+  --color-base: #ffffff;
+  --color-shine: #ef4444;
+}
+
+@keyframes shine {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0% 0; }
+}

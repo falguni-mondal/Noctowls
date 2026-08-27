@@ -17,7 +17,7 @@ export const getAllProducts = createAsyncThunk(
   }
 );
 
-// New Thunk for Best Sellers
+// Thunk for Best Sellers
 export const getBestSellingProducts = createAsyncThunk(
   "product/getBestSellingProducts",
   async (limit = 4, { rejectWithValue }) => {
@@ -32,7 +32,7 @@ export const getBestSellingProducts = createAsyncThunk(
   }
 );
 
-// New Thunk for Search
+// Thunk for Search
 export const searchProducts = createAsyncThunk(
   "product/searchProducts",
   async (query, { rejectWithValue }) => {
@@ -42,6 +42,25 @@ export const searchProducts = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to search products"
+      );
+    }
+  }
+);
+
+
+// Thunk for Filtering by Group & Category
+export const getProductsByGroupAndCategory = createAsyncThunk(
+  "product/getProductsByGroupAndCategory",
+  // We set the default category here in the frontend!
+  async ({ group, category }, { rejectWithValue }) => {
+    try {
+      const response = await userApi.get(
+        `/products/filter?group=${encodeURIComponent(group)}&category=${encodeURIComponent(category)}`
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch filtered products"
       );
     }
   }
@@ -93,10 +112,15 @@ const initialState = {
   bestSellingLoading: false,
   bestSellingError: null,
 
-  // Search Results (NEW)
+  // Search Results
   searchResults: [],
   searchLoading: false,
   searchError: null,
+
+  // Filtered Results
+  filteredProducts: [],
+  filteredLoading: false,
+  filteredError: null,
 
   // Single Product
   product: null,
@@ -134,11 +158,18 @@ const productSlice = createSlice({
       state.productsError = null;
     },
 
-    // NEW: Clear Search Results
+    // Clear Search Results
     clearSearchResults: (state) => {
       state.searchResults = [];
       state.searchError = null;
       state.searchLoading = false;
+    },
+
+    // Clear Filtered Results
+    clearFilteredProducts: (state) => {
+      state.filteredProducts = [];
+      state.filteredError = null;
+      state.filteredLoading = false;
     },
 
     // Clear all errors
@@ -147,6 +178,7 @@ const productSlice = createSlice({
       state.productError = null;
       state.bestSellingError = null;
       state.searchError = null;
+      state.filteredError = null;
     },
 
     // Clear stock validation
@@ -194,7 +226,7 @@ const productSlice = createSlice({
         state.bestSellingProducts = [];
       });
 
-    // ===== SEARCH PRODUCTS (NEW) =====
+    // ===== SEARCH PRODUCTS =====
     builder
       .addCase(searchProducts.pending, (state) => {
         state.searchLoading = true;
@@ -209,6 +241,24 @@ const productSlice = createSlice({
         state.searchLoading = false;
         state.searchError = action.payload;
         state.searchResults = [];
+      });
+
+
+    // ===== GET FILTERED PRODUCTS ========
+    builder
+      .addCase(getProductsByGroupAndCategory.pending, (state) => {
+        state.filteredLoading = true;
+        state.filteredError = null;
+      })
+      .addCase(getProductsByGroupAndCategory.fulfilled, (state, action) => {
+        state.filteredLoading = false;
+        state.filteredProducts = action.payload.products;
+        state.filteredError = null;
+      })
+      .addCase(getProductsByGroupAndCategory.rejected, (state, action) => {
+        state.filteredLoading = false;
+        state.filteredError = action.payload;
+        state.filteredProducts = [];
       });
 
     // ===== GET ONE PRODUCT =====
@@ -256,6 +306,7 @@ export const {
   clearProduct, 
   clearProducts, 
   clearSearchResults, 
+  clearFilteredProducts,
   clearErrors, 
   clearStockValidation 
 } = productSlice.actions;
@@ -265,6 +316,8 @@ export const selectBestSellingProducts = (state) => state.products.bestSellingPr
 export const selectBestSellingLoading = (state) => state.products.bestSellingLoading;
 export const selectSearchResults = (state) => state.products.searchResults;
 export const selectSearchLoading = (state) => state.products.searchLoading;
+export const selectFilteredProducts = (state) => state.products.filteredProducts;
+export const selectFilteredLoading = (state) => state.products.filteredLoading;
 
 // Reducer
 export default productSlice.reducer;

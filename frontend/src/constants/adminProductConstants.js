@@ -5,6 +5,16 @@ export const PRODUCT_CATEGORIES = [
   "anime-katana"
 ];
 
+export const PRODUCT_GROUPS = [
+  "Phase 00",
+  "Anime",
+  "Marvel",
+  "Games",
+  "Grid and Lines",
+  "Japanese Art",
+  "Fantasy"
+];
+
 export const PRODUCT_INVENTORY = [
   "Sanmilan, Yuri Gagarin Path, Muchipara"
 ];

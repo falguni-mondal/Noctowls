@@ -1,11 +1,13 @@
 import { Icon } from '@iconify/react/dist/iconify.js';
 import { useRef, useEffect } from 'react';
 import ErrorDisplay from './ErrorDisplay';
-import { PRODUCT_CATEGORIES } from '../../../../constants/adminProductConstants';
+import { PRODUCT_CATEGORIES, PRODUCT_GROUPS } from '../../../../constants/adminProductConstants';
 
 const GeneralInputs = ({
   prodCategory,
   setProdCategory,
+  prodGroup,
+  setProdGroup,
   productName,
   setProductName,
   productDescription,
@@ -16,6 +18,7 @@ const GeneralInputs = ({
   mode = 'add' // 'add' or 'update'
 }) => {
   const categoryRef = useRef(null);
+  const groupRef = useRef(null);
 
   const revealer = (key) => {
     setReveal(prev => ({ ...prev, [key]: !prev[key] }));
@@ -25,6 +28,9 @@ const GeneralInputs = ({
     const handleClickOutside = (e) => {
       if (categoryRef.current && !categoryRef.current.contains(e.target)) {
         setReveal(prev => ({ ...prev, category: false }));
+      }
+      if (groupRef.current && !groupRef.current.contains(e.target)) {
+        setReveal(prev => ({ ...prev, group: false }));
       }
     };
 
@@ -108,7 +114,10 @@ const GeneralInputs = ({
           {PRODUCT_CATEGORIES.map(category => (
             <li
               key={`${category}-category-key`}
-              onClick={() => setProdCategory(category)}
+              onClick={() => {
+                setProdCategory(category);
+                setReveal(prev => ({ ...prev, category: false }));
+              }}
               className='w-full py-2 px-3 capitalize hover:bg-indigo-300 hover:text-black cursor-pointer'
             >
               {category}
@@ -116,6 +125,38 @@ const GeneralInputs = ({
           ))}
         </ul>
       </div>
+
+      {/* Product Group */}
+      <div className={`${mode}-prod-group w-full flex flex-col relative`}>
+        <label className='text-sm mb-0.5 w-fit'>Product Group</label>
+        <div
+          ref={groupRef}
+          onClick={() => revealer("group")}
+          className={`${mode}-prod-group-preview w-full flex justify-between items-center p-2 rounded-[3px] bg-zinc-800 capitalize cursor-pointer`}
+        >
+          <p>{prodGroup}</p>
+          <Icon icon="iconoir:nav-arrow-down" />
+        </div>
+        <ul 
+          className={`${mode}-prod-group-list w-full rounded-[3px] bg-zinc-950 absolute z-50 top-full left-0 overflow-hidden ${
+            reveal.group ? "mt-1" : "h-0 m-0"
+          }`}
+        >
+          {PRODUCT_GROUPS.map(group => (
+            <li
+              key={`${group}-group-key`}
+              onClick={() => {
+                setProdGroup(group);
+                setReveal(prev => ({ ...prev, group: false }));
+              }}
+              className='w-full py-2 px-3 capitalize hover:bg-indigo-300 hover:text-black cursor-pointer'
+            >
+              {group}
+            </li>
+          ))}
+        </ul>
+      </div>
+
     </section>
   );
 };

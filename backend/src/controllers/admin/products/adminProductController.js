@@ -44,7 +44,7 @@ const productAdder = async (req, res) => {
   let uploadedImagesRecord = [];
 
   try {
-    const { name, description, category, sizes, inventory } = req.product;
+    const { name, description, category, group, sizes, inventory } = req.product;
 
     const mainImages = req.files.mainImages || [];
     const highlightImages = req.files.highlightImages || [];
@@ -100,6 +100,7 @@ const productAdder = async (req, res) => {
       name,
       description,
       category,
+      group,
       sizes,
       inventory,
       images: formattedMainImages,
@@ -116,7 +117,6 @@ const productAdder = async (req, res) => {
   } catch (error) {
     console.error("PRODUCT ADD ERROR:", error);
 
-    // ✅ ROLLBACK: Delete images if DB creation fails
     if (uploadedImagesRecord.length > 0) {
       await cleanupUploadedImages(uploadedImagesRecord);
     }
@@ -139,6 +139,7 @@ const productUpdater = async (req, res) => {
       name,
       description,
       category,
+      group,
       sizes,
       inventory,
       status,
@@ -277,6 +278,7 @@ const productUpdater = async (req, res) => {
     product.name = name;
     product.description = description;
     product.category = category;
+    product.group = group; // ✅ SAVE UPDATED GROUP TO DATABASE
     product.sizes = sizes;
     product.inventory = inventory;
     product.status = status;

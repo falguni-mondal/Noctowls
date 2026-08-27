@@ -12,6 +12,7 @@ const isUpdateProductFormValid = (req, res, next) => {
       name,
       description,
       category,
+      group, // ✅ Extracted group
       sizes,
       inventory,
       status,
@@ -64,6 +65,14 @@ const isUpdateProductFormValid = (req, res, next) => {
       errors.general.push("Product category is required");
     } else if (!validCategories.includes(category)) {
       errors.general.push("Invalid product category");
+    }
+
+    if (!group || typeof group !== "string") {
+      errors.general.push("Product group is required");
+    } else if (group.trim().length < 5) {
+      errors.general.push("Product group must be at least 5 characters long");
+    } else if (group.trim().length > 100) {
+      errors.general.push("Product group cannot exceed 100 characters");
     }
 
     const validStatuses = ["published", "archived"];
@@ -216,7 +225,6 @@ const isUpdateProductFormValid = (req, res, next) => {
       errors.general.push("Invalid existing images data");
     }
 
-    // ✅ NEW: Validate Indices Match
     if (newMainImages.length !== mainImagesIndices.length) {
       errors.images.push("Mismatch between uploaded main images and their target indices");
     }
@@ -224,7 +232,6 @@ const isUpdateProductFormValid = (req, res, next) => {
       errors.highlightImg.push("Mismatch between uploaded highlight images and their target indices");
     }
 
-    // ✅ NEW: Validate Indices Range
     mainImagesIndices.forEach(idx => {
       const parsedIdx = parseInt(idx);
       if (isNaN(parsedIdx) || parsedIdx < 0 || parsedIdx >= expectedCounts.main) {
@@ -312,6 +319,7 @@ const isUpdateProductFormValid = (req, res, next) => {
       name: name.trim(),
       description: description.trim(),
       category,
+      group: group.trim(),
       sizes: parsedSizes,
       inventory,
       status,
