@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useParams } from "react-router-dom";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -12,6 +13,9 @@ import {
   clearFilteredProducts,
 } from "../store/features/user/productSlice";
 
+// --- IMPORT CENTRAL LORE DATA ---
+import { moonPhasesData } from "../utils/moonData"; // Adjust path to where you saved moonData.js
+
 // --- IMPORT MODULAR COMPONENTS ---
 import GalaxyBackground from "../components/phase00/GalaxyBackground";
 import PhaseIntro from "../components/phase00/PhaseIntro";
@@ -19,14 +23,20 @@ import PhaseNavigator from "../components/phase00/PhaseNavigator";
 import PhaseProducts from "../components/phase00/PhaseProducts";
 import PhaseHeroComingSoon from "../components/phase00/PhaseHeroComingSoon";
 
-// Register ScrollTrigger for the Parallax depth effect
+// Register ScrollTrigger
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
-const Phase00 = () => {
+const Moon = () => {
   const dispatch = useDispatch();
   const containerRef = useRef(null);
 
-  // --- 1. ADDED STATE FOR INTRO ANIMATION ---
+  // --- 1. DYNAMIC ROUTING & DATA LOOKUP ---
+  const { phase } = useParams(); // Grabs the "00", "01", etc., from the URL
+  
+  // Find the exact phase in our dictionary, fallback to "00" if URL is invalid
+  const currentPhase = moonPhasesData.find((p) => p.id === phase) || moonPhasesData[0];
+
+  // --- 2. STATE ---
   const [introFinished, setIntroFinished] = useState(false);
 
   // Grab state from Redux
@@ -34,18 +44,18 @@ const Phase00 = () => {
   const loading = useSelector(selectFilteredLoading);
   const error = useSelector((state) => state.products.filteredError);
 
-  // --- 2. FETCH DATA ---
+  // --- 3. DYNAMIC FETCH DATA ---
   useEffect(() => {
     dispatch(
       getProductsByGroupAndCategory({
         category: "deskmat",
-        group: "phase-00",
+        group: `phase-${currentPhase.id}`, // Dynamically fetches phase-00, phase-01, etc.
       })
     );
     return () => dispatch(clearFilteredProducts());
-  }, [dispatch]);
+  }, [dispatch, currentPhase.id]); // Re-runs fetch whenever the URL phase changes
 
-  // --- 3. MODERN LENIS SMOOTH SCROLL ---
+  // --- 4. MODERN LENIS SMOOTH SCROLL ---
   useEffect(() => {
     const lenis = new Lenis({
       lerp: 0.1, 
@@ -67,17 +77,25 @@ const Phase00 = () => {
     };
   }, []);
 
-  // --- 4. GSAP ANIMATIONS (Intro + Parallax) ---
+  // --- 5. GSAP ANIMATIONS (Cinematic Pan + Marquee) ---
   useGSAP(
     () => {
-      // Removed the global onComplete trigger from here
+      // --- INFINITE FOOTER MARQUEE ---
+      gsap.to(".marquee-track", {
+        xPercent: -50,
+        ease: "none",
+        duration: 59, 
+        repeat: -1,
+      });
+
+      // --- INTRO SEQUENCE (Plays unconditionally on mount) ---
       const tl = gsap.timeline();
       const animationDuration = 5.5; 
 
       // INITIAL STATES
       gsap.set(".dial-wheel", { rotation: -315 });
 
-      // PART A: INTRO ANIMATION
+      // PART A: INTRO DIAL ANIMATION
       tl.to(".dial-wheel", {
         rotation: 0,
         duration: animationDuration,
@@ -91,7 +109,7 @@ const Phase00 = () => {
         .fromTo(".dial-border", { borderColor: "#3f3f46" }, { borderColor: "#d4d4d8", duration: animationDuration, ease: "power2.inOut" }, "<")
         .fromTo(".calibrating-text", { color: "#d4d4d8" }, { color: "#71717A", duration: animationDuration, ease: "power2.inOut" }, "<")
 
-        // Pause to admire the locked-in Phase 00 on the white background
+        // Pause to admire the dial
         .to({}, { duration: 0.8 })
 
         // Explode the Dial 
@@ -101,97 +119,77 @@ const Phase00 = () => {
           duration: 0.8,
           ease: "power2.out",
         })
-        // Fade out the White Overlay to seamlessly reveal the Halfmoon & Black Galaxy underneath
-        .to(
-          ".intro-overlay",
-          {
-            opacity: 0,
-            display: "none",
-            duration: 0.6,
-          },
-          "-=0.4"
-        )
+        // Fade out White Overlay 
+        .to(".intro-overlay", { opacity: 0, display: "none", duration: 0.6 }, "-=0.4")
 
-        // STAGGER IN PAGE ELEMENTS
-        .from(
-          ".hero-element",
-          {
-            y: 40,
-            opacity: 0,
-            duration: 1,
-            stagger: 0.15,
-            ease: "power3.out",
-            // --- TRIGGER STATE EARLY ---
-            // Fires the exact moment the text begins fading upward into view
-            onStart: () => setIntroFinished(true), 
-          },
-          "-=0.2"
-        )
-        .from(
-          ".void-content",
-          {
-            opacity: 0,
-            y: 30,
-            duration: 1,
-            ease: "power2.out",
-          },
-          "-=0.6"
-        );
+        // ==========================================
+        // PART B: TRUE CINEMATIC CAMERA PAN
+        // ==========================================
+        .to(".moon-canvas", {
+          y: "-150vh",
+          scale: 1.6,
+          opacity: 0,
+          filter: "blur(20px)",
+          duration: 3.5,
+          ease: "power3.inOut"
+        }, "-=0.2")
 
-      // PART B: ENHANCED PARALLAX SCROLL EFFECT
-      gsap.to([".parallax-text-top", ".parallax-text-bottom"], {
-        y: 180, 
-        ease: "none",
-        scrollTrigger: {
-          trigger: ".parallax-container",
-          start: "top top",
-          end: "bottom top",
-          scrub: true,
-        },
-      });
+        // PART C: HERO TEXT REVEAL
+        .to(".hero-text-element", {
+          y: 0,
+          opacity: 1,
+          duration: 1.5,
+          stagger: 0.2,
+          ease: "expo.out",
+          onStart: () => {
+            setIntroFinished(true);
+          }, 
+        }, "-=2.2")
 
-      gsap.to(".moon-canvas", {
-        y: -90, 
-        ease: "none",
-        scrollTrigger: {
-          trigger: ".parallax-container",
-          start: "top top",
-          end: "bottom top",
-          scrub: true,
-        },
-      });
-
+        // Reveal the rest of the page content
+        .from(".void-content", {
+          opacity: 0,
+          y: 40,
+          duration: 1.2,
+          ease: "power2.out",
+        }, "-=1.0");
+        
     },
-    { scope: containerRef }
+    { scope: containerRef } 
   );
+
+  // Generate the dynamic text string for the marquee
+  const marqueeText = `PHASE ${currentPhase.id} • ${currentPhase.name.toUpperCase()} • THE LUNAR CYCLE • PHASE ${currentPhase.id} • ${currentPhase.name.toUpperCase()} • THE LUNAR CYCLE • `;
 
   return (
     <div
       ref={containerRef}
       className="min-h-screen bg-[#000000] relative selection:bg-red-600 selection:text-white overflow-hidden"
     >
-      {/* 1. Base Layer: Stars */}
       <GalaxyBackground className="z-0" />
 
-      {/* 2. Intro Animation Component */}
       <PhaseIntro />
       
-      {/* 3. The Moon & Hero Text Component (Receiving early trigger) */}
-      <PhaseHeroComingSoon introFinished={introFinished} />
+      {/* PASS THE DYNAMIC DATA DOWN TO HERO */}
+      <PhaseHeroComingSoon introFinished={introFinished} currentPhase={currentPhase} />
 
-      {/* 4. Page Content */}
       <div className="void-content relative z-20 px-5 lg:px-10 max-w-[1600px] mx-auto mt-10">
         
-        {/* Nav Component */}
-        <PhaseNavigator />
+        {/* PASS THE CURRENT PHASE ID TO NAVIGATOR */}
+        <PhaseNavigator currentPhaseId={currentPhase.id} />
 
-        {/* Product Grid Component */}
-        <PhaseProducts products={products} loading={loading} error={error} />
+        {/* --- FIX APPLIED HERE: Added currentPhase={currentPhase} --- */}
+        <PhaseProducts products={products} loading={loading} error={error} currentPhase={currentPhase} />
 
-        {/* Footer Marquee Graphic */}
+        {/* DYNAMIC INFINITE MARQUEE */}
         <div className="mt-32 border-t border-zinc-900 pt-8 overflow-hidden relative">
-          <div className="phase-txt whitespace-nowrap flex text-zinc-800 text-6xl md:text-9xl tracking-tighter select-none">
-            PHASE 00 • GENESIS • THE BEGINNING • PHASE 00 • GENESIS • THE BEGINNING •
+          <div className="marquee-track flex w-max">
+            <div className="phase-txt whitespace-nowrap pr-10 text-zinc-800 text-6xl md:text-9xl tracking-tighter select-none">
+              {marqueeText}
+            </div>
+            <div className="phase-txt whitespace-nowrap pr-10 text-zinc-800 text-6xl md:text-9xl tracking-tighter select-none">
+              {marqueeText}
+            </div>
           </div>
         </div>
         
@@ -200,4 +198,4 @@ const Phase00 = () => {
   );
 };
 
-export default Phase00;
+export default Moon;

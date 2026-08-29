@@ -3,7 +3,11 @@ import { Link } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import GlassProductCard from "./GlassProductCard"; // Adjust path as needed
 
-const PhaseProducts = ({ products, loading, error }) => {
+// 1. Added currentPhase to the destructured props
+const PhaseProducts = ({ products, loading, error, currentPhase }) => {
+  // Safe check in case the prop hasn't mounted yet
+  const isPhase00 = !currentPhase || currentPhase.id === "00";
+
   return (
     <div className="products-section">
       {loading ? (
@@ -36,20 +40,27 @@ const PhaseProducts = ({ products, loading, error }) => {
           </button>
         </div>
       ) : products && products.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center bg-[#13131313] backdrop-blur-[2px] rounded-2xl border border-zinc-800 border-dashed">
+        <div className="flex flex-col items-center justify-center py-20 text-center bg-[#13131313] backdrop-blur-[2px] rounded-2xl border border-zinc-800 border-dashed transition-all duration-500">
           <div className="w-20 h-20 bg-[#0a0a0a] rounded-full flex items-center justify-center mb-6">
             <Icon
-              icon="solar:moon-fog-broken"
+              // Optional: You could even make the icon dynamic here!
+              icon={isPhase00 ? "solar:moon-fog-broken" : currentPhase.icon}
               className="text-4xl text-zinc-600"
             />
           </div>
+          
+          {/* 2. DYNAMIC HEADING */}
           <h2 className="phase-txt text-2xl text-white mb-2 uppercase tracking-widest">
-            The Void is Empty
+            {isPhase00 ? "The Void is Empty" : "Coming Soon"}
           </h2>
+          
+          {/* 3. DYNAMIC SUBHEADING / LORE */}
           <p className="text-zinc-500 max-w-md mx-auto mb-8">
-            The Genesis artifacts are currently unavailable. The cycle will
-            refresh soon.
+            {isPhase00 
+              ? "The Genesis artifacts are currently unavailable. The cycle will refresh soon."
+              : currentPhase.lore}
           </p>
+          
           <Link
             to="/"
             className="phase-txt tracking-widest bg-red-600 text-white px-8 py-3 rounded-full text-sm hover:bg-red-700 transition-colors shadow-lg shadow-red-600/20"

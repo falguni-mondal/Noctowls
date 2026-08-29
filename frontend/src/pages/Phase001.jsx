@@ -27,8 +27,6 @@ const Phase00 = () => {
   const containerRef = useRef(null);
 
   // --- 1. SESSION STORAGE LOGIC ---
-  // Lazy initialize state so it checks storage synchronously before the first render
-  // This prevents the intro from flashing on screen for a split second if skipped
   const [hasIntroPlayed] = useState(() => {
     return sessionStorage.getItem("phase00IntroPlayed") === "true";
   });

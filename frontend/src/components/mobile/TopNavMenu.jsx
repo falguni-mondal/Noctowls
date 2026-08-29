@@ -12,7 +12,7 @@ const TopNavMenu = ({ showNav, setShowNav }) => {
         { title: "Grid & Lines", link: "/collection/deskmat/grid-and-lines", isPhase: false },
         { title: "Japanese Art", link: "/collection/deskmat/japanese-art", isPhase: false },
         { title: "Fantasy", link: "/collection/deskmat/fantasy", isPhase: false },
-        { title: "phase 00", link: "/phase-00", isPhase: true },
+        { title: "phase 00", link: "/series/moon/00", isPhase: true },
         { title: "contact", link: "/contact", isPhase: false },
     ];
 

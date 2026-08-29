@@ -42,7 +42,7 @@ import PrivacyPolicy from '../pages/policies/PrivacyPolicy';
 import CookiePolicy from '../pages/policies/CookiePolicy';
 import Disclaimer from '../pages/policies/Disclaimer';
 import OrderReturnPage from '../pages/OrderReturnPage';
-import Phase00 from '../pages/Phase00';
+import Moon from '../pages/Moon';
 
 
 const PageRouter = () => {
@@ -54,7 +54,7 @@ const PageRouter = () => {
       <Route path='/products/:productId' element={<Productpage />} />
       <Route path="/products/:productId/reviews" element={<AllReviews />} />
       <Route path="/collection/:category/:group" element={<Collection />} />
-      <Route path="/phase-00" element={<Phase00 />} />
+      <Route path="/series/moon/:phase" element={<Moon />} />
 
       {/* --- POLICY ROUTES --- */}
       <Route path="/policies/shipping-policy" element={<ShippingPolicy />} />
