@@ -7,27 +7,20 @@ const HomeProductSection = () => {
   const products = useSelector(state => state.products.products);
 
   return (
-    // Added md:px-8 lg:px-16 for responsive horizontal padding
-    <section className='w-full px-5 lg:px-10 bg-black' id='home-product-section'>
+    // Replaced bg-black with the light theme background bg-[#f4f4f4]
+    <section className='w-full px-5 lg:px-10 bg-[#f4f4f4]' id='home-product-section'>
       {
         products &&
         products.map((group, index) => (
-          // Increased vertical padding for tablets/desktops (md:py-14)
-          <section key={`user-${group.category}-product-list-key`} className={`w-full py-10 pb-28 md:py-14 md:pb-28 ${index < products.length-1 && "border-b border-zinc-900/50"}`} id={`user-${group.category}-product-list-section`}>
+          // Changed border-zinc-900/50 to border-zinc-200 for a subtle light divider
+          <section key={`user-${group.category}-product-list-key`} className={`w-full py-10 pb-28 md:py-14 md:pb-28 ${index < products.length-1 && "border-b border-zinc-200"}`} id={`user-${group.category}-product-list-section`}>
             
-            {/* Scaled up font size for section headers on larger screens (md:text-xl lg:text-2xl) */}
-            <h2 className='uppercase font-bold tracking-wide w-full mb-4 md:mb-8 text-xl md:text-2xl border-l-4 border-l-red-600 pl-2'>{group.category}s</h2>
+            {/* Added explicit text-[#0f0f0f] to match the global text color for high contrast */}
+            <h2 className='uppercase font-bold text-[#0f0f0f] tracking-wide w-full mb-4 md:mb-8 text-xl md:text-2xl border-l-4 border-l-red-600 pl-2'>
+              {group.category}s
+            </h2>
             
-            {/* Responsive Grid System:
-                - Mobile: grid-cols-2 (Unchanged)
-                - Tablet (md): grid-cols-3
-                - Desktop (lg): grid-cols-4
-                - Large Desktop (xl): grid-cols-5
-                
-                Responsive Spacing:
-                - Mobile: gap-x-4 gap-y-8 (Unchanged)
-                - Tablet/Desktop: gap-x-6 gap-y-10
-            */}
+            {/* Responsive Grid System */}
             <ul className={`homepage-product-list-container grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-2 gap-y-4 md:gap-x-5 md:gap-y-20`}>
               {
                 group.products.map(product => (
