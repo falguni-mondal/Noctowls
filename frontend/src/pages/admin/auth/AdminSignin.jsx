@@ -61,77 +61,83 @@ const AdminSignin = () => {
     return (
         <div className="w-full px-5 py-20 md:max-w-md md:mx-auto md:px-0" id="sign-in-page">
             <div className="account-header-container">
-                <h1 className="account-heading text-3xl uppercase font-medium text-center leading-none px-3">
+                {/* Light theme heading */}
+                <h1 className="account-heading text-3xl uppercase font-bold text-[#0f0f0f] text-center leading-none px-3 tracking-wide">
                     noctowls member account
                 </h1>
             </div>
             <div className="admin-signin-main-content">
                 <div className="admin-signin-subheader">
-                    <p className="admin-signin-subheading w-[24ch] text-center mx-auto leading-none mt-5 text-zinc-300">
+                    {/* Light theme subheading */}
+                    <p className="admin-signin-subheading w-[24ch] text-center mx-auto leading-none mt-5 text-zinc-600 font-medium">
                         Sign in with admin id and password.
                     </p>
                 </div>
 
-                <form className="mt-5" id="admin-signin-form" onSubmit={handleSubmit}>
-                    {/* Email */}
-                    <div className="input-container w-full rounded-[3px] border border-zinc-900 p-1">
+                <form className="mt-6" id="admin-signin-form" onSubmit={handleSubmit}>
+                    {/* Email Input */}
+                    <div className="input-container w-full rounded-lg border border-zinc-300 p-2 bg-white shadow-sm focus-within:border-red-500 focus-within:ring-1 focus-within:ring-red-500/50 transition-all">
                         <label
-                            className="form-input-label admin-signin-input-label capitalize text-xs text-zinc-400 block"
+                            className="form-input-label admin-signin-input-label text-[10px] font-bold uppercase tracking-wider text-zinc-500 block ml-1"
                             htmlFor="admin-signin-id"
                         >
                             admin id
                         </label>
 
                         <input
-                            className="w-full border-0 outline-0 bg-transparent text-white"
+                            className="w-full border-0 outline-0 bg-transparent text-[#0f0f0f] font-medium px-1 mt-1 placeholder-zinc-400"
                             type="email"
                             id="admin-signin-id"
                             name="email"
+                            placeholder="email@example.com"
                         />
                     </div>
 
                     {/* Email Error */}
                     {errors.email && (
-                        <p className="text-red-500 text-xs mt-1">{errors.email}</p>
+                        <p className="text-red-600 font-medium text-xs mt-1.5 ml-1">{errors.email}</p>
                     )}
 
-                    {/* Password */}
-                    <div className="input-container w-full rounded-[3px] border border-zinc-900 p-1 pr-0 mt-4 relative">
+                    {/* Password Input */}
+                    <div className="input-container w-full rounded-lg border border-zinc-300 p-2 pr-0 mt-5 bg-white shadow-sm focus-within:border-red-500 focus-within:ring-1 focus-within:ring-red-500/50 transition-all relative flex">
                         <div className="password-input-container w-[85%]">
                             <label
-                                className="form-input-label admin-signin-input-label capitalize text-xs text-zinc-400 block"
+                                className="form-input-label admin-signin-input-label text-[10px] font-bold uppercase tracking-wider text-zinc-500 block ml-1"
                                 htmlFor="admin-signin-password"
                             >
                                 password
                             </label>
 
                             <input
-                                className="w-full border-0 outline-0 bg-transparent text-white"
+                                className="w-full border-0 outline-0 bg-transparent text-[#0f0f0f] font-medium px-1 mt-1 placeholder-zinc-400"
                                 type={passwordVisible ? "text" : "password"}
                                 id="admin-signin-password"
                                 name="password"
+                                placeholder="••••••••"
                             />
                         </div>
 
+                        {/* Light Theme Eye Icon Toggle */}
                         <span
                             onClick={() => setPasswordVisible((prev) => !prev)}
-                            className={`absolute top-1/2 right-0 -translate-y-1/2 h-[50px] w-[15%] flex items-center justify-center cursor-pointer ${passwordVisible ? "text-indigo-600" : "text-white"
-                                }`}
+                            className={`absolute top-0 right-0 h-full w-[15%] flex items-center justify-center cursor-pointer transition-colors ${
+                                passwordVisible ? "text-red-600" : "text-zinc-400 hover:text-[#0f0f0f]"
+                            }`}
                         >
-                            <Icon icon="hugeicons:view" />
+                            <Icon icon="hugeicons:view" className="text-lg" />
                         </span>
                     </div>
 
                     {/* Password Error */}
                     {errors.password && (
-                        <p className="text-red-500 text-xs mt-1">{errors.password}</p>
+                        <p className="text-red-600 font-medium text-xs mt-1.5 ml-1">{errors.password}</p>
                     )}
 
                     {/* Submit Button */}
-                    <div className="form-btn-container admin-signin-btn-container mt-5 w-full uppercase text-xs font-medium">
+                    <div className="form-btn-container admin-signin-btn-container mt-8 w-full uppercase text-xs font-bold tracking-widest">
                         <button
                             key="admin-signin-btn"
-                            className="bg-indigo-700 rounded-[3px] w-full h-[45px] leading-none uppercase disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="bg-[#0f0f0f] text-white rounded-lg w-full h-[50px] flex items-center justify-center uppercase hover:bg-zinc-800 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:shadow-none disabled:cursor-not-allowed transition-all shadow-md"
                             type="submit"
                             disabled={login.status === "loading"}
                         >
@@ -142,9 +148,9 @@ const AdminSignin = () => {
 
                 {/* Server Error */}
                 {login.error && (
-                    <p className="text-red-500 text-center text-xs mt-3">
-                        {login.error?.message || login.error}
-                    </p>
+                    <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-600 text-sm font-medium text-center">
+                        <p>{login.error?.message || login.error}</p>
+                    </div>
                 )}
             </div>
         </div>

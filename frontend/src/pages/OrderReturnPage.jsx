@@ -114,46 +114,49 @@ const OrderReturnPage = () => {
 
   if (loading || !order) {
     return (
-      <div className="min-h-screen bg-black flex justify-center items-center">
+      <div className="min-h-screen bg-[#f4f4f4] flex justify-center items-center">
         <Loader />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black text-zinc-100 pb-20 pt-8">
+    // Light theme main wrapper
+    <div className="min-h-screen bg-[#f4f4f4] text-[#0f0f0f] pb-20 pt-8 font-sans">
       <div className="max-w-2xl mx-auto px-4 md:px-6">
         
         {/* Header */}
         <div className="mb-8">
           <Link 
             to={`/orders/${orderId}`}
-            className="flex items-center gap-2 text-sm text-zinc-500 mb-4 hover:text-zinc-300 transition-colors w-fit"
+            className="flex items-center gap-2 text-sm text-zinc-500 font-bold mb-4 hover:text-red-600 transition-colors w-fit"
           >
             <Icon icon="solar:arrow-left-linear" /> Cancel & Go Back
           </Link>
-          <h1 className="text-3xl font-bold mb-2">Request Return</h1>
-          <p className="text-zinc-400 text-sm">
-            Order #{order.orderNumber} • Placed on {new Date(order.createdAt).toLocaleDateString()}
+          <h1 className="text-3xl font-black tracking-tight mb-2">Request Return</h1>
+          <p className="text-zinc-500 font-medium text-sm">
+            Order <span className="text-[#0f0f0f] font-bold">#{order.orderNumber}</span> • Placed on {new Date(order.createdAt).toLocaleDateString()}
           </p>
         </div>
 
         <div className="space-y-6">
           
           {/* 1. Reason Selection */}
-          <div className="bg-zinc-950 border border-zinc-900 rounded-xl p-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-xs text-zinc-400">1</span>
+          <div className="bg-white border border-zinc-200 shadow-sm rounded-xl p-6 md:p-8">
+            <h2 className="text-lg font-bold mb-6 flex items-center gap-3">
+                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-[#0f0f0f] text-sm font-bold text-white shadow-sm">1</span>
                 Why are you returning this?
             </h2>
             <div className="space-y-3">
               {returnReasonsList.map((r) => (
                 <label
                   key={r}
-                  className={`flex items-center p-4 rounded-lg border cursor-pointer transition-all ${
+                  className={`flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${
                     reason === r
-                      ? "bg-amber-950/20 border-amber-600/50 text-white"
-                      : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700"
+                      // Light theme active selection
+                      ? "bg-red-50 border-red-500 text-red-900 shadow-sm"
+                      // Light theme inactive selection
+                      : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
                   }`}
                 >
                   <input
@@ -162,9 +165,10 @@ const OrderReturnPage = () => {
                     value={r}
                     checked={reason === r}
                     onChange={(e) => setReason(e.target.value)}
-                    className="w-4 h-4 text-amber-500 focus:ring-amber-500 border-gray-600 bg-gray-700"
+                    // Tailwind forms plugin takes care of accent colors usually, but explicit class helps
+                    className="w-4 h-4 text-red-600 focus:ring-red-500 border-zinc-300 bg-white"
                   />
-                  <span className="ml-3 text-sm font-medium">{r}</span>
+                  <span className={`ml-3 text-sm ${reason === r ? 'font-bold' : 'font-medium'}`}>{r}</span>
                 </label>
               ))}
             </div>
@@ -172,88 +176,88 @@ const OrderReturnPage = () => {
             {/* Custom Reason Textarea */}
             {reason === "Other" && (
               <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                <label className="block text-xs font-bold text-zinc-500 uppercase mb-2">
+                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">
                   Please describe the issue
                 </label>
                 <textarea
                   value={customReason}
                   onChange={(e) => setCustomReason(e.target.value)}
                   placeholder="Tell us more about the problem..."
-                  className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-3 text-sm text-white focus:border-amber-500 outline-none h-32 resize-none placeholder-zinc-600"
+                  className="w-full bg-zinc-50 border border-zinc-300 rounded-xl p-4 text-sm font-medium text-[#0f0f0f] focus:bg-white focus:border-red-500 outline-none h-32 resize-none placeholder-zinc-400 shadow-sm transition-colors"
                 />
               </div>
             )}
           </div>
 
           {/* 2. Refund Method */}
-          <div className="bg-zinc-950 border border-zinc-900 rounded-xl p-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-xs text-zinc-400">2</span>
+          <div className="bg-white border border-zinc-200 shadow-sm rounded-xl p-6 md:p-8">
+            <h2 className="text-lg font-bold mb-6 flex items-center gap-3">
+                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-[#0f0f0f] text-sm font-bold text-white shadow-sm">2</span>
                 Refund Details
             </h2>
 
             {order.payment.method === "ONLINE" ? (
-              <div className="flex items-start gap-4 p-4 bg-green-500/5 border border-green-500/20 rounded-lg">
-                <Icon icon="solar:card-check-bold" className="text-2xl text-green-500 shrink-0 mt-1" />
+              <div className="flex items-start gap-4 p-5 bg-green-50 border border-green-200 rounded-xl">
+                <Icon icon="solar:card-check-bold" className="text-2xl text-green-600 shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="font-bold text-green-500 text-sm">Original Payment Method</h4>
-                  <p className="text-xs text-zinc-400 mt-1">
-                    Your refund of <span className="text-white font-medium">₹{order.pricing.finalTotal}</span> will be credited back to the original source (Card/UPI) within 5-7 business days after approval.
+                  <h4 className="font-bold text-green-800 text-sm">Original Payment Method</h4>
+                  <p className="text-sm font-medium text-green-700/80 mt-1.5 leading-relaxed">
+                    Your refund of <span className="text-green-900 font-bold">₹{order.pricing.finalTotal}</span> will be credited back to the original source (Card/UPI) within 5-7 business days after approval.
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
-                <div className="flex items-start gap-4 p-4 bg-amber-500/5 border border-amber-500/20 rounded-lg mb-6">
-                    <Icon icon="solar:wallet-money-bold" className="text-2xl text-amber-500 shrink-0 mt-1" />
+              <div className="space-y-5">
+                <div className="flex items-start gap-4 p-5 bg-amber-50 border border-amber-200 rounded-xl mb-6">
+                    <Icon icon="solar:wallet-money-bold" className="text-2xl text-amber-500 shrink-0 mt-0.5" />
                     <div>
-                    <h4 className="font-bold text-amber-500 text-sm">Bank Details Required</h4>
-                    <p className="text-xs text-zinc-400 mt-1">
+                    <h4 className="font-bold text-amber-800 text-sm">Bank Details Required</h4>
+                    <p className="text-sm font-medium text-amber-700/80 mt-1.5 leading-relaxed">
                         Since this order was paid via Cash on Delivery, we need your bank details to transfer the refund amount.
                     </p>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 gap-5">
                     <div>
-                        <label className="block text-xs text-zinc-500 mb-1.5 ml-1">Account Holder Name</label>
+                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Account Holder Name</label>
                         <input
                             type="text"
                             placeholder="e.g. John Doe"
                             value={bankDetails.accountHolderName}
                             onChange={(e) => setBankDetails({ ...bankDetails, accountHolderName: e.target.value })}
-                            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:border-amber-500 outline-none"
+                            className="w-full bg-zinc-50 border border-zinc-300 rounded-xl p-3.5 text-sm font-bold text-[#0f0f0f] focus:bg-white focus:border-red-500 outline-none shadow-sm transition-colors placeholder-zinc-400"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs text-zinc-500 mb-1.5 ml-1">Account Number</label>
+                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Account Number</label>
                         <input
                             type="text"
                             placeholder="e.g. 1234567890"
                             value={bankDetails.accountNumber}
                             onChange={(e) => setBankDetails({ ...bankDetails, accountNumber: e.target.value })}
-                            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:border-amber-500 outline-none"
+                            className="w-full bg-zinc-50 border border-zinc-300 rounded-xl p-3.5 text-sm font-bold text-[#0f0f0f] focus:bg-white focus:border-red-500 outline-none shadow-sm transition-colors placeholder-zinc-400"
                         />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs text-zinc-500 mb-1.5 ml-1">IFSC Code</label>
+                            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">IFSC Code</label>
                             <input
                                 type="text"
                                 placeholder="e.g. SBIN0001234"
                                 value={bankDetails.ifscCode}
                                 onChange={(e) => setBankDetails({ ...bankDetails, ifscCode: e.target.value.toUpperCase() })}
-                                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:border-amber-500 outline-none"
+                                className="w-full bg-zinc-50 border border-zinc-300 rounded-xl p-3.5 text-sm font-bold text-[#0f0f0f] focus:bg-white focus:border-red-500 outline-none shadow-sm transition-colors placeholder-zinc-400"
                             />
                         </div>
                         <div>
-                            <label className="block text-xs text-zinc-500 mb-1.5 ml-1">Bank Name</label>
+                            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Bank Name</label>
                             <input
                                 type="text"
                                 placeholder="e.g. SBI"
                                 value={bankDetails.bankName}
                                 onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
-                                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:border-amber-500 outline-none"
+                                className="w-full bg-zinc-50 border border-zinc-300 rounded-xl p-3.5 text-sm font-bold text-[#0f0f0f] focus:bg-white focus:border-red-500 outline-none shadow-sm transition-colors placeholder-zinc-400"
                             />
                         </div>
                     </div>
@@ -267,7 +271,7 @@ const OrderReturnPage = () => {
             <button
                 onClick={handleSubmit}
                 disabled={submitLoading || !reason}
-                className="w-full bg-white text-black font-bold uppercase py-4 rounded-xl hover:bg-zinc-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full bg-[#0f0f0f] text-white font-bold uppercase tracking-widest py-4 rounded-xl hover:bg-zinc-800 transition-all shadow-lg shadow-black/20 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
                 {submitLoading && <Icon icon="eos-icons:loading" className="text-lg" />}
                 Submit Return Request

@@ -75,6 +75,53 @@ async function generateUniqueOrderNumber(session) {
   return orderNumber;
 }
 
+// ==================== NEW: CHECK FLASH SALE STATUS ====================
+export const checkFlashSaleStatus = async (req, res) => {
+  try {
+    const userId = req.user;
+    const deviceId = req.cookies.device_id;
+
+    if (!userId && !deviceId) {
+      return res.status(401).json({ success: false, message: "Identification required" });
+    }
+
+    // Get Cart (populates items.product automatically)
+    const cart = await Cart.getOrCreateCart({ userId, deviceId });
+
+    if (!cart || cart.items.length === 0) {
+      return res.status(200).json({ success: true, isEligible: false, expiresAt: null });
+    }
+
+    // Check if cart has any phase-00 products
+    const hasPhase00Item = cart.items.some(
+      (item) => !item.isFreeGift && item.product?.group === "phase-00"
+    );
+
+    if (!hasPhase00Item) {
+      return res.status(200).json({ success: true, isEligible: false, expiresAt: null });
+    }
+
+    const now = new Date();
+    let expiresAt = cart.phase00ExpiresAt;
+
+    // If timer doesn't exist, or has expired, start a BRAND NEW 15-minute timer (Repeatable!)
+    if (!expiresAt || expiresAt <= now) {
+      expiresAt = new Date(now.getTime() + 15 * 60 * 1000); // 15 minutes from now
+      cart.phase00ExpiresAt = expiresAt;
+      await cart.save();
+    }
+
+    return res.status(200).json({
+      success: true,
+      isEligible: true,
+      expiresAt: expiresAt,
+    });
+  } catch (error) {
+    console.error("Error checking flash sale:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 // ==================== HANDLE DELHIVERY WEBHOOK ====================
 export const handleDelhiveryWebhook = (req, res) => {
   // 1️⃣ ACK IMMEDIATELY
@@ -302,6 +349,30 @@ export const createOrder = async (req, res) => {
 
     const productsSubtotal = Math.round(rawSubtotal);
 
+    // ==================== 🔥 PHASE-00 SEQUENTIAL LOGIC ====================
+    let phase00DiscountAmount = 0;
+    const now = new Date();
+
+    // Check if cart has a valid running Phase-00 timer
+    if (cart.phase00ExpiresAt && cart.phase00ExpiresAt > now) {
+      // Find all Phase-00 items
+      const phase00Items = cart.items.filter(
+        (item) => !item.isFreeGift && item.product?.group === "phase-00"
+      );
+
+      // Get total quantity of phase-00 items
+      const totalPhase00Qty = phase00Items.reduce((sum, item) => sum + item.quantity, 0);
+
+      // Apply ₹50 discount per quantity!
+      if (totalPhase00Qty > 0) {
+        phase00DiscountAmount = totalPhase00Qty * 50; 
+      }
+    }
+
+    // This is the new reduced baseline before applying regular coupons
+    const subtotalAfterPhase00 = Math.max(0, productsSubtotal - phase00DiscountAmount);
+    // =========================================================================
+
     // SECURE COUPON VALIDATION (Active DB Check)
     let couponDiscount = 0;
     let validatedCoupon = null;
@@ -334,7 +405,7 @@ export const createOrder = async (req, res) => {
             userId ? null : deviceId
           );
 
-          // Re-Apply logic (simplified for calculation)
+          // Re-Apply logic sequentially on `subtotalAfterPhase00`
           let rawDiscount = 0;
           const nonGiftItems = cart.items.filter((item) => !item.isFreeGift);
 
@@ -356,12 +427,13 @@ export const createOrder = async (req, res) => {
             if (validatedCoupon.discountType === "fixed") {
               rawDiscount = validatedCoupon.discountValue;
             } else {
+              // 🔥 SEQUENTIAL MATH: Percentage applies to the Phase-00 Reduced Subtotal
               rawDiscount =
-                (productsSubtotal * validatedCoupon.discountValue) / 100;
+                (subtotalAfterPhase00 * validatedCoupon.discountValue) / 100;
             }
           }
 
-          couponDiscount = Math.min(rawDiscount, productsSubtotal);
+          couponDiscount = Math.min(rawDiscount, subtotalAfterPhase00);
           couponDiscount = Math.round(couponDiscount);
 
           couponDetails = {
@@ -386,8 +458,8 @@ export const createOrder = async (req, res) => {
       }
     }
 
-    // Calculate Subtotal After Coupon
-    const subtotalAfterCoupon = Math.round(productsSubtotal - couponDiscount);
+    // Calculate Final Subtotal After BOTH Discounts
+    const subtotalAfterCoupon = Math.round(subtotalAfterPhase00 - couponDiscount);
 
     // Set COD Fee to 49
     const codFee = paymentMethod === "COD" ? 49 : 0;
@@ -470,7 +542,6 @@ export const createOrder = async (req, res) => {
     );
 
     // productsSubtotal is inclusive, so subTotalTaxable is after extracting tax
-    // Formula: subtotalAfterCoupon (Inclusive) / (1 + AverageRate) - simpler to sum base prices
     const subTotalTaxable = orderItems.reduce(
       (sum, item) => sum + item.itemTotal,
       0
@@ -478,7 +549,7 @@ export const createOrder = async (req, res) => {
     // --- GST LOGIC END ---
 
     // Calculate Final Total
-    // Since productsSubtotal is inclusive, finalTotal = productsSubtotal - discount + codFee
+    // Since productsSubtotal is inclusive, finalTotal = subtotalAfterCoupon + codFee
     const finalTotal = Math.round(subtotalAfterCoupon + codFee);
 
     // Determine Online Payment Amount
@@ -518,7 +589,7 @@ export const createOrder = async (req, res) => {
         phone: shippingAddress.phone,
       };
 
-    // Generate Order Number & Save Address
+    // Generate Order Number
     const orderNumber = await generateUniqueOrderNumber(session);
 
     // Update User Name Logic
@@ -526,11 +597,9 @@ export const createOrder = async (req, res) => {
       try {
         const user = await User.findById(userId).session(session);
         if (user) {
-          // Update name if currently empty
           if (!user.name && shippingAddress.fullName) {
             user.name = shippingAddress.fullName;
           }
-          // Optional: Update phone if currently empty
           if (!user.phone && shippingAddress.phone) {
             user.phone = shippingAddress.phone;
           }
@@ -541,10 +610,10 @@ export const createOrder = async (req, res) => {
         }
       } catch (userUpdateError) {
         console.warn("⚠️ Failed to update user profile info:", userUpdateError.message);
-        // Don't abort transaction for this non-critical error
       }
     }
 
+    // Save Address
     if (userId && shippingAddress) {
       try {
         const existingAddress = await Address.findOne({
@@ -605,6 +674,7 @@ export const createOrder = async (req, res) => {
           coupon: couponDetails,
           pricing: {
             productsSubtotal: productsSubtotal,
+            phase00DiscountAmount: phase00DiscountAmount, // 🔥 ADDED SECURELY
             couponDiscount,
             subtotalAfterCoupon: subtotalAfterCoupon,
             codFee,
@@ -627,7 +697,6 @@ export const createOrder = async (req, res) => {
     );
 
     // ==================== INVENTORY RESERVATION ====================
-    // Deduct stock immediately to prevent overselling race conditions
     for (const item of orderItems) {
       await Product.findOneAndUpdate(
         {
@@ -640,10 +709,9 @@ export const createOrder = async (req, res) => {
             totalStock: -item.quantity,
           },
         },
-        { session } // Ties it to the transaction. Rolls back safely if aborted!
+        { session } 
       );
     }
-    // ===============================================================
 
     await session.commitTransaction();
 
@@ -664,6 +732,7 @@ export const createOrder = async (req, res) => {
       },
       breakdown: {
         productsSubtotal,
+        phase00DiscountAmount, 
         couponDiscount,
         subtotalAfterCoupon,
         codFee,
@@ -746,7 +815,6 @@ export const handleRazorpayWebhook = async (req, res) => {
       });
 
       // ==================== SALES CONFIRMATION ====================
-      // Increment Sales Count (Stock was already deducted during checkout)
       for (const item of order.items) {
         await Product.findOneAndUpdate(
           {
@@ -774,7 +842,7 @@ export const handleRazorpayWebhook = async (req, res) => {
         }
       }
 
-      // Clear Cart
+      // Clear Cart (THIS AUTOMATICALLY CLEARS THE PHASE-00 TIMER TOO!)
       const cart = await Cart.getOrCreateCart({
         userId: order.user,
         deviceId: order.deviceId,
@@ -790,14 +858,12 @@ export const handleRazorpayWebhook = async (req, res) => {
 
       // ==================== SEND EMAILS (WEBHOOK) ====================
       try {
-        // 1. Get Customer Email (Check Guest Info first, then User DB)
         let customerEmail = order.guestInfo?.email;
         if (!customerEmail && order.user) {
           const userDoc = await User.findById(order.user);
           if (userDoc) customerEmail = userDoc.email;
         }
 
-        // 2. Generate Item List HTML (Including Size)
         const itemsHtml = order.items.map(item => `
           <div style="border-bottom: 1px solid #eee; padding: 10px 0; display: flex; align-items: center;">
             <img src="${item.productImage}" alt="${item.productName}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin-right: 15px;">
@@ -816,7 +882,6 @@ export const handleRazorpayWebhook = async (req, res) => {
           weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
         });
 
-        // 3. Define Email Template
         const getEmailHtml = (title, showAdminDetails = false) => `
           <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #333; margin-bottom: 5px;">${title}</h2>
@@ -841,28 +906,21 @@ export const handleRazorpayWebhook = async (req, res) => {
           </div>
         `;
 
-        // 4. Send to Admin
         if (process.env.ADMIN_MAIL) {
           await sendEmail({
             to: process.env.ADMIN_MAIL,
             subject: `[New Order] #${order.orderNumber} by ${customerName}`,
             html: getEmailHtml('New Order Received', true),
           });
-          console.log(`📧 Admin email sent for Order: ${order.orderNumber}`);
         }
 
-        // 5. Send to Customer
         if (customerEmail) {
           await sendEmail({
             to: customerEmail,
             subject: `Order Confirmed: #${order.orderNumber} - Noctowls`,
             html: getEmailHtml(`Thank you for your order, ${customerName.split(' ')[0]}!`),
           });
-          console.log(`📧 Customer email sent to ${customerEmail}`);
-        } else {
-          console.warn(`⚠️ No customer email found for Order ${order.orderNumber}`);
         }
-
       } catch (emailError) {
         console.error("Failed to send order emails (Webhook):", emailError.message);
       }
@@ -934,7 +992,6 @@ export const verifyPayment = async (req, res) => {
     await order.completePayment({ razorpayPaymentId, razorpaySignature });
 
     // ==================== SALES CONFIRMATION ====================
-    // Increment Sales Count (Stock was already deducted during checkout)
     for (const item of order.items) {
       await Product.findOneAndUpdate(
         {
@@ -957,7 +1014,7 @@ export const verifyPayment = async (req, res) => {
       if (coupon) await coupon.incrementUsageForUser(userId, userId ? null : deviceId);
     }
 
-    // Clear Cart
+    // Clear Cart (Clears Timer Too)
     const cart = await Cart.getOrCreateCart({ userId, deviceId });
     if (cart) await cart.clearCart();
 
@@ -968,14 +1025,12 @@ export const verifyPayment = async (req, res) => {
 
     // ==================== SEND EMAILS (VERIFY PAYMENT) ====================
     try {
-      // 1. Get Customer Email (Check Guest Info first, then User DB)
       let customerEmail = order.guestInfo?.email;
       if (!customerEmail && order.user) {
         const userDoc = await User.findById(order.user);
         if (userDoc) customerEmail = userDoc.email;
       }
 
-      // 2. Generate Item List HTML (Including Size)
       const itemsHtml = order.items.map(item => `
         <div style="border-bottom: 1px solid #eee; padding: 10px 0; display: flex; align-items: center;">
           <img src="${item.productImage}" alt="${item.productName}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin-right: 15px;">
@@ -994,7 +1049,6 @@ export const verifyPayment = async (req, res) => {
         weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
       });
 
-      // 3. Define Email Template
       const getEmailHtml = (title, showAdminDetails = false) => `
         <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333; margin-bottom: 5px;">${title}</h2>
@@ -1019,28 +1073,21 @@ export const verifyPayment = async (req, res) => {
         </div>
       `;
 
-      // 4. Send to Admin
       if (process.env.ADMIN_MAIL) {
         await sendEmail({
           to: process.env.ADMIN_MAIL,
           subject: `[New Order] #${order.orderNumber} by ${customerName}`,
           html: getEmailHtml('New Order Received', true),
         });
-        console.log(`📧 Admin email sent for Order: ${order.orderNumber}`);
       }
 
-      // 5. Send to Customer
       if (customerEmail) {
         await sendEmail({
           to: customerEmail,
           subject: `Order Confirmed: #${order.orderNumber} - Noctowls`,
           html: getEmailHtml(`Thank you for your order, ${customerName.split(' ')[0]}!`),
         });
-        console.log(`📧 Customer email sent to ${customerEmail}`);
-      } else {
-        console.warn(`⚠️ No customer email found for Order ${order.orderNumber}`);
       }
-
     } catch (emailError) {
       console.error("Failed to send order emails (Verify):", emailError.message);
     }
@@ -1087,13 +1134,11 @@ export const getOrders = async (req, res) => {
       query.deviceId = deviceId;
     }
 
-    // Show the order if payment is NOT pending, OR if payment method is COD.
     query.$or = [
       { "payment.status": { $ne: "pending" } },
       { "payment.method": "COD" }
     ];
 
-    // If a specific status is requested (e.g. "delivered"), add it to the query
     if (status) {
       query.orderStatus = status;
     }
@@ -1145,7 +1190,6 @@ export const getOrderById = async (req, res) => {
       });
     }
 
-    // [MODIFIED] Removed .lean() so virtuals work correctly
     const order = await Order.findOne(query);
 
     if (!order) {
@@ -1189,7 +1233,6 @@ export const cancelOrder = async (req, res) => {
     const order = await Order.findOne(query);
     if (!order) return res.status(404).json({ success: false, message: "Order not found" });
 
-    // Cancellation Policy Check
     const nonCancellableStatuses = ['shipped', 'out-for-delivery', 'delivered', 'returned', 'cancelled'];
     if (nonCancellableStatuses.includes(order.orderStatus)) {
       return res.status(400).json({
@@ -1199,10 +1242,8 @@ export const cancelOrder = async (req, res) => {
       });
     }
 
-    // 1. Process Cancellation
     const { order: cancelledOrder, couponToRevert } = await order.cancelOrder(userId ? "user" : "guest", reason);
 
-    // 2. Restock Inventory
     for (const item of cancelledOrder.items) {
       const product = await Product.findById(item.product);
       if (product) {
@@ -1215,13 +1256,11 @@ export const cancelOrder = async (req, res) => {
       }
     }
 
-    // 3. Revert Coupon
     if (couponToRevert) {
       const coupon = await Coupon.findOne({ code: couponToRevert.code });
       if (coupon) await coupon.decrementUsageForUser(couponToRevert.userId, couponToRevert.deviceId);
     }
 
-    // 4. AUTO REFUND LOGIC (Refunds to Source)
     let refundDetails = null;
     const amountToRefund = cancelledOrder.payment.amountPaidOnline;
 
@@ -1256,7 +1295,6 @@ export const cancelOrder = async (req, res) => {
       await cancelledOrder.save();
     }
 
-    // 5. Send Emails
     try {
       await cancelledOrder.populate("user", "name email");
       const customerEmail = cancelledOrder.customerEmail;
@@ -1329,7 +1367,6 @@ export const trackGuestOrder = async (req, res) => {
       });
     }
 
-    // [MODIFIED] Removed .lean()
     const order = await Order.findOne({
       orderNumber: orderNumber.toUpperCase().trim(),
       "guestInfo.email": email.toLowerCase().trim(),
@@ -1361,10 +1398,8 @@ export const trackGuestOrder = async (req, res) => {
         statusTimestamps: order.statusTimestamps,
         canBeCancelled: order.canBeCancelled,
         cancellation: order.cancellation,
-        // Include virtuals implicitly if backend supports toJSON({virtuals:true})
-        // OR explicitly return fields if needed
         returnInfo: order.returnInfo,
-        canBeReturned: order.canBeReturned, // Explicitly return virtual if needed
+        canBeReturned: order.canBeReturned,
       },
     });
   } catch (error) {
@@ -1398,16 +1433,13 @@ export const cancelGuestOrder = async (req, res) => {
 
     if (!order) return res.status(404).json({ success: false, message: "Order not found" });
 
-    // Check Eligibility
     const nonCancellableStatuses = ['shipped', 'out-for-delivery', 'delivered', 'returned', 'cancelled'];
     if (nonCancellableStatuses.includes(order.orderStatus)) {
       return res.status(400).json({ success: false, message: "Order cannot be cancelled at this stage." });
     }
 
-    // 1. Process Cancellation
     const { order: cancelledOrder, couponToRevert } = await order.cancelOrder("guest", reason);
 
-    // 2. Restock
     for (const item of cancelledOrder.items) {
       const product = await Product.findById(item.product);
       if (product) {
@@ -1420,13 +1452,11 @@ export const cancelGuestOrder = async (req, res) => {
       }
     }
 
-    // 3. Revert Coupon
     if (couponToRevert) {
       const coupon = await Coupon.findOne({ code: couponToRevert.code });
       if (coupon) await coupon.decrementUsageForUser(couponToRevert.userId, couponToRevert.deviceId);
     }
 
-    // 4. AUTO REFUND LOGIC
     let refundDetails = null;
     const amountToRefund = cancelledOrder.payment.amountPaidOnline;
 
@@ -1459,7 +1489,6 @@ export const cancelGuestOrder = async (req, res) => {
       await cancelledOrder.save();
     }
 
-    // 5. EMAILS
     try {
       const customerEmail = cancelledOrder.guestInfo.email;
       const customerName = cancelledOrder.guestInfo.name;
@@ -1557,23 +1586,32 @@ export const validateCouponForCheckout = async (req, res) => {
 
     const productsSubtotal = Math.round(cart.summary.subtotal);
 
-    // Apply coupon to temporary cart instance to get discount
-    const tempCart = { ...cart.toObject() };
-    tempCart.coupon = {
-      code: coupon.code,
-      isApplied: true,
-      discountType: coupon.discountType,
-      discountValue: coupon.discountValue,
-      applyType: coupon.applyType,
-    };
+    // ==================== 🔥 SEQUENTIAL MATH PREP ====================
+    let phase00DiscountAmount = 0;
+    const now = new Date();
 
-    // Calculate discount using cart's helper function
+    if (cart.phase00ExpiresAt && cart.phase00ExpiresAt > now) {
+      const phase00Items = cart.items.filter(
+        (item) => !item.isFreeGift && item.product?.group === "phase-00"
+      );
+      const totalPhase00Qty = phase00Items.reduce((sum, item) => sum + item.quantity, 0);
+
+      if (totalPhase00Qty > 0) {
+        phase00DiscountAmount = totalPhase00Qty * 50;
+      }
+    }
+
+    // The new base price that the coupon will be applied against
+    const subtotalAfterPhase00 = Math.max(0, productsSubtotal - phase00DiscountAmount);
+    // =================================================================
+
+    // Calculate discount using the NEW Sequential Subtotal
     let discount = 0;
     const nonGiftItems = cart.items.filter((item) => !item.isFreeGift);
 
     if (coupon.applyType === "each-product") {
       if (coupon.discountType === "percentage") {
-        discount = (productsSubtotal * coupon.discountValue) / 100;
+        discount = (subtotalAfterPhase00 * coupon.discountValue) / 100;
       } else {
         const totalQuantity = nonGiftItems.reduce(
           (sum, item) => sum + item.quantity,
@@ -1583,14 +1621,14 @@ export const validateCouponForCheckout = async (req, res) => {
       }
     } else {
       if (coupon.discountType === "percentage") {
-        discount = (productsSubtotal * coupon.discountValue) / 100;
+        discount = (subtotalAfterPhase00 * coupon.discountValue) / 100;
       } else {
         discount = coupon.discountValue;
       }
     }
 
     // Using Math.round() ensures we store/display a whole number
-    discount = Math.round(Math.min(discount, productsSubtotal));
+    discount = Math.round(Math.min(discount, subtotalAfterPhase00));
 
     return res.status(200).json({
       success: true,
@@ -1607,7 +1645,9 @@ export const validateCouponForCheckout = async (req, res) => {
       discount: {
         amount: discount,
         productsSubtotal,
-        subtotalAfterDiscount: Math.round(productsSubtotal - discount),
+        phase00DiscountAmount,
+        subtotalAfterPhase00,
+        subtotalAfterDiscount: Math.round(subtotalAfterPhase00 - discount),
       },
     });
   } catch (error) {
@@ -1655,6 +1695,7 @@ export const getOrderSummary = async (req, res) => {
             _id: item.product?._id,
             name: item.name,
             image: item.image,
+            group: item.product?.group // Ensure frontend knows about groups
           },
           size: item.size,
           quantity: item.quantity,
@@ -1727,7 +1768,7 @@ export const downloadInvoice = async (req, res) => {
         deliveryDate: order.statusTimestamps.delivered,
         items: order.items,
         freeGifts: order.freeGifts,
-        pricing: order.pricing,
+        pricing: order.pricing, // Now automatically includes phase00DiscountAmount!
         shippingAddress: order.shippingAddress,
         payment: order.payment,
         customerType: order.customerType,

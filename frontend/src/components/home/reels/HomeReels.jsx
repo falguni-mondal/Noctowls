@@ -38,7 +38,7 @@ const HomeReels = () => {
   return (
     <section className="home-reels-section pb-28 w-full relative border-t border-zinc-900/50 pt-10">
       <div className="mx-auto pl-5 lg:pl-10 mb-8 flex items-center justify-between">
-        <h2 className="text-white text-xl md:text-2xl font-black uppercase tracking-wide pl-2 border-l-4 border-red-600 flex items-center gap-3">
+        <h2 className="text-xl md:text-2xl font-black uppercase tracking-wide pl-2 border-l-4 border-red-600 flex items-center gap-3">
           Featured Reels{" "}
           <Icon icon="solar:clapperboard-text-bold" className="text-red-600" />
         </h2>

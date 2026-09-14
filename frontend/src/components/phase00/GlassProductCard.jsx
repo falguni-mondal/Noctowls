@@ -60,7 +60,8 @@ const GlassProductCard = ({ product }) => {
           />
         </div>
 
-        {/* Sale Badge */}
+        {/* Sale Badge - Commented out for Phase 00 */}
+        {/*
         {originalPrice > price && (
           <div className="absolute top-0 left-0 z-30">
             <div className="bg-gradient-to-r from-red-600 to-red-800 text-white text-[8px] sm:text-[9px] md:text-[10px] font-bold uppercase px-2 sm:px-3 py-1 rounded-br-lg shadow-lg">
@@ -68,6 +69,15 @@ const GlassProductCard = ({ product }) => {
             </div>
           </div>
         )}
+        */}
+
+        {/* 🔥 NEW: Phase-00 Exclusive Badge instead of Sale Badge */}
+        <div className="absolute top-0 left-0 z-30">
+          <div className="bg-gradient-to-r from-red-600 to-red-800 text-white text-[8px] sm:text-[9px] md:text-[10px] font-bold uppercase px-2 sm:px-3 py-1 rounded-br-lg shadow-lg">
+            Exclusive Drop
+          </div>
+        </div>
+
       </div>
 
       {/* Content Container with Responsive Padding */}
@@ -87,7 +97,8 @@ const GlassProductCard = ({ product }) => {
         {/* Price & Rating Section */}
         <div className="mt-2.5 sm:mt-3 md:mt-4 flex flex-wrap items-end justify-between gap-1.5 sm:gap-2">
           
-          {/* Price */}
+          {/* 🔥 MODIFIED: Hide Original Price Section for Phase 00 */}
+          {/*
           <div className="flex flex-col">
             {originalPrice && originalPrice !== price && (
               <span className="text-zinc-400 text-[10px] sm:text-[11px] md:text-[12px] font-medium line-through">
@@ -96,6 +107,14 @@ const GlassProductCard = ({ product }) => {
             )}
             <span className="phase-txt text-zinc-100 text-sm sm:text-base md:text-lg tracking-tight">
               Rs. {price}
+            </span>
+          </div>
+          */}
+
+          {/* 🔥 NEW: Coming Soon Section */}
+          <div className="flex flex-col">
+            <span className="phase-txt text-zinc-100 text-sm sm:text-base md:text-lg tracking-tight uppercase">
+              COMING SOON
             </span>
           </div>
 

@@ -4,6 +4,7 @@ import delivery from "../../../assets/icons/delivery.webp";
 import service from "../../../assets/icons/service.gif";
 import exchange from "../../../assets/icons/exchange.png";
 import FeatureCard from './FeatureCard';
+
 const ProductFeature = () => {
     const features = [
         {
@@ -31,12 +32,13 @@ const ProductFeature = () => {
     return (
         <div className="product-features-container grid grid-cols-2 lg:grid-cols-4 gap-2 mt-10">
             {
-                features.map(card => (
-                    <FeatureCard card={card}/>
+                features.map((card, index) => (
+                    // Added a React key to prevent mapping warnings
+                    <FeatureCard key={`feature-card-${index}`} card={card} />
                 ))
             }
         </div>
     )
 }
 
-export default ProductFeature
+export default ProductFeature;

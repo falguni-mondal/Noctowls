@@ -13,6 +13,8 @@ const StarRating = ({ rating, setRating, readOnly = false, size = "text-lg" }) =
         >
           <Icon 
             icon={star <= rating ? "material-symbols:star-rounded" : "material-symbols:star-outline-rounded"} 
+            // Explicitly force empty stars to a light gray in light theme
+            className={star > rating ? "text-zinc-300" : ""}
           />
         </span>
       ))}

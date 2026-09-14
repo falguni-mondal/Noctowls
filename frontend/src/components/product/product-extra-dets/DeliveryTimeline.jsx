@@ -14,11 +14,15 @@ const DeliveryTimeline = () => {
     }
 
     return (
-        <div className="product-delivery-timeline-container px-3 md:px-0 mt-6 text-sm text-zinc-400">
-            <div className="flex items-center gap-3 bg-zinc-900/50 p-4 rounded border border-zinc-800 shadow-sm">
-                <Icon icon="mdi:truck-fast-outline" className="text-2xl text-zinc-300" />
+        // Light theme container text: text-zinc-600
+        <div className="product-delivery-timeline-container px-3 md:px-0 mt-6 text-sm text-zinc-600">
+            {/* Light theme box: bg-white, border-zinc-200 */}
+            <div className="flex items-center gap-3 bg-white p-4 rounded border border-zinc-200 shadow-sm">
+                {/* Light theme icon color */}
+                <Icon icon="mdi:truck-fast-outline" className="text-2xl text-zinc-500" />
                 <p className="leading-tight">
-                    Estimated delivery between <span className="text-white font-bold tracking-wide">{afterVarDays(4)} - {afterVarDays(7)}</span>
+                    {/* Light theme date highlight: text-[#0f0f0f] */}
+                    Estimated delivery between <span className="text-[#0f0f0f] font-bold tracking-wide">{afterVarDays(4)} - {afterVarDays(7)}</span>
                 </p>
             </div>
         </div>

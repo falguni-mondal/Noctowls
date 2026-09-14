@@ -87,41 +87,47 @@ const AdminVerify = () => {
     return (
         <div className="w-full px-5 py-20 md:max-w-md md:mx-auto md:px-0" id='verify-page'>
             <div className="account-header-container">
-                <h1 className="account-heading text-3xl uppercase font-medium text-center leading-none px-3">
+                {/* Light theme heading */}
+                <h1 className="account-heading text-3xl uppercase font-bold text-[#0f0f0f] text-center leading-none px-3 tracking-wide">
                     noctowls admin account
                 </h1>
             </div>
             <div className="verify-subheader">
-                <p className='verify-subheading w-[24ch] text-center mx-auto leading-none mt-5 text-zinc-300'>
+                {/* Light theme subheading */}
+                <p className='verify-subheading w-[24ch] text-center mx-auto leading-none mt-5 text-zinc-600 font-medium'>
                     Verify with the OTP sent to your email.
                 </p>
             </div>
 
-            <form className='mt-5' id="verify-form" onSubmit={handleVerify}>
-                <div className="input-container w-full rounded-[3px] border border-zinc-900 p-1">
+            <form className='mt-6' id="verify-form" onSubmit={handleVerify}>
+                {/* Light theme input container: White bg, subtle border, red focus ring */}
+                <div className="input-container w-full rounded-lg border border-zinc-300 p-2 bg-white shadow-sm focus-within:border-red-500 focus-within:ring-1 focus-within:ring-red-500/50 transition-all">
                     <label
-                        className='form-input-label verify-input-label text-xs text-zinc-400 block'
+                        className='form-input-label verify-input-label text-[10px] font-bold uppercase tracking-wider text-zinc-500 block ml-1'
                         htmlFor="verify-otp"
                     >
                         OTP
                     </label>
 
                     <input
-                        className='w-full border-0 outline-0 bg-transparent text-zinc-200'
+                        // Light theme input text
+                        className='w-full border-0 outline-0 bg-transparent text-[#0f0f0f] font-medium px-1 mt-1 placeholder-zinc-400 tracking-widest'
                         type="text"
                         id='verify-otp'
                         name="otp"
+                        placeholder="123456"
                         autoComplete="one-time-code"
+                        maxLength="6"
                     />
                 </div>
 
                 {/* RESEND OTP SECTION */}
-                <div className="text-right mt-1 text-sm text-zinc-400">
+                <div className="text-right mt-2 text-xs font-medium text-zinc-500">
                     {secondsLeft > 0 ? (
-                        <p>Resend OTP in <span className="text-indigo-400">{secondsLeft}s</span></p>
+                        <p>Resend OTP in <span className="text-red-600 font-bold">{secondsLeft}s</span></p>
                     ) : (
                         <button
-                            className='text-indigo-400 underline disabled:text-zinc-600'
+                            className='text-[#0f0f0f] hover:text-red-600 font-bold underline transition-colors disabled:text-zinc-400 disabled:no-underline disabled:cursor-not-allowed'
                             onClick={handleResend}
                             disabled={resendState.status === "loading"}
                             type="button"
@@ -132,10 +138,11 @@ const AdminVerify = () => {
                 </div>
 
                 {/* VERIFY BUTTON */}
-                <div className="form-btn-container verify-btn-container mt-5 w-full uppercase text-xs font-medium">
+                <div className="form-btn-container verify-btn-container mt-6 w-full uppercase text-xs font-bold tracking-widest">
                     <button
                         key="verify-btn"
-                        className='bg-indigo-700 rounded-[3px] w-full h-[45px] leading-none uppercase disabled:bg-indigo-900 relative'
+                        // Light theme premium button: Dark #0f0f0f
+                        className='bg-[#0f0f0f] text-white rounded-lg w-full h-[50px] flex items-center justify-center uppercase hover:bg-zinc-800 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:shadow-none disabled:cursor-not-allowed transition-all shadow-md'
                         type='submit'
                         disabled={otpState.status === "loading"}
                     >

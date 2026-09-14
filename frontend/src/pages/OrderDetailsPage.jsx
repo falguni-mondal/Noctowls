@@ -32,7 +32,7 @@ const OrderDetailsPage = () => {
   // Local State
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
-  const [customReason, setCustomReason] = useState(""); // [!code ++] New state for textarea
+  const [customReason, setCustomReason] = useState("");
 
   // Fetch Order
   useEffect(() => {
@@ -51,7 +51,6 @@ const OrderDetailsPage = () => {
   };
 
   const handleCancelOrder = async () => {
-    // [!code ++] Determine final reason based on selection
     const finalReason = cancelReason === "Other" ? customReason : cancelReason;
 
     if (!finalReason.trim()) {
@@ -59,23 +58,21 @@ const OrderDetailsPage = () => {
       return;
     }
 
-    // [!code ++] Optional: Enforce minimum length for custom reasons
     if (cancelReason === "Other" && finalReason.trim().length < 5) {
         toast.warn("Please provide a bit more detail (min 5 chars)", toastControls);
         return;
     }
 
     const result = await dispatch(
-      cancelOrder({ orderId, reason: finalReason }) // Send finalReason
+      cancelOrder({ orderId, reason: finalReason }) 
     );
 
     if (cancelOrder.fulfilled.match(result)) {
       toast.success("Order cancelled successfully", toastControls);
       setShowCancelModal(false);
-      setCancelReason(""); // Reset state
-      setCustomReason(""); // Reset state
+      setCancelReason(""); 
+      setCustomReason(""); 
       
-      // ✅ FIX: Immediately re-fetch the order to update the UI in real-time
       dispatch(getOrderById(orderId)); 
       
     } else {
@@ -128,55 +125,53 @@ const OrderDetailsPage = () => {
 
   if (loading)
     return (
-      <div className="w-full h-screen flex justify-center items-center bg-zinc-950">
+      <div className="w-full h-screen flex justify-center items-center bg-[#f4f4f4]">
         <Loader />
       </div>
     );
 
   if (error || !order)
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-center">
-        <h2 className="text-2xl font-bold text-zinc-100">Order Not Found</h2>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#f4f4f4] text-center">
+        <h2 className="text-2xl font-bold text-[#0f0f0f]">Order Not Found</h2>
         <div className="relative mt-4">
-          <Link to="/orders" className="text-blue-500 hover:underline">
+          <Link to="/orders" className="text-blue-600 font-bold hover:underline">
             Back to Orders
           </Link>
-          {/* Interaction Fix */}
           <Link to="/orders" className="absolute inset-0 z-10 cursor-pointer opacity-0">Back to Orders</Link>
         </div>
       </div>
     );
 
   return (
-    <div className="min-h-[70vh] bg-zinc-950 text-zinc-100 pb-10 print:p-0 print:bg-white print:text-black">
+    <div className="min-h-[70vh] bg-[#f4f4f4] text-[#0f0f0f] pb-10 print:p-0 print:bg-white print:text-black">
       {/* ======================== SCREEN VIEW HEADER (Hidden on Print) ======================== */}
-      <div className="bg-zinc-900 border-b border-zinc-800 pt-14 pb-6 px-4 md:px-8 print:hidden">
+      <div className="bg-white border-b border-zinc-200 pt-14 pb-6 px-4 md:px-8 shadow-sm print:hidden">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <div className="flex items-center gap-2 text-sm text-zinc-500 mb-2 relative w-fit">
+            <div className="flex items-center gap-2 text-sm text-zinc-500 font-medium mb-2 relative w-fit hover:text-red-600 transition-colors">
               <Icon icon="solar:arrow-left-linear" /> Back to Orders
-              {/* Interaction Fix */}
               <Link to="/orders" className="absolute inset-0 z-10 cursor-pointer" />
             </div>
             <h1 className="text-2xl font-bold flex flex-col items-start lg:flex-row lg:items-center gap-3">
               Order #{order.orderNumber}
               <div className="order-status-container flex items-center gap-3">
                 <span
-                  className={`block h-fit w-fit text-sm font-medium px-3 py-1 rounded-full border ${
+                  className={`block h-fit w-fit text-sm font-bold px-3 py-1 rounded-full border ${
                     isCancelled
-                      ? "bg-red-500/10 border-red-500/20 text-red-500"
+                      ? "bg-red-50 border-red-200 text-red-600"
                       : isReturned
-                      ? "bg-purple-500/10 border-purple-500/20 text-purple-500"
+                      ? "bg-purple-50 border-purple-200 text-purple-600"
                       : order.orderStatus === "delivered"
-                      ? "bg-green-500/10 border-green-500/20 text-green-500"
-                      : "bg-blue-500/10 border-blue-500/20 text-blue-500"
+                      ? "bg-green-50 border-green-200 text-green-700"
+                      : "bg-blue-50 border-blue-200 text-blue-700"
                   }`}
                 >
                   {order.orderStatus}
                 </span>
                 {/* Return Status Badge */}
                 {isReturnActive && !isReturned && (
-                  <span className="block h-fit w-fit text-sm font-medium px-3 py-1 rounded-full border bg-amber-500/10 border-amber-500/20 text-amber-500">
+                  <span className="block h-fit w-fit text-sm font-bold px-3 py-1 rounded-full border bg-amber-50 border-amber-200 text-amber-700">
                     Return {order.returnInfo.status}
                   </span>
                 )}
@@ -185,11 +180,10 @@ const OrderDetailsPage = () => {
           </div>
           <div className="relative">
             <button
-              className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium transition pointer-events-none"
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-zinc-300 hover:bg-zinc-50 text-[#0f0f0f] shadow-sm rounded-lg text-sm font-bold transition pointer-events-none"
             >
-              <Icon icon="solar:file-download-bold" /> Download Invoice
+              <Icon icon="solar:file-download-bold" className="text-lg text-zinc-500" /> Download Invoice
             </button>
-            {/* Interaction Fix */}
             <span onClick={handleDownloadInvoice} className="absolute inset-0 z-10 cursor-pointer" />
           </div>
         </div>
@@ -198,24 +192,24 @@ const OrderDetailsPage = () => {
       {/* ======================== SCREEN VIEW CONTENT (Hidden on Print) ======================== */}
       <div className="max-w-5xl mx-auto px-4 md:px-8 mt-8 space-y-6 print:hidden">
         {/* --- 1. TRACKER (VERTICAL STEPPER) --- */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+        <div className="bg-white border border-zinc-200 shadow-sm rounded-xl p-6">
           {isCancelled ? (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex items-start gap-3">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
               <Icon
                 icon="solar:close-circle-bold"
                 className="text-2xl text-red-500 shrink-0 mt-0.5"
               />
               <div>
-                <h3 className="font-bold text-red-500">
+                <h3 className="font-bold text-red-700">
                   This order has been cancelled
                 </h3>
-                <p className="text-zinc-400 text-sm mt-1">
+                <p className="text-red-600/80 text-sm mt-1 font-medium">
                   Reason: {order.cancellation?.reason || "Cancelled by user"}
                 </p>
                 {order.cancellation?.refundStatus !== "not-applicable" && (
-                  <p className="text-sm mt-2 font-medium">
+                  <p className="text-sm mt-2 font-bold text-red-800">
                     Refund Status:{" "}
-                    <span className="text-white capitalize">
+                    <span className="capitalize">
                       {order.cancellation?.refundStatus}
                     </span>
                     {order.cancellation?.refundAmount > 0 &&
@@ -227,7 +221,7 @@ const OrderDetailsPage = () => {
           ) : (
             <div className="relative pl-2">
               <div className="space-y-8 relative">
-                <div className="absolute top-2 left-[19px] bottom-6 w-0.5 bg-zinc-800 z-0" />
+                <div className="absolute top-2 left-[19px] bottom-6 w-0.5 bg-zinc-200 z-0" />
                 {steps.map((step, index) => {
                   const isCompleted = index + 1 <= currentStep;
                   const isCurrent = index + 1 === currentStep;
@@ -235,10 +229,10 @@ const OrderDetailsPage = () => {
                   return (
                     <div key={index} className="flex gap-4 relative z-10">
                       <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center border-4 text-lg shrink-0 transition-all duration-300 ${
+                        className={`w-10 h-10 rounded-full flex items-center justify-center border-4 text-lg font-bold shrink-0 transition-all duration-300 ${
                           isCompleted
-                            ? "bg-green-500 border-zinc-900 text-white"
-                            : "bg-zinc-800 border-zinc-900 text-zinc-500"
+                            ? "bg-green-500 border-white text-white shadow-md"
+                            : "bg-zinc-100 border-white text-zinc-400"
                         }`}
                       >
                         {isCompleted ? (
@@ -249,21 +243,21 @@ const OrderDetailsPage = () => {
                       </div>
                       <div className="pt-1">
                         <p
-                          className={`text-base font-medium ${
+                          className={`text-base font-bold ${
                             isCompleted || isCurrent
-                              ? "text-white"
-                              : "text-zinc-500"
+                              ? "text-[#0f0f0f]"
+                              : "text-zinc-400"
                           }`}
                         >
                           {step.label}
                         </p>
                         {step.date ? (
-                          <p className="text-sm text-zinc-400 mt-1">
+                          <p className="text-sm text-zinc-500 mt-1 font-medium">
                             {formatDate(step.date)}
                           </p>
                         ) : (
                           isCurrent && (
-                            <p className="text-xs text-blue-500 mt-1 animate-pulse">
+                            <p className="text-xs font-bold text-blue-600 mt-1 animate-pulse">
                               In Progress...
                             </p>
                           )
@@ -279,19 +273,19 @@ const OrderDetailsPage = () => {
 
         {/* --- RETURN TIMELINE (If Active) --- */}
         {isReturnActive && (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-            <h3 className="font-bold text-zinc-300 mb-4 flex items-center gap-2">
-              <Icon icon="solar:history-bold" /> Return Status
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
+            <h3 className="font-bold text-amber-800 mb-4 flex items-center gap-2">
+              <Icon icon="solar:history-bold" className="text-amber-600" /> Return Status
             </h3>
             <div className="relative pl-2 space-y-6">
-              <div className="absolute top-2 left-[7px] bottom-2 w-0.5 bg-zinc-800 z-0" />
+              <div className="absolute top-2 left-[7px] bottom-2 w-0.5 bg-amber-200 z-0" />
               {order.returnInfo.timeline?.map((event, idx) => (
                 <div key={idx} className="flex gap-4 relative z-10">
-                  <div className="w-4 h-4 rounded-full bg-amber-500 shrink-0 border-2 border-zinc-900 mt-1" />
+                  <div className="w-4 h-4 rounded-full bg-amber-500 shrink-0 border-2 border-white shadow-sm mt-1" />
                   <div>
-                    <p className="text-sm font-bold text-white capitalize">{event.status}</p>
-                    <p className="text-xs text-zinc-400 mt-0.5">{formatDate(event.date)}</p>
-                    {event.note && <p className="text-xs text-zinc-500 mt-1 italic">"{event.note}"</p>}
+                    <p className="text-sm font-bold text-amber-900 capitalize">{event.status}</p>
+                    <p className="text-xs text-amber-700 mt-0.5 font-medium">{formatDate(event.date)}</p>
+                    {event.note && <p className="text-xs text-amber-600/80 mt-1 italic">"{event.note}"</p>}
                   </div>
                 </div>
               ))}
@@ -300,48 +294,46 @@ const OrderDetailsPage = () => {
         )}
 
         {/* --- 2. ORDER ITEMS --- */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-zinc-800 bg-zinc-900/50 font-medium text-zinc-300">
+        <div className="bg-white border border-zinc-200 shadow-sm rounded-xl overflow-hidden">
+          <div className="p-4 border-b border-zinc-200 bg-zinc-50 font-bold text-zinc-600 uppercase tracking-wider text-xs">
             Items in this order
           </div>
-          <div className="divide-y divide-zinc-800">
+          <div className="divide-y divide-zinc-100">
             {order.items?.map((item, idx) => (
               <div
                 key={idx}
                 className="p-4 md:p-6 flex flex-row gap-4 items-center"
               >
-                <div className="relative w-20 h-20 bg-zinc-800 rounded-lg overflow-hidden shrink-0 border border-zinc-700">
+                <div className="relative w-20 h-20 bg-zinc-100 rounded-lg overflow-hidden shrink-0 border border-zinc-200">
                   <img
                     src={item.productImage}
                     alt={item.productName}
                     className="w-full h-full object-cover"
                   />
-                  {/* Interaction Fix */}
                   <Link to={`/products/${item.product}`} className="absolute inset-0 z-10 cursor-pointer" />
                 </div>
                 <div className="flex-1 relative">
-                  <span className="text-base font-semibold text-zinc-200 hover:text-blue-500 transition pointer-events-none">
+                  <span className="text-base font-bold text-[#0f0f0f] hover:text-blue-600 transition pointer-events-none">
                     {item.productName}
                   </span>
-                  {/* Interaction Fix */}
                   <Link to={`/products/${item.product}`} className="absolute inset-0 z-10 cursor-pointer" />
 
-                  <div className="flex flex-wrap gap-4 mt-2 text-sm text-zinc-400 relative z-20 pointer-events-none">
-                    <span className="px-2 py-0.5 rounded border border-zinc-800">
-                      Size: {item.size?.label}
+                  <div className="flex flex-wrap gap-4 mt-2 text-sm font-medium text-zinc-500 relative z-20 pointer-events-none">
+                    <span className="px-2 py-0.5 rounded border border-zinc-200 bg-zinc-50">
+                      Size: <span className="font-bold text-[#0f0f0f] uppercase">{item.size?.label}</span>
                     </span>
-                    <span>Qty: {item.quantity}</span>
+                    <span className="py-0.5">Qty: <span className="font-bold text-[#0f0f0f]">{item.quantity}</span></span>
                   </div>
                 </div>
-                <div className="text-lg font-bold text-white sm:text-right">
+                <div className="text-lg font-black text-[#0f0f0f] sm:text-right">
                   ₹{formatCurrency(item.priceWithGST || item.itemTotal)}
                 </div>
               </div>
             ))}
           </div>
           {order.freeGifts?.gifts?.length > 0 && (
-            <div className="p-4 bg-green-500/5 border-t border-zinc-800">
-              <h4 className="text-xs font-bold text-green-500 uppercase mb-3 flex items-center gap-1">
+            <div className="p-4 bg-green-50 border-t border-zinc-200">
+              <h4 className="text-xs font-bold text-green-700 uppercase mb-3 flex items-center gap-1">
                 <Icon icon="solar:gift-bold" /> Free Gifts Included
               </h4>
               <div className="space-y-3">
@@ -349,13 +341,13 @@ const OrderDetailsPage = () => {
                   <div key={i} className="flex items-center gap-3">
                     <img
                       src={gift.image}
-                      className="w-10 h-10 rounded bg-zinc-800 object-cover"
+                      className="w-10 h-10 rounded bg-white border border-green-200 object-cover shadow-sm"
                     />
                     <div>
-                      <p className="text-sm text-zinc-200 font-medium">
+                      <p className="text-sm text-green-900 font-bold">
                         {gift.name}
                       </p>
-                      <p className="text-xs text-zinc-500">
+                      <p className="text-xs text-green-700 font-medium">
                         Qty: {gift.quantity}
                       </p>
                     </div>
@@ -369,12 +361,12 @@ const OrderDetailsPage = () => {
         {/* --- 3. DETAILS GRID --- */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Shipping Address */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-            <h3 className="font-bold text-zinc-400 text-xs uppercase mb-4">
+          <div className="bg-white border border-zinc-200 shadow-sm rounded-xl p-6">
+            <h3 className="font-bold text-zinc-500 text-xs uppercase mb-4 tracking-wider">
               Shipping Details
             </h3>
-            <div className="text-sm text-zinc-300 space-y-1">
-              <p className="font-semibold text-white text-base mb-2">
+            <div className="text-sm font-medium text-zinc-600 space-y-1">
+              <p className="font-black text-[#0f0f0f] text-base mb-2">
                 {order.shippingAddress?.fullName}
               </p>
               <p>{order.shippingAddress?.address}</p>
@@ -383,33 +375,33 @@ const OrderDetailsPage = () => {
               )}
               <p>
                 {order.shippingAddress?.city}, {order.shippingAddress?.state} -{" "}
-                {order.shippingAddress?.pincode}
+                <span className="font-bold text-[#0f0f0f]">{order.shippingAddress?.pincode}</span>
               </p>
-              <p className="mt-3 flex items-center gap-2 text-zinc-400">
-                <Icon icon="solar:phone-bold" /> {order.shippingAddress?.phone}
+              <p className="mt-3 flex items-center gap-2 text-zinc-600 font-bold">
+                <Icon icon="solar:phone-bold" className="text-zinc-400" /> {order.shippingAddress?.phone}
               </p>
             </div>
           </div>
 
           {/* Payment & Price Summary */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 md:col-span-2">
-            <h3 className="font-bold text-zinc-400 text-xs uppercase mb-4">
+          <div className="bg-white border border-zinc-200 shadow-sm rounded-xl p-6 md:col-span-2">
+            <h3 className="font-bold text-zinc-500 text-xs uppercase mb-4 tracking-wider">
               Payment Summary
             </h3>
             <div className="space-y-3">
-              <div className="flex justify-between text-sm text-zinc-300">
+              <div className="flex justify-between text-sm font-medium text-zinc-600">
                 <span>Payment Method</span>
-                <span className="font-medium">
+                <span className="font-bold text-[#0f0f0f]">
                   {order.payment?.method === "COD"
                     ? "Cash on Delivery"
                     : "Online Payment"}
                 </span>
               </div>
-              <div className="border-t border-zinc-800 my-2"></div>
+              <div className="border-t border-zinc-100 my-2"></div>
 
-              <div className="flex justify-between text-sm text-zinc-400">
+              <div className="flex justify-between text-sm font-medium text-zinc-600">
                 <span>Subtotal (Excl. Tax)</span>
-                <span>
+                <span className="font-bold text-[#0f0f0f]">
                   ₹
                   {formatCurrency(
                     Math.round(order.subTotal) ||
@@ -417,9 +409,9 @@ const OrderDetailsPage = () => {
                   )}
                 </span>
               </div>
-              <div className="flex justify-between text-sm text-zinc-400">
+              <div className="flex justify-between text-sm font-medium text-zinc-600">
                 <span>Tax (GST)</span>
-                <span>
+                <span className="font-bold text-[#0f0f0f]">
                   ₹
                   {formatCurrency(
                     Math.round(order.totalGST) || Math.round(order.pricing?.tax)
@@ -427,28 +419,28 @@ const OrderDetailsPage = () => {
                 </span>
               </div>
               {order.pricing?.couponDiscount > 0 && (
-                <div className="flex justify-between text-sm text-green-500">
+                <div className="flex justify-between text-sm font-bold text-green-600">
                   <span>Discount</span>
                   <span>
                     - ₹{formatCurrency(order.pricing?.couponDiscount)}
                   </span>
                 </div>
               )}
-              <div className="flex justify-between text-sm text-zinc-400">
+              <div className="flex justify-between text-sm font-medium text-zinc-600">
                 <span>Shipping</span>
-                <span>
+                <span className="font-bold text-[#0f0f0f]">
                   {order.pricing?.shippingCharges === 0
                     ? "Free"
                     : `₹${formatCurrency(order.pricing?.shippingCharges)}`}
                 </span>
               </div>
               {order.pricing?.codFee > 0 && (
-                <div className="flex justify-between text-sm text-zinc-400">
+                <div className="flex justify-between text-sm font-medium text-zinc-600">
                   <span>COD Fee</span>
-                  <span>₹{formatCurrency(order.pricing?.codFee)}</span>
+                  <span className="font-bold text-[#0f0f0f]">₹{formatCurrency(order.pricing?.codFee)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-lg font-bold text-white mt-4 pt-4 border-t border-zinc-800">
+              <div className="flex justify-between text-lg font-black text-[#0f0f0f] mt-4 pt-4 border-t border-zinc-200">
                 <span>Total Amount</span>
                 <span>
                   ₹{formatCurrency(Math.round(order.pricing?.finalTotal))}
@@ -467,11 +459,10 @@ const OrderDetailsPage = () => {
             !isReturnActive && (
               <div className="relative">
                 <button
-                  className="px-6 py-2.5 text-red-500 border border-red-500/30 hover:bg-red-500/10 rounded-lg text-sm font-medium transition pointer-events-none"
+                  className="px-6 py-2.5 bg-white text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 rounded-lg text-sm font-bold transition shadow-sm pointer-events-none"
                 >
                   Cancel Order
                 </button>
-                {/* Interaction Fix */}
                 <span onClick={() => setShowCancelModal(true)} className="absolute inset-0 z-10 cursor-pointer" />
               </div>
             )}
@@ -480,11 +471,10 @@ const OrderDetailsPage = () => {
           {order.canBeReturned && !isReturnActive && (
             <div className="relative">
               <button
-                className="px-6 py-2.5 bg-white text-black font-bold uppercase rounded-lg hover:bg-zinc-200 transition shadow-lg shadow-white/5 pointer-events-none"
+                className="px-6 py-2.5 bg-[#0f0f0f] text-white font-bold text-sm uppercase tracking-wide rounded-lg hover:bg-zinc-800 transition shadow-md pointer-events-none"
               >
                 Return Order
               </button>
-              {/* Interaction Fix - Navigates to specific return page */}
               <Link to={`/orders/${orderId}/return`} className="absolute inset-0 z-10 cursor-pointer" />
             </div>
           )}
@@ -495,26 +485,26 @@ const OrderDetailsPage = () => {
 
       {/* --- CANCEL MODAL --- */}
       {showCancelModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm print:hidden">
-          {/* Backdrop Interaction Fix */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/60 backdrop-blur-sm print:hidden">
           <div onClick={() => setShowCancelModal(false)} className="absolute inset-0 cursor-pointer" />
 
-          <div className="bg-zinc-900 border border-zinc-800 w-full max-w-md rounded-xl p-6 shadow-2xl animate-in zoom-in-95 duration-200 relative z-10" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-xl font-bold text-white mb-2">Cancel Order?</h3>
-            <p className="text-zinc-400 text-sm mb-4">
+          {/* Light Theme Modal Box */}
+          <div className="bg-white border border-zinc-200 w-full max-w-md rounded-xl p-6 shadow-2xl animate-in zoom-in-95 duration-200 relative z-10" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-[#0f0f0f] mb-2">Cancel Order?</h3>
+            <p className="text-zinc-500 font-medium text-sm mb-4">
               Are you sure you want to cancel this order? This action cannot be
               undone.
             </p>
-            <label className="block text-xs font-bold text-zinc-500 uppercase mb-2">
+            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
               Reason for Cancellation
             </label>
             <select
               value={cancelReason}
               onChange={(e) => {
                   setCancelReason(e.target.value);
-                  if (e.target.value !== "Other") setCustomReason(""); // Clear text if not other
+                  if (e.target.value !== "Other") setCustomReason(""); 
               }}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-zinc-200 focus:border-red-500 outline-none mb-4 cursor-pointer"
+              className="w-full bg-zinc-50 border border-zinc-300 rounded-lg p-3 text-sm font-medium text-[#0f0f0f] focus:border-red-500 outline-none mb-4 cursor-pointer shadow-sm"
             >
               <option value="">Select a reason...</option>
               <option value="Changed my mind">Changed my mind</option>
@@ -524,33 +514,32 @@ const OrderDetailsPage = () => {
               <option value="Other">Other</option>
             </select>
 
-            {/* [!code ++] Textarea for 'Other' reason */}
             {cancelReason === "Other" && (
                 <div className="animate-in fade-in slide-in-from-top-2 duration-200 mb-6">
-                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2">
+                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
                         Please specify reason
                     </label>
                     <textarea
                         value={customReason}
                         onChange={(e) => setCustomReason(e.target.value)}
                         placeholder="Tell us more about why you are cancelling..."
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-zinc-200 focus:border-red-500 outline-none resize-none h-24"
+                        className="w-full bg-zinc-50 border border-zinc-300 rounded-lg p-3 text-sm font-medium text-[#0f0f0f] focus:border-red-500 outline-none resize-none h-24 shadow-sm"
                     />
                 </div>
             )}
 
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-3 mt-4">
               <div className="relative">
-                <button className="px-4 py-2 text-zinc-400 hover:text-white transition pointer-events-none">Cancel</button>
+                <button className="px-4 py-2 font-bold text-zinc-500 hover:text-[#0f0f0f] transition pointer-events-none">Back</button>
                 <span onClick={() => setShowCancelModal(false)} className="absolute inset-0 z-10 cursor-pointer" />
               </div>
               <div className="relative">
                 <button
                   disabled={!cancelReason || (cancelReason === "Other" && !customReason.trim()) || cancelLoading}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 pointer-events-none"
+                  className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white shadow-md rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 pointer-events-none"
                 >
                   {cancelLoading && <Icon icon="eos-icons:loading" />}
-                  Confirm
+                  Confirm Cancel
                 </button>
                 <span onClick={handleCancelOrder} className="absolute inset-0 z-10 cursor-pointer" />
               </div>
@@ -559,8 +548,9 @@ const OrderDetailsPage = () => {
         </div>
       )}
 
-      {/* ======================== FULL PAGE PRINT VIEW ======================== */}
+      {/* ======================== FULL PAGE PRINT VIEW (Remains same as it was already white/black) ======================== */}
       <div className="hidden print:block print:fixed print:inset-0 print:z-9999 print:bg-white print:py-4 print:px-8 font-sans text-black">
+        {/* ... (Print view remains unchanged since it was already designed to print black ink on white paper) ... */}
         <div className="h-full flex flex-col max-w-3xl mx-auto relative">
 
           {/* Cancelled Watermark Logic */}

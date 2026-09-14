@@ -46,14 +46,16 @@ const Collection = () => {
     }, [dispatch, category, group]);
 
     return (
-        <div className="min-h-screen bg-[#000000] text-white pt-14 pb-20 px-5 lg:px-10">
+        // Light theme wrapper: bg-[#f4f4f4] and dark text
+        <div className="min-h-screen bg-[#f4f4f4] text-[#0f0f0f] pt-14 pb-20 px-5 lg:px-10">
             
             {/* --- HEADER & BREADCRUMBS --- */}
             <div className="max-w-[1600px] mx-auto mb-10">
                 <div className="flex items-center gap-2 text-xs md:text-sm text-zinc-500 font-medium mb-4 uppercase tracking-widest">
-                    <Link to="/" className="hover:text-red-500 transition-colors">Home</Link>
-                    <Icon icon="material-symbols:chevron-right-rounded" className="text-lg" />
-                    <span className="text-zinc-200">{displayGroup}</span>
+                    <Link to="/" className="hover:text-red-600 transition-colors">Home</Link>
+                    <Icon icon="material-symbols:chevron-right-rounded" className="text-lg text-zinc-400" />
+                    {/* Active breadcrumb is dark for contrast */}
+                    <span className="text-[#0f0f0f] font-bold">{displayGroup}</span>
                 </div>
                 
                 <h1 className={`text-3xl ${group === "phase-00" && "phase-txt"} text-red-600 md:text-5xl font-bold uppercase`}>
@@ -70,14 +72,16 @@ const Collection = () => {
                 /* --- ERROR --- */
                 : error ? (
                     <div className="flex flex-col items-center justify-center py-32 text-center">
-                        <div className="w-20 h-20 bg-red-950/30 rounded-full flex items-center justify-center mb-6 border border-red-900/50">
-                            <Icon icon="solar:danger-triangle-broken" className="text-4xl text-red-500" />
+                        {/* Light theme error icon container */}
+                        <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6 border border-red-200 shadow-sm">
+                            <Icon icon="solar:danger-triangle-broken" className="text-4xl text-red-600" />
                         </div>
-                        <h2 className="text-xl font-bold text-white mb-2">Oops! Something went wrong.</h2>
-                        <p className="text-zinc-400 mb-6">{error}</p>
+                        <h2 className="text-xl font-bold text-[#0f0f0f] mb-2">Oops! Something went wrong.</h2>
+                        <p className="text-zinc-500 mb-6">{error}</p>
                         <button 
                             onClick={() => window.location.reload()}
-                            className="bg-white text-black px-6 py-2.5 rounded-full font-bold text-sm hover:bg-zinc-200 transition-colors"
+                            // Light theme error button
+                            className="bg-[#0f0f0f] text-white px-6 py-2.5 rounded-full font-bold text-sm hover:bg-zinc-800 shadow-lg shadow-black/10 transition-colors"
                         >
                             Try Again
                         </button>
@@ -86,17 +90,18 @@ const Collection = () => {
                 
                 /* --- EMPTY (NO PRODUCTS) --- */
                 : products && products.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-18 text-center bg-zinc-950/30 rounded-2xl border border-zinc-900 border-dashed">
-                        <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center mb-6">
-                            <Icon icon="solar:box-minimalistic-broken" className="text-4xl text-zinc-500" />
+                    // Light theme empty state container
+                    <div className="flex flex-col items-center justify-center py-18 text-center bg-white rounded-2xl border border-zinc-200 border-dashed shadow-sm">
+                        <div className="w-20 h-20 bg-zinc-100 rounded-full flex items-center justify-center mb-6">
+                            <Icon icon="solar:box-minimalistic-broken" className="text-4xl text-zinc-400" />
                         </div>
-                        <h2 className="text-xl font-bold text-white mb-2 uppercase tracking-wide">No Products Found</h2>
-                        <p className="text-zinc-400 max-w-md mx-auto mb-8">
-                            We couldn't find any products in the <span className="text-zinc-200 font-semibold">{displayGroup}</span> collection right now. Check back later!
+                        <h2 className="text-xl font-bold text-[#0f0f0f] mb-2 uppercase tracking-wide">No Products Found</h2>
+                        <p className="text-zinc-500 max-w-md mx-auto mb-8">
+                            We couldn't find any products in the <span className="text-[#0f0f0f] font-bold">{displayGroup}</span> collection right now. Check back later!
                         </p>
                         <Link 
                             to="/catalog"
-                            className="bg-red-600 text-white px-8 py-3 rounded-full font-bold text-sm hover:bg-red-700 transition-colors shadow-[0_0_15px_rgba(220,38,38,0.3)]"
+                            className="bg-red-600 text-white px-8 py-3 rounded-full font-bold text-sm hover:bg-red-700 transition-colors shadow-lg shadow-red-600/20"
                         >
                             Browse All Products
                         </Link>
@@ -107,9 +112,9 @@ const Collection = () => {
                 : (
                     <>
                         {/* Results Count */}
-                        <div className="flex justify-between items-center mb-6 pb-4 border-b border-zinc-800">
-                            <p className="text-zinc-400 text-sm font-medium">
-                                Showing <span className="text-white font-bold">{products.length}</span> {products.length === 1 ? 'result' : 'results'}
+                        <div className="flex justify-between items-center mb-6 pb-4 border-b border-zinc-200">
+                            <p className="text-zinc-500 text-sm font-medium">
+                                Showing <span className="text-[#0f0f0f] font-bold">{products.length}</span> {products.length === 1 ? 'result' : 'results'}
                             </p>
                         </div>
 

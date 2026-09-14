@@ -18,7 +18,8 @@ const ProductSpecs = () => {
 
   return (
     <section className="product-specs w-full mt-10 px-3 md:px-0">
-      <h2 className="text-white text-base lg:text-3xl font-bold mb-4 uppercase border-b border-zinc-800 pb-2">
+      {/* Light theme heading */}
+      <h2 className="text-[#0f0f0f] text-base lg:text-3xl font-bold mb-4 uppercase border-b border-zinc-200 pb-2">
         Features & Specification
       </h2>
 
@@ -29,15 +30,17 @@ const ProductSpecs = () => {
           {/* =========================================
             OPTION 1: HIGHLIGHTS
            ========================================= */}
-          <div className="border border-zinc-800 rounded bg-zinc-900/30 overflow-hidden">
+          {/* Light theme container */}
+          <div className="border border-zinc-200 rounded bg-white shadow-sm overflow-hidden">
             <button
               onClick={() => toggle(0)}
-              className="w-full flex items-center justify-between px-4 py-3 bg-zinc-900 hover:bg-zinc-800 transition-colors group"
+              // Light theme button bg and hover
+              className="w-full flex items-center justify-between px-4 py-3 bg-zinc-50 hover:bg-zinc-100 transition-colors group"
             >
-              <span className="text-xs font-bold text-zinc-200 group-hover:text-white uppercase tracking-wider">Highlights</span>
+              <span className="text-xs font-bold text-zinc-600 group-hover:text-[#0f0f0f] uppercase tracking-wider">Highlights</span>
               <Icon
                 icon={openIndexes.includes(0) ? "ic:baseline-minus" : "ic:baseline-plus"}
-                className={`text-zinc-500 group-hover:text-white transition-colors text-lg`}
+                className={`text-zinc-400 group-hover:text-[#0f0f0f] transition-colors text-lg`}
               />
             </button>
 
@@ -46,7 +49,8 @@ const ProductSpecs = () => {
               style={{ maxHeight: openIndexes.includes(0) ? `${contentRefs.current[0]?.scrollHeight}px` : "0px" }}
               className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
             >
-              <div className="px-4 py-4 text-zinc-400 border-t border-zinc-800/50">
+              {/* Light theme text and border */}
+              <div className="px-4 py-4 text-zinc-600 border-t border-zinc-200">
                 <ul className="space-y-2 pl-4 list-disc marker:text-red-600">
                   <li className="text-sm">Dual-Sided Durability</li>
                   <li className="text-sm">Durable Stitched Perfection</li>
@@ -62,15 +66,15 @@ const ProductSpecs = () => {
           {/* =========================================
             OPTION 2: DESCRIPTION
            ========================================= */}
-          <div className="border border-zinc-800 rounded bg-zinc-900/30 overflow-hidden">
+          <div className="border border-zinc-200 rounded bg-white shadow-sm overflow-hidden">
             <button
               onClick={() => toggle(1)}
-              className="w-full flex items-center justify-between px-4 py-3 bg-zinc-900 hover:bg-zinc-800 transition-colors group"
+              className="w-full flex items-center justify-between px-4 py-3 bg-zinc-50 hover:bg-zinc-100 transition-colors group"
             >
-              <span className="text-xs font-bold text-zinc-200 group-hover:text-white uppercase tracking-wider">Description</span>
+              <span className="text-xs font-bold text-zinc-600 group-hover:text-[#0f0f0f] uppercase tracking-wider">Description</span>
               <Icon
                 icon={openIndexes.includes(1) ? "ic:baseline-minus" : "ic:baseline-plus"}
-                className={`text-zinc-500 group-hover:text-white transition-colors text-lg`}
+                className={`text-zinc-400 group-hover:text-[#0f0f0f] transition-colors text-lg`}
               />
             </button>
 
@@ -79,19 +83,19 @@ const ProductSpecs = () => {
               style={{ maxHeight: openIndexes.includes(1) ? `${contentRefs.current[1]?.scrollHeight}px` : "0px" }}
               className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
             >
-              <div className="px-4 py-4 text-zinc-400 border-t border-zinc-800/50">
+              <div className="px-4 py-4 text-zinc-600 border-t border-zinc-200">
                 {/* Para */}
-                <p className="text-sm leading-6 text-zinc-400 mb-2">
+                <p className="text-sm leading-6 text-zinc-600 mb-2">
                   Designed for Gamers, Creators & Everyday PC Users
                 </p>
 
                 {/* Highlight */}
-                <p className="text-sm leading-6 text-zinc-300 mb-3 font-medium border-l-2 border-red-600 pl-3">
+                <p className="text-sm leading-6 text-[#0f0f0f] mb-3 font-medium border-l-2 border-red-600 pl-3">
                   NOCTOWLS Deskmats bring premium comfort, precise control, and clean aesthetics.
                 </p>
 
                 {/* Heading */}
-                <h3 className="mt-4 mb-2 text-[10px] font-bold text-white uppercase tracking-widest bg-zinc-800 w-fit px-2 py-1 rounded">
+                <h3 className="mt-4 mb-2 text-[10px] font-bold text-[#0f0f0f] uppercase tracking-widest bg-zinc-100 w-fit px-2 py-1 rounded">
                   AVAILABLE SIZES
                 </h3>
 
@@ -103,7 +107,7 @@ const ProductSpecs = () => {
                 </ul>
 
                 {/* Heading */}
-                <h3 className="mt-4 mb-2 text-[10px] font-bold text-white uppercase tracking-widest bg-zinc-800 w-fit px-2 py-1 rounded">
+                <h3 className="mt-4 mb-2 text-[10px] font-bold text-[#0f0f0f] uppercase tracking-widest bg-zinc-100 w-fit px-2 py-1 rounded">
                   BEST FOR
                 </h3>
 
@@ -121,15 +125,15 @@ const ProductSpecs = () => {
         {/* =========================================
             OPTION 3: PACKAGE CONTENTS
            ========================================= */}
-        <div className="border border-zinc-800 rounded bg-zinc-900/30 overflow-hidden w-full lg:w-[49.25%]">
+        <div className="border border-zinc-200 rounded bg-white shadow-sm overflow-hidden w-full lg:w-[49.25%]">
           <button
             onClick={() => toggle(2)}
-            className="w-full flex items-center justify-between px-4 py-3 bg-zinc-900 hover:bg-zinc-800 transition-colors group"
+            className="w-full flex items-center justify-between px-4 py-3 bg-zinc-50 hover:bg-zinc-100 transition-colors group"
           >
-            <span className="text-xs font-bold text-zinc-200 group-hover:text-white uppercase tracking-wider">Package Contents</span>
+            <span className="text-xs font-bold text-zinc-600 group-hover:text-[#0f0f0f] uppercase tracking-wider">Package Contents</span>
             <Icon
               icon={openIndexes.includes(2) ? "ic:baseline-minus" : "ic:baseline-plus"}
-              className={`text-zinc-500 group-hover:text-white transition-colors text-lg`}
+              className={`text-zinc-400 group-hover:text-[#0f0f0f] transition-colors text-lg`}
             />
           </button>
 
@@ -138,7 +142,7 @@ const ProductSpecs = () => {
             style={{ maxHeight: openIndexes.includes(2) ? `${contentRefs.current[2]?.scrollHeight}px` : "0px" }}
             className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
           >
-            <div className="px-4 py-4 text-zinc-400 border-t border-zinc-800/50">
+            <div className="px-4 py-4 text-zinc-600 border-t border-zinc-200">
               <ul className="space-y-2 pl-4 list-disc marker:text-red-600">
                 <li className="text-sm">1 × DeskMat</li>
                 <li className="text-sm">1 × Thank You card</li>

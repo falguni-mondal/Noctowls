@@ -40,7 +40,7 @@ const WishlistPage = () => {
 
   if (loading) {
     return (
-      <div className="w-full min-h-screen flex justify-center items-center">
+      <div className="w-full min-h-screen flex justify-center items-center bg-[#f4f4f4]">
         <Loader />
       </div>
     );
@@ -50,16 +50,17 @@ const WishlistPage = () => {
   const isWishlistEmpty = !items || items.length === 0;
 
   return (
-    <div className='py-10 min-h-[70vh]' id='wishlist-page'>
-      <div className="page-header px-3 mb-10">
+    // Light theme main wrapper
+    <div className='py-10 min-h-[70vh] bg-[#f4f4f4] text-[#0f0f0f]' id='wishlist-page'>
+      <div className="page-header px-3 md:px-6 max-w-3xl mx-auto mb-10">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="page-heading text-2xl font-medium">
+            <h1 className="page-heading text-2xl md:text-3xl font-bold uppercase tracking-wide">
               Your Wishlist
             </h1>
             {!isWishlistEmpty && (
-              <p className="text-sm text-zinc-400 mt-1">
-                {itemsCount} {itemsCount === 1 ? 'item' : 'items'} saved
+              <p className="text-sm text-zinc-500 mt-1 font-medium">
+                <span className="font-bold text-[#0f0f0f]">{itemsCount}</span> {itemsCount === 1 ? 'item' : 'items'} saved
               </p>
             )}
           </div>
@@ -68,86 +69,90 @@ const WishlistPage = () => {
             <button
               onClick={handleClearAll}
               disabled={actionLoading}
-              className="text-sm text-red-400 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+              className="text-sm font-bold text-red-500 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 transition-colors"
             >
-              <Icon icon="material-symbols:delete-outline" className="text-lg" />
+              <Icon icon="material-symbols:delete-outline" className="text-xl" />
               Clear All
             </button>
           )}
         </div>
       </div>
 
-      {/* Empty Wishlist */}
-      {isWishlistEmpty ? (
-        <div className="empty-wishlist px-3 pt-5 pb-20 text-center flex flex-col items-center justify-center">
-          <Icon
-            icon="mdi:heart-outline"
-            className="text-zinc-600 text-8xl mb-6"
-          />
-
-          <h2 className="text-2xl font-semibold mb-3">Your wishlist is empty</h2>
-          <p className="text-zinc-400 mb-8 max-w-md">
-            Save your favorite items here and never lose track of what you love!
-          </p>
-
-          <Link
-            to="/catalog"
-            className="inline-block bg-red-600 text-white px-8 py-3 rounded font-medium hover:bg-red-700 transition"
-          >
-            Start Shopping
-          </Link>
-        </div>
-      ) : (
-        <>
-          {/* Wishlist Items */}
-          <section className='px-3' id="wishlist-items-collection-container">
-            <ul className="wishlist-items-collection space-y-8">
-              {items.map((item) => (
-                <WishlistItem key={item._id} item={item} />
-              ))}
-            </ul>
-          </section>
-
-          {/* Wishlist Benefits Banner */}
-          <section className="px-3 mt-10">
-            <div className="bg-linear-to-r from-indigo-950/30 to-purple-950/30 border border-indigo-900/50 rounded-lg p-5">
-              <div className="flex items-start gap-4">
-                <Icon icon="solar:star-bold" className="text-indigo-400 text-2xl mt-0.5 shrink-0" />
-                <div>
-                  <h3 className="text-indigo-200 font-medium mb-2">
-                    Why use wishlist?
-                  </h3>
-                  <ul className="space-y-2 text-sm text-indigo-300">
-                    <li className="flex items-center gap-2">
-                      <Icon icon="mdi:check-circle" className="text-green-400" />
-                      Save items for later and never lose them
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Icon icon="mdi:check-circle" className="text-green-400" />
-                      Get notified when prices drop (coming soon)
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Icon icon="mdi:check-circle" className="text-green-400" />
-                      Share your wishlist with friends & family
-                    </li>
-                  </ul>
-                </div>
-              </div>
+      <div className="max-w-3xl mx-auto">
+        {/* Empty Wishlist */}
+        {isWishlistEmpty ? (
+          <div className="empty-wishlist px-3 pt-5 pb-20 text-center flex flex-col items-center justify-center">
+            <div className="w-32 h-32 bg-white border border-zinc-200 shadow-sm rounded-full flex items-center justify-center mb-6">
+                <Icon
+                icon="mdi:heart-outline"
+                className="text-zinc-300 text-7xl"
+                />
             </div>
-          </section>
 
-          {/* Continue Shopping */}
-          <section className="px-3 mt-8">
+            <h2 className="text-2xl font-bold mb-3 text-[#0f0f0f]">Your wishlist is empty</h2>
+            <p className="text-zinc-500 font-medium mb-8 max-w-md">
+              Save your favorite items here and never lose track of what you love!
+            </p>
+
             <Link
               to="/catalog"
-              className="w-full bg-zinc-800 text-white py-3 rounded font-medium flex items-center justify-center gap-2 hover:bg-zinc-700 transition-all"
+              className="inline-block bg-red-600 text-white px-10 py-3.5 rounded-xl font-bold uppercase tracking-wider shadow-lg shadow-red-600/20 hover:bg-red-700 transition"
             >
-              <Icon icon="material-symbols:add-shopping-cart" className="text-xl" />
-              Continue Shopping
+              Start Shopping
             </Link>
-          </section>
-        </>
-      )}
+          </div>
+        ) : (
+          <>
+            {/* Wishlist Items */}
+            <section className='px-3 md:px-6' id="wishlist-items-collection-container">
+              <ul className="wishlist-items-collection space-y-6">
+                {items.map((item) => (
+                  <WishlistItem key={item._id} item={item} />
+                ))}
+              </ul>
+            </section>
+
+            {/* Wishlist Benefits Banner - Light Theme Pastel */}
+            <section className="px-3 md:px-6 mt-10">
+              <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-6 shadow-sm">
+                <div className="flex items-start gap-4">
+                  <Icon icon="solar:star-bold" className="text-indigo-500 text-2xl mt-0.5 shrink-0" />
+                  <div>
+                    <h3 className="text-indigo-900 font-bold mb-3 uppercase tracking-wider text-sm">
+                      Why use wishlist?
+                    </h3>
+                    <ul className="space-y-2 text-sm font-medium text-indigo-700/80">
+                      <li className="flex items-center gap-2">
+                        <Icon icon="mdi:check-circle" className="text-green-600 text-base" />
+                        Save items for later and never lose them
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Icon icon="mdi:check-circle" className="text-green-600 text-base" />
+                        Get notified when prices drop (coming soon)
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Icon icon="mdi:check-circle" className="text-green-600 text-base" />
+                        Share your wishlist with friends & family
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Continue Shopping */}
+            <section className="px-3 md:px-6 mt-8">
+              <Link
+                to="/catalog"
+                className="w-full bg-white border border-zinc-300 shadow-sm text-[#0f0f0f] py-4 rounded-xl font-bold uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-zinc-50 transition-all"
+              >
+                <Icon icon="material-symbols:add-shopping-cart" className="text-xl" />
+                Continue Shopping
+              </Link>
+            </section>
+          </>
+        )}
+      </div>
     </div>
   );
 };

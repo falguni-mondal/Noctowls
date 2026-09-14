@@ -69,14 +69,14 @@ const Orderspage = () => {
     }
   };
 
-  // Helper: Get Status Color
+  // Helper: Get Status Color (Light Theme Adjustments)
   const getStatusColor = (status) => {
     switch (status) {
-      case "delivered": return "bg-green-500/10 text-green-500 border-green-500/20";
-      case "shipped": return "bg-blue-500/10 text-blue-500 border-blue-500/20";
-      case "cancelled": return "bg-red-500/10 text-red-500 border-red-500/20";
-      case "confirmed": return "bg-purple-500/10 text-purple-500 border-purple-500/20";
-      default: return "bg-amber-500/10 text-amber-500 border-amber-500/20";
+      case "delivered": return "bg-green-50 text-green-700 border-green-200";
+      case "shipped": return "bg-blue-50 text-blue-700 border-blue-200";
+      case "cancelled": return "bg-red-50 text-red-700 border-red-200";
+      case "confirmed": return "bg-purple-50 text-purple-700 border-purple-200";
+      default: return "bg-amber-50 text-amber-700 border-amber-200";
     }
   };
 
@@ -90,15 +90,16 @@ const Orderspage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 pb-20">
+    // Light theme main background
+    <div className="min-h-screen bg-[#f4f4f4] text-[#0f0f0f] pb-20">
       
       {/* --- HEADER --- */}
-      <div className="bg-zinc-900/50 border-b border-zinc-800 pt-6 pb-6 px-5 md:px-10">
+      <div className="bg-white border-b border-zinc-200 pt-6 pb-6 px-5 md:px-10 shadow-sm">
         <div className="max-w-[1600px] mx-auto">
           <div className="flex items-center gap-2 text-sm text-zinc-500 mb-2">
-            <Link to="/" className="hover:text-white transition">Home</Link>
+            <Link to="/" className="hover:text-red-600 transition">Home</Link>
             <Icon icon="solar:alt-arrow-right-linear" />
-            <span className="text-zinc-200">My Orders</span>
+            <span className="text-[#0f0f0f] font-medium">My Orders</span>
           </div>
           <h1 className="text-2xl md:text-3xl font-bold">My Orders</h1>
         </div>
@@ -107,15 +108,17 @@ const Orderspage = () => {
       {/* --- TABS & CONTENT --- */}
       <div className="max-w-[1600px] mx-auto mt-6">
         {/* Scrollable Tabs */}
-        <div className="flex overflow-x-auto gap-2 pb-4 mb-4 scrollbar-hide border-b border-zinc-800/50 px-5 md:px-10">
+        <div className="flex overflow-x-auto gap-2 pb-4 mb-4 scrollbar-hide border-b border-zinc-200 px-5 md:px-10">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => handleTabChange(tab.id)}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all border ${
+              className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all border ${
                 activeTab === tab.id
-                  ? "bg-white text-black border-white"
-                  : "bg-zinc-900 text-zinc-400 border-zinc-800 hover:bg-zinc-800 hover:text-zinc-200"
+                  // Light theme active tab
+                  ? "bg-[#0f0f0f] text-white border-[#0f0f0f]"
+                  // Light theme inactive tab
+                  : "bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50 hover:text-[#0f0f0f]"
               }`}
             >
               {tab.label}
@@ -129,33 +132,33 @@ const Orderspage = () => {
             <Loader />
           </div>
         ) : orders.length === 0 ? (
-          // EMPTY STATE
-          <div className="flex flex-col items-center justify-center py-20 text-center bg-zinc-900/30 border border-dashed border-zinc-800 rounded-2xl">
-            <div className="w-20 h-20 bg-zinc-800 rounded-full flex items-center justify-center mb-6 text-zinc-500">
+          // EMPTY STATE - Light Theme
+          <div className="mx-5 md:mx-10 flex flex-col items-center justify-center py-20 text-center bg-white border border-dashed border-zinc-300 rounded-2xl shadow-sm">
+            <div className="w-20 h-20 bg-zinc-50 rounded-full flex items-center justify-center mb-6 text-zinc-400">
                <Icon icon="solar:bag-3-bold-duotone" className="text-4xl" />
             </div>
-            <h2 className="text-xl font-semibold mb-2">No orders found</h2>
-            <p className="text-zinc-400 max-w-sm mb-6">
+            <h2 className="text-xl font-bold mb-2">No orders found</h2>
+            <p className="text-zinc-500 max-w-sm mb-6">
               Looks like you haven't placed any orders in this category yet.
             </p>
             <Link 
               to="/catalog"
-              className="px-8 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition"
+              className="px-8 py-3 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 shadow-lg shadow-red-600/20 transition"
             >
               Start Shopping
             </Link>
           </div>
         ) : (
-          // ORDER CARDS
-          <div className="space-y-4">
+          // ORDER CARDS - Light Theme
+          <div className="space-y-4 px-5 md:px-10">
             {orders.map((order) => (
               <div 
                 key={order._id}
                 onClick={() => navigate(`/orders/${order._id}`)}
-                className="group bg-zinc-900 border border-zinc-800 rounded-xl p-4 md:p-6 hover:border-zinc-600 transition-all cursor-pointer relative overflow-hidden"
+                className="group bg-white border border-zinc-200 rounded-xl p-4 md:p-6 hover:border-zinc-400 hover:shadow-md transition-all cursor-pointer relative overflow-hidden"
               >
                 {/* Hover Glow Effect */}
-                <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-zinc-100/50 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
 
                 <div className="flex flex-col md:flex-row justify-between gap-6 relative z-10">
                   
@@ -165,32 +168,32 @@ const Orderspage = () => {
                         <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase border tracking-wider ${getStatusColor(order.orderStatus)}`}>
                             {order.orderStatus}
                         </span>
-                        <span className="text-zinc-500 text-sm flex items-center gap-1">
+                        <span className="text-zinc-500 font-medium text-sm flex items-center gap-1">
                             <Icon icon="solar:calendar-linear" />
                             {formatDate(order.createdAt)}
                         </span>
-                        <span className="text-zinc-500 text-sm hidden md:block">•</span>
-                        <span className="text-zinc-500 text-sm font-mono">#{order.orderNumber}</span>
+                        <span className="text-zinc-300 text-sm hidden md:block">•</span>
+                        <span className="text-zinc-500 text-sm font-mono font-bold">#{order.orderNumber}</span>
                     </div>
 
                     {/* Product Preview Thumbnails */}
                     <div className="flex items-center gap-3">
                         {order.items.slice(0, 4).map((item, i) => (
-                            <div key={i} className="relative w-14 h-14 md:w-16 md:h-16 bg-zinc-800 rounded-lg overflow-hidden border border-zinc-700">
+                            <div key={i} className="relative w-14 h-14 md:w-16 md:h-16 bg-zinc-100 rounded-lg overflow-hidden border border-zinc-200">
                                 <img 
                                     src={item.productImage || "/placeholder.jpg"} 
                                     alt="Product" 
                                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
                                 />
                                 {item.quantity > 1 && (
-                                    <span className="absolute bottom-0 right-0 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded-tl">
+                                    <span className="absolute bottom-0 right-0 bg-white/90 border-t border-l border-zinc-200 text-[#0f0f0f] font-bold text-[10px] px-1.5 py-0.5 rounded-tl">
                                         x{item.quantity}
                                     </span>
                                 )}
                             </div>
                         ))}
                         {order.items.length > 4 && (
-                            <div className="w-14 h-14 md:w-16 md:h-16 bg-zinc-800 rounded-lg flex items-center justify-center text-zinc-400 text-xs font-medium border border-zinc-700">
+                            <div className="w-14 h-14 md:w-16 md:h-16 bg-zinc-50 rounded-lg flex items-center justify-center text-zinc-500 text-xs font-bold border border-zinc-200">
                                 +{order.items.length - 4}
                             </div>
                         )}
@@ -198,13 +201,13 @@ const Orderspage = () => {
                   </div>
 
                   {/* Right: Price & Action */}
-                  <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-2 border-t md:border-t-0 border-zinc-800 pt-4 md:pt-0">
+                  <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-2 border-t md:border-t-0 border-zinc-100 pt-4 md:pt-0">
                     <div>
-                        <p className="text-xs text-zinc-400 mb-1">Total Amount</p>
-                        <p className="text-lg font-bold text-white">₹{Math.round(order.pricing.finalTotal).toLocaleString('en-IN')}</p>
+                        <p className="text-xs text-zinc-500 font-medium mb-1">Total Amount</p>
+                        <p className="text-lg font-black text-[#0f0f0f]">₹{Math.round(order.pricing.finalTotal).toLocaleString('en-IN')}</p>
                     </div>
                     
-                    <button className="hidden md:flex items-center gap-1 text-sm text-blue-500 font-medium group-hover:text-blue-400 transition">
+                    <button className="hidden md:flex items-center gap-1 text-sm text-blue-600 font-bold group-hover:text-blue-700 transition">
                         View Details <Icon icon="solar:arrow-right-linear" />
                     </button>
                   </div>
@@ -220,19 +223,19 @@ const Orderspage = () => {
             <button
               onClick={() => handlePageChange(pagination.currentPage - 1)}
               disabled={pagination.currentPage === 1}
-              className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="p-2 rounded-lg bg-white border border-zinc-300 text-zinc-600 hover:bg-zinc-50 hover:text-[#0f0f0f] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
               <Icon icon="solar:alt-arrow-left-linear" />
             </button>
             
-            <span className="text-sm text-zinc-400">
-              Page <span className="text-white font-bold">{pagination.currentPage}</span> of {pagination.totalPages}
+            <span className="text-sm text-zinc-500 font-medium">
+              Page <span className="text-[#0f0f0f] font-bold">{pagination.currentPage}</span> of {pagination.totalPages}
             </span>
 
             <button
               onClick={() => handlePageChange(pagination.currentPage + 1)}
               disabled={pagination.currentPage === pagination.totalPages}
-              className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="p-2 rounded-lg bg-white border border-zinc-300 text-zinc-600 hover:bg-zinc-50 hover:text-[#0f0f0f] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
               <Icon icon="solar:alt-arrow-right-linear" />
             </button>

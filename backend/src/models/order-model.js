@@ -358,17 +358,17 @@ const invoiceSchema = new mongoose.Schema(
   { _id: false }
 );
 
-// ---------- NEW: Return Timeline Schema (Simple) ----------
+// ---------- Return Timeline Schema ----------
 const returnTimelineSchema = new mongoose.Schema(
   {
-    status: { type: String, required: true }, // e.g. "Return Requested"
+    status: { type: String, required: true },
     date: { type: Date, default: Date.now },
-    note: { type: String, default: "" }, // Optional details
+    note: { type: String, default: "" }, 
   },
   { _id: false }
 );
 
-// ---------- NEW: Return Request Schema (Simple) ----------
+// ---------- Return Request Schema ----------
 const returnSchema = new mongoose.Schema(
   {
     isReturnActive: {
@@ -384,10 +384,10 @@ const returnSchema = new mongoose.Schema(
       type: String,
       enum: [
         "none",
-        "requested", // User requested
-        "approved",  // Admin approved
-        "rejected",  // Admin rejected
-        "completed", // Money refunded or exchange item sent
+        "requested",
+        "approved",
+        "rejected",
+        "completed",
       ],
       default: "none",
     },
@@ -399,7 +399,6 @@ const returnSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
-    // The timeline array for frontend tracking
     timeline: {
       type: [returnTimelineSchema],
       default: [],
@@ -509,6 +508,12 @@ const orderSchema = new mongoose.Schema(
         required: true,
         min: 0,
       },
+      // NEW FIELD: Store the Phase-00 Discount Amount
+      phase00DiscountAmount: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
       couponDiscount: {
         type: Number,
         default: 0,
@@ -576,7 +581,6 @@ const orderSchema = new mongoose.Schema(
       type: cancellationSchema,
       default: () => ({}),
     },
-    // ---------- NEW FIELD: Return Info (Simple) ----------
     returnInfo: {
       type: returnSchema,
       default: () => ({}),
@@ -607,82 +611,46 @@ const orderSchema = new mongoose.Schema(
 
 // ---------- Validation ----------
 orderSchema.pre("validate", function () {
-  // Either user or deviceId must be present (not both, not neither)
   if (!this.user && !this.deviceId) {
     throw new Error("Either user or deviceId must be provided");
   }
 
-  // Enhanced guest validation with better phone handling
   if (this.deviceId && !this.user) {
-    // Validate required guest fields
     if (!this.guestInfo.email) {
       throw new Error("Guest email is required for guest orders");
     }
 
-    // Ensure guest name is present (use shipping name as fallback)
     if (!this.guestInfo.name) {
       this.guestInfo.name = this.shippingAddress.fullName;
     }
 
-    // Phone synchronization: Always use shipping phone as source of truth
     if (!this.guestInfo.phone) {
-      // If guest phone is missing, use shipping phone
       this.guestInfo.phone = this.shippingAddress.phone;
     } else if (this.guestInfo.phone !== this.shippingAddress.phone) {
-      // If phones differ, log warning and use shipping phone
-      console.warn(
-        `⚠️ Guest phone (${this.guestInfo.phone}) differs from shipping phone (${this.shippingAddress.phone}) - using shipping phone`
-      );
       this.guestInfo.phone = this.shippingAddress.phone;
     }
 
-    // Validate phone format after synchronization
     if (!/^[0-9]{10}$/.test(this.guestInfo.phone)) {
       throw new Error("Guest phone must be 10 digits");
     }
 
-    // Validate email format
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.guestInfo.email)) {
       throw new Error("Invalid guest email format");
     }
   }
 
-  // Validate that user orders don't have deviceId
   if (this.user && this.deviceId) {
-    console.warn("⚠️ Order has both user and deviceId - removing deviceId");
     this.deviceId = null;
   }
 
-  // Validate payment amounts
   if (this.payment.method === "COD") {
-    // COD: amountPaidOnline should be codFee only
-    if (this.payment.amountPaidOnline > this.pricing.codFee + 1) {
-      // +1 for rounding tolerance
-      console.warn(
-        `⚠️ COD amountPaidOnline (${this.payment.amountPaidOnline}) exceeds codFee (${this.pricing.codFee})`
-      );
-    }
-
-    // Calculate amount to be paid on delivery
     const expectedCODAmount =
       this.pricing.finalTotal - this.payment.amountPaidOnline;
     if (Math.abs(this.payment.amountPaidOnDelivery - expectedCODAmount) > 1) {
-      console.warn(
-        `⚠️ Adjusting COD delivery amount from ${this.payment.amountPaidOnDelivery} to ${expectedCODAmount}`
-      );
       this.payment.amountPaidOnDelivery = expectedCODAmount;
     }
   } else if (this.payment.method === "ONLINE") {
-    // ONLINE: amountPaidOnline should equal finalTotal
-    if (Math.abs(this.payment.amountPaidOnline - this.pricing.finalTotal) > 1) {
-      console.warn(
-        `⚠️ Online payment amount (${this.payment.amountPaidOnline}) differs from finalTotal (${this.pricing.finalTotal})`
-      );
-    }
-
-    // Ensure amountPaidOnDelivery is 0 for online payments
     if (this.payment.amountPaidOnDelivery !== 0) {
-      console.warn("⚠️ Online payment should have 0 amountPaidOnDelivery");
       this.payment.amountPaidOnDelivery = 0;
     }
   }
@@ -704,9 +672,8 @@ orderSchema.index({ deviceId: 1, orderStatus: 1, createdAt: -1 });
 
 // ---------- Pre-save Hooks ----------
 
-// 1. GST Calculation & State Logic Hook (NEW)
+// 1. GST Calculation
 orderSchema.pre("save", function () {
-  // Only calculate if items or shipping address changed, or on creation
   if (!this.isModified("items") && !this.isModified("shippingAddress")) {
     return;
   }
@@ -717,7 +684,6 @@ orderSchema.pre("save", function () {
       .trim()
       .toLowerCase();
 
-    // Determine Intra-state (Same State) or Inter-state (Different State)
     const isIntraState = sellerState === customerState;
 
     let orderTotalGST = 0;
@@ -726,11 +692,9 @@ orderSchema.pre("save", function () {
     let orderTotalIGST = 0;
     let orderSubTotal = 0;
 
-    // Process each item
     this.items.forEach((item) => {
       const gstAmt = item.gstAmount || 0;
 
-      // Split tax based on state
       if (isIntraState) {
         item.taxType = "cgst_sgst";
         item.cgstAmount = gstAmt / 2;
@@ -743,11 +707,8 @@ orderSchema.pre("save", function () {
         item.igstAmount = gstAmt;
       }
 
-      // Calculate base price (Taxable Value) for this item
-      // priceWithGST includes tax, so base = total - tax
       const basePrice = (item.priceWithGST || item.itemTotal) - gstAmt;
 
-      // Accumulate Order Totals
       orderSubTotal += basePrice;
       orderTotalGST += gstAmt;
       orderTotalCGST += item.cgstAmount;
@@ -755,7 +716,6 @@ orderSchema.pre("save", function () {
       orderTotalIGST += item.igstAmount;
     });
 
-    // Update Root Order Fields
     this.subTotal = orderSubTotal;
     this.totalGST = orderTotalGST;
     this.totalCGST = orderTotalCGST;
@@ -764,7 +724,6 @@ orderSchema.pre("save", function () {
     this.grandTotal = this.subTotal + this.totalGST;
 
     if (!this.pricing) this.pricing = {};
-    // Sync with existing pricing object for backward compatibility
     this.pricing.tax = this.totalGST;
   } catch (error) {
     console.error("Error in GST Calculation Hook:", error);
@@ -775,7 +734,6 @@ orderSchema.pre("save", function () {
 orderSchema.pre("save", async function () {
   try {
     if (this.isNew && !this.orderNumber) {
-      console.warn("⚠️ Order number not provided! Generating fallback...");
       const timestamp = Date.now();
       const random = Math.floor(Math.random() * 1000);
       this.orderNumber = `ORD-${timestamp}-${random}`;
@@ -785,26 +743,28 @@ orderSchema.pre("save", async function () {
   }
 });
 
-// 3. Auto-calculate pricing totals
+// 3. MODIFIED: Auto-calculate Sequential Pricing totals
 orderSchema.pre("save", function () {
-  if (!this.isModified("items") && !this.isModified("coupon") && !this.isNew) {
+  if (!this.isModified("items") && !this.isModified("coupon") && !this.isModified("pricing.phase00DiscountAmount") && !this.isNew) {
     return;
   }
 
   if (!this.pricing) this.pricing = {};
 
-  // Use inclusive price (priceWithGST) instead of base price (itemTotal)
   this.pricing.productsSubtotal = this.items.reduce(
     (sum, item) => sum + (item.priceWithGST || item.itemTotal),
     0
   );
 
-  const discount = this.pricing.couponDiscount || 0;
-  
-  // Math.max prevents the value from ever dropping below 0
-  this.pricing.subtotalAfterCoupon = Math.max(0, this.pricing.productsSubtotal - discount);
+  // 1. Subtract Phase-00 Discount First
+  const phase00Discount = this.pricing.phase00DiscountAmount || 0;
+  const subtotalAfterPhase00 = Math.max(0, this.pricing.productsSubtotal - phase00Discount);
 
-  // Final total (Do not double-add tax here, as productsSubtotal is already inclusive)
+  // 2. Subtract Coupon Discount Next (Sequential Math)
+  const couponDiscount = this.pricing.couponDiscount || 0;
+  this.pricing.subtotalAfterCoupon = Math.max(0, subtotalAfterPhase00 - couponDiscount);
+
+  // 3. Final Total
   this.pricing.finalTotal =
     this.pricing.subtotalAfterCoupon +
     (this.pricing.codFee || 0) +
@@ -826,13 +786,11 @@ orderSchema.pre("save", function () {
 
 // ---------- Instance Methods ----------
 
-// Update order status
 orderSchema.methods.updateStatus = function (newStatus) {
   this.orderStatus = newStatus;
   return this.save();
 };
 
-// Mark payment as completed
 orderSchema.methods.completePayment = function (paymentDetails) {
   this.payment.status = "completed";
   this.payment.razorpayPaymentId = paymentDetails.razorpayPaymentId;
@@ -846,7 +804,6 @@ orderSchema.methods.completePayment = function (paymentDetails) {
   return this.save();
 };
 
-// Enhanced cancel order with proper coupon tracking
 orderSchema.methods.cancelOrder = async function (cancelledBy, reason) {
   this.orderStatus = "cancelled";
   this.cancellation.isCancelled = true;
@@ -854,14 +811,12 @@ orderSchema.methods.cancelOrder = async function (cancelledBy, reason) {
   this.cancellation.cancelledAt = new Date();
   this.cancellation.reason = reason;
 
-  // Calculate refund amount
   if (this.payment.status === "completed") {
     this.cancellation.refundStatus = "pending";
 
     if (this.payment.method === "ONLINE") {
       this.cancellation.refundAmount = this.payment.amountPaidOnline;
     } else if (this.payment.method === "COD") {
-      // COD fee is refundable ONLY if order is NOT YET shipped
       const nonRefundableStatuses = [
         "shipped",
         "out-for-delivery",
@@ -871,10 +826,8 @@ orderSchema.methods.cancelOrder = async function (cancelledBy, reason) {
       ];
       
       if (nonRefundableStatuses.includes(this.orderStatus)) {
-        // If order is already shipped, COD fee is forfeited
         this.cancellation.refundAmount = 0;
       } else {
-        // If not shipped, refund the fee (since they paid it online)
         this.cancellation.refundAmount = this.pricing.codFee;
       }
     }
@@ -898,13 +851,11 @@ orderSchema.methods.cancelOrder = async function (cancelledBy, reason) {
   };
 };
 
-// Update tracking information
 orderSchema.methods.updateTracking = function (trackingData) {
   this.tracking = { ...this.tracking, ...trackingData };
   return this.save();
 };
 
-// Method to generate unique Invoice Number
 orderSchema.methods.generateInvoiceNumber = async function () {
   if (this.invoice && this.invoice.invoiceNumber) return;
 
@@ -943,11 +894,11 @@ orderSchema.methods.generateInvoiceNumber = async function () {
   await this.save();
 };
 
-// Get payment summary
 orderSchema.methods.getPaymentSummary = function () {
   return {
     method: this.payment.method,
     productsSubtotal: this.pricing.productsSubtotal,
+    phase00DiscountAmount: this.pricing.phase00DiscountAmount, // Expose phase00 discount safely
     couponDiscount: this.pricing.couponDiscount,
     subtotalAfterCoupon: this.pricing.subtotalAfterCoupon,
     codFee: this.pricing.codFee,
@@ -961,7 +912,6 @@ orderSchema.methods.getPaymentSummary = function () {
   };
 };
 
-// Get coupon details summary
 orderSchema.methods.getCouponSummary = function () {
   if (!this.coupon.code) {
     return null;
@@ -984,7 +934,6 @@ orderSchema.methods.getCouponSummary = function () {
   };
 };
 
-// Check if order can be modified
 orderSchema.methods.canBeModified = function () {
   return (
     ["pending", "confirmed"].includes(this.orderStatus) &&
@@ -992,7 +941,6 @@ orderSchema.methods.canBeModified = function () {
   );
 };
 
-// Add method to check if order can be cancelled
 orderSchema.methods.canBeCancelledByUser = function () {
   return (
     !this.cancellation.isCancelled &&
@@ -1001,7 +949,6 @@ orderSchema.methods.canBeCancelledByUser = function () {
   );
 };
 
-// Add method to get customer identifier
 orderSchema.methods.getCustomerIdentifier = function () {
   return {
     userId: this.user || null,
@@ -1204,15 +1151,9 @@ orderSchema.virtual("canBeCancelled").get(function () {
   return this.canBeCancelledByUser();
 });
 
-// ---------- MODIFIED: canBeReturned Virtual ----------
 orderSchema.virtual("canBeReturned").get(function () {
-  // 1. Must be delivered
   if (this.orderStatus !== "delivered") return false;
-
-  // 2. Must not have an active or completed return
   if (this.returnInfo && this.returnInfo.status !== "none") return false;
-
-  // 3. Must be within 7 days
   const deliveryDate = this.statusTimestamps.delivered;
   if (!deliveryDate) return false;
 

@@ -8,8 +8,10 @@ import {
 
 export const getAllProducts = async (req, res) => {
   try {
-    // Get all published products
-    const products = await Product.find({ status: "published" })
+    const products = await Product.find({ 
+      status: "published",
+      group: { $ne: "phase-00" } // Hides phase-00 products from the general store
+    })
       .select("-__v")
       .lean();
 
@@ -190,6 +192,7 @@ export const getBestSellingProducts = async (req, res) => {
     let products = await Product.find({
       status: "published",
       salesCount: { $gt: 0 },
+      group: { $ne: "phase-00" } 
     })
       .sort({ salesCount: -1 })
       .limit(limit)
@@ -205,7 +208,8 @@ export const getBestSellingProducts = async (req, res) => {
         {
           $match: {
             status: "published",
-            _id: { $nin: existingIds }, // Exclude ones we already have
+            group: { $ne: "phase-00" },
+            _id: { $nin: existingIds },
           },
         },
         { $sample: { size: needed } }, // Random selection
@@ -249,8 +253,9 @@ export const searchProducts = async (req, res) => {
     // Create a case-insensitive regex
     const searchRegex = new RegExp(q, "i");
 
+    // Exclude phase-00 from public search results
     const products = await Product.find({
-      status: "published",
+      status: "published", 
       $or: [
         { name: searchRegex },
         { category: searchRegex },
@@ -281,8 +286,6 @@ export const searchProducts = async (req, res) => {
     });
   }
 };
-
-
 
 export const getProductsByGroupAndCategory = async (req, res) => {
   try {

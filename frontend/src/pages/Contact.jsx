@@ -57,49 +57,52 @@ const Contact = () => {
     }, [success, dispatch]);
 
     return (
-        <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden font-sans">
+        <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden font-sans bg-[#f4f4f4]">
             
             {/* --- BACKGROUND IMAGE WITH DIMMING --- */}
             <div 
                 className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transform scale-105"
                 style={{ backgroundImage: `url('${bgImage}')` }}
             >
-                {/* Dark Overlay for Dimming (Adjust opacity 0.6 - 0.8) */}
-                <div className="absolute inset-0 bg-black/70 backdrop-blur-[2px]"></div>
+                {/* Light Overlay for Soft Frosted Look */}
+                <div className="absolute inset-0 bg-white/70 backdrop-blur-[4px]"></div>
             </div>
 
             {/* --- GLASS FORM CONTAINER --- */}
-            <div className="relative z-10 w-full max-w-lg p-5">
+            <div className="relative z-10 w-full max-w-lg p-5 mt-10 lg:mt-0">
                 
                 {/* Header Text */}
                 <div className="text-center mb-8">
-                    <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-2 drop-shadow-lg">
+                    {/* Light theme heading */}
+                    <h1 className="text-4xl md:text-5xl font-bold text-[#0f0f0f] tracking-tight mb-2 drop-shadow-sm">
                         Get in Touch
                     </h1>
-                    <p className="text-zinc-400 text-sm md:text-base font-medium">
+                    <p className="text-zinc-600 text-sm md:text-base font-medium">
                         Have a question? We'd love to hear from you.
                     </p>
                 </div>
 
-                {/* Form Card */}
-                <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/10 rounded-3xl p-4 shadow-2xl shadow-black/50">
+                {/* Form Card - Light Frosted Glass */}
+                <div className="bg-white/60 backdrop-blur-xl border border-zinc-200/50 rounded-3xl p-4 md:p-6 shadow-xl shadow-black/5">
                     
                     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
                         
                         {/* Name Input */}
                         <div className="group">
-                            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 ml-1">
+                            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">
                                 Name
                             </label>
                             <div className="relative">
-                                <Icon icon="solar:user-bold" className="absolute left-4 top-3.5 text-zinc-500 text-lg group-focus-within:text-indigo-400 transition-colors" />
+                                {/* Matched focus icon color to brand red */}
+                                <Icon icon="solar:user-bold" className="absolute left-4 top-3.5 text-zinc-400 text-lg group-focus-within:text-red-600 transition-colors" />
                                 <input 
                                     type="text" 
                                     name="name"
                                     value={formData.name}
                                     onChange={handleChange}
                                     required
-                                    className="w-full bg-black/40 border border-zinc-700/50 rounded-xl py-3 pl-12 pr-4 text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                                    // Light theme input fields
+                                    className="w-full bg-white/80 border border-zinc-300/80 rounded-xl py-3 pl-12 pr-4 text-[#0f0f0f] placeholder-zinc-400 focus:outline-none focus:border-red-600/50 focus:ring-1 focus:ring-red-600/50 transition-all shadow-sm"
                                     placeholder="Goku Son"
                                 />
                             </div>
@@ -107,18 +110,18 @@ const Contact = () => {
 
                         {/* Email Input */}
                         <div className="group">
-                            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 ml-1">
+                            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">
                                 Email
                             </label>
                             <div className="relative">
-                                <Icon icon="solar:letter-bold" className="absolute left-4 top-3.5 text-zinc-500 text-lg group-focus-within:text-indigo-400 transition-colors" />
+                                <Icon icon="solar:letter-bold" className="absolute left-4 top-3.5 text-zinc-400 text-lg group-focus-within:text-red-600 transition-colors" />
                                 <input 
                                     type="email" 
                                     name="email"
                                     value={formData.email}
                                     onChange={handleChange}
                                     required
-                                    className="w-full bg-black/40 border border-zinc-700/50 rounded-xl py-3 pl-12 pr-4 text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                                    className="w-full bg-white/80 border border-zinc-300/80 rounded-xl py-3 pl-12 pr-4 text-[#0f0f0f] placeholder-zinc-400 focus:outline-none focus:border-red-600/50 focus:ring-1 focus:ring-red-600/50 transition-all shadow-sm"
                                     placeholder="kamehameha@example.com"
                                 />
                             </div>
@@ -126,18 +129,18 @@ const Contact = () => {
 
                         {/* Phone Input */}
                         <div className="group">
-                            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 ml-1">
+                            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">
                                 Phone No
                             </label>
                             <div className="relative">
-                                <Icon icon="solar:phone-bold" className="absolute left-4 top-3.5 text-zinc-500 text-lg group-focus-within:text-indigo-400 transition-colors" />
+                                <Icon icon="solar:phone-bold" className="absolute left-4 top-3.5 text-zinc-400 text-lg group-focus-within:text-red-600 transition-colors" />
                                 <input 
                                     type="tel" 
                                     name="phone"
                                     value={formData.phone}
                                     onChange={handleChange}
                                     required
-                                    className="w-full bg-black/40 border border-zinc-700/50 rounded-xl py-3 pl-12 pr-4 text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                                    className="w-full bg-white/80 border border-zinc-300/80 rounded-xl py-3 pl-12 pr-4 text-[#0f0f0f] placeholder-zinc-400 focus:outline-none focus:border-red-600/50 focus:ring-1 focus:ring-red-600/50 transition-all shadow-sm"
                                     placeholder="+91 98765 43210"
                                 />
                             </div>
@@ -145,7 +148,7 @@ const Contact = () => {
 
                         {/* Message Input */}
                         <div className="group">
-                            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 ml-1">
+                            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">
                                 Message
                             </label>
                             <textarea 
@@ -154,19 +157,19 @@ const Contact = () => {
                                 onChange={handleChange}
                                 required
                                 rows="4"
-                                className="w-full bg-black/40 border border-zinc-700/50 rounded-xl py-3 px-4 text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all resize-none"
+                                className="w-full bg-white/80 border border-zinc-300/80 rounded-xl py-3 px-4 text-[#0f0f0f] placeholder-zinc-400 focus:outline-none focus:border-red-600/50 focus:ring-1 focus:ring-red-600/50 transition-all resize-none shadow-sm"
                                 placeholder="How can we help you level up?"
                             ></textarea>
                         </div>
 
                         {/* Status Messages */}
                         {error && (
-                            <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm flex items-center gap-2">
+                            <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 text-sm flex items-center gap-2">
                                 <Icon icon="solar:danger-circle-bold" /> {error}
                             </div>
                         )}
                         {success && (
-                            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm flex items-center gap-2">
+                            <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-600 text-sm flex items-center gap-2">
                                 <Icon icon="solar:check-circle-bold" /> Message sent successfully!
                             </div>
                         )}
@@ -175,7 +178,7 @@ const Contact = () => {
                         <button 
                             type="submit" 
                             disabled={loading}
-                            className="w-full mt-2 bg-linear-to-r from-red-600 to-orange-700 hover:from-red-500 hover:to-orange-600 text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg shadow-orange-500/20 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            className="w-full mt-2 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg shadow-red-600/20 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
                             {loading ? (
                                 <Icon icon="line-md:loading-twotone-loop" className="text-xl" />

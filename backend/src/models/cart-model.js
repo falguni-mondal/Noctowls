@@ -100,6 +100,10 @@ const cartSchema = new mongoose.Schema(
       couponDiscount: { type: Number, default: 0 },
       total: { type: Number, default: 0 },
     },
+    phase00ExpiresAt: {
+      type: Date,
+      default: null,
+    },
     lastActivity: {
       type: Date,
       default: Date.now,
@@ -611,6 +615,7 @@ cartSchema.methods.clearCart = async function () {
     totalTiers: 0,
     gifts: [],
   };
+  this.phase00ExpiresAt = null;
   return this.save();
 };
 

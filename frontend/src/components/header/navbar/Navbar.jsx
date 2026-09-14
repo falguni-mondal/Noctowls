@@ -107,12 +107,13 @@ const Navbar = ({
 
             {/* Left Side: Logo + Desktop Navigation */}
             <div className="logo flex items-center gap-8 lg:gap-10">
-                <div className="relative">
+                <div className="relative shrink-0">
                     <Logo width="w-[88px]" />
                     <Link to="/" className="absolute inset-0 z-10" />
                 </div>
 
-                <ul className="hidden lg:flex items-center gap-8 text-sm font-medium text-zinc-700">
+                {/* ✅ Added whitespace-nowrap here to prevent ANY text breaking */}
+                <ul className="hidden lg:flex items-center gap-6 xl:gap-8 text-sm font-medium text-zinc-700 whitespace-nowrap">
                     {links.map(({ title, link, isPhase }) => (
                         <li key={`${title}-desktop-nav`} className="relative group">
                             <span className={`transition-colors pointer-events-none ${isPhase ? "phase-shine phase-txt uppercase" : "group-hover:text-[#0f0f0f] capitalize"}`}>
@@ -131,7 +132,7 @@ const Navbar = ({
                             href="https://wa.me/+918348341112"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 group-hover:text-[#0f0f0f] transition-colors capitalize"
+                            className="flex items-center gap-1.5 group-hover:text-[#0f0f0f] transition-colors capitalize whitespace-nowrap"
                         >
                             <Icon icon="uil:whatsapp-alt" className='pointer-events-none text-lg text-green-600'/>
                             <span>Whatsapp</span>
@@ -141,7 +142,7 @@ const Navbar = ({
             </div>
 
             {/* Right Side: Icons */}
-            <nav className="nav-icons flex gap-2 md:gap-3 lg:w-auto justify-end items-center static lg:relative w-[30%]">
+            <nav className="nav-icons flex gap-2 md:gap-3 lg:w-auto justify-end items-center static lg:relative w-[30%] whitespace-nowrap">
 
                 {/* --- SEARCH COMPONENT --- */}
                 <div
@@ -155,7 +156,7 @@ const Navbar = ({
                     `}
                 >
                     {isSearchOpen ? (
-                        <div className="w-full relative lg:w-[400px] animate-in fade-in zoom-in-95 duration-200">
+                        <div className="w-full relative lg:w-[230px] xl:w-[320px] animate-in fade-in zoom-in-95 duration-200">
                             
                             <div className="relative group flex items-center gap-2">
                                 <div className="relative w-full">
@@ -172,11 +173,11 @@ const Navbar = ({
                                     />
                                 </div>
 
-                                <div className="lg:absolute lg:right-2 lg:top-1/2 lg:-translate-y-1/2 relative group active:scale-95 transition-transform duration-200">
+                                <div className="lg:absolute lg:right-2 lg:top-1/2 lg:-translate-y-1/2 relative group active:scale-95 transition-transform duration-200 shrink-0">
                                     <button 
                                         className="w-8 h-8 flex items-center justify-center lg:group-hover:bg-zinc-100 lg:rounded-full transition-all text-zinc-500 group-hover:text-[#0f0f0f] pointer-events-none"
                                     >
-                                        <span className="lg:hidden text-sm px-2">Cancel</span>
+                                        <span className="lg:hidden text-sm px-2 whitespace-nowrap">Cancel</span>
                                         <Icon icon="mingcute:close-line" className="hidden lg:block text-lg" />
                                     </button>
                                     <span onClick={closeSearch} className="absolute inset-0 z-10 cursor-pointer rounded-full" />
@@ -245,7 +246,7 @@ const Navbar = ({
                             )}
                         </div>
                     ) : (
-                        <div className="relative w-10 h-10 group active:scale-95 transition-transform duration-200">
+                        <div className="relative w-10 h-10 group active:scale-95 transition-transform duration-200 shrink-0">
                             <span className="w-full h-full flex items-center justify-center rounded-full text-zinc-500 group-hover:text-[#0f0f0f] group-hover:bg-black/5 transition-all duration-200 pointer-events-none text-[22px]">
                                 <Icon icon="basil:search-solid" />
                             </span>
@@ -255,7 +256,7 @@ const Navbar = ({
                 </div>
 
                 {/* --- USER / ADMIN DROPDOWN MENU --- */}
-                <div className={`hidden lg:block relative ${isSearchOpen ? 'hidden lg:block' : ''}`} ref={dropdownRef}>
+                <div className={`hidden lg:block relative shrink-0 ${isSearchOpen ? 'hidden lg:block' : ''}`} ref={dropdownRef}>
                     <div className="relative w-10 h-10 group active:scale-95 transition-transform duration-200">
                         <div className="w-full h-full flex items-center justify-center rounded-full text-zinc-500 group-hover:text-[#0f0f0f] group-hover:bg-black/5 transition-all duration-200 pointer-events-none text-2xl">
                             <Icon icon={admin ? "solar:shield-user-outline" : "iconamoon:profile-light"} />
@@ -341,7 +342,7 @@ const Navbar = ({
 
                 {/* Cart Icon */}
                 {!admin && (
-                    <div className="relative w-10 h-10 group active:scale-95 transition-transform duration-200">
+                    <div className="relative w-10 h-10 group active:scale-95 transition-transform duration-200 shrink-0">
                         <div className="w-full h-full flex items-center justify-center rounded-full text-zinc-500 group-hover:text-[#0f0f0f] group-hover:bg-black/5 transition-all duration-200 pointer-events-none text-2xl relative">
                             <Icon icon="solar:bag-3-outline" />
                             <span className={`${!cart || cart?.summary?.totalQuantity === 0 ? "hidden" : "flex"} absolute top-0 right-0 w-4 h-4 rounded-full bg-red-600 flex justify-center items-center text-white text-[0.65rem] font-bold border-2 border-[#f4f4f4]`}>

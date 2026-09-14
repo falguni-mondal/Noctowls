@@ -76,17 +76,17 @@ const WishlistItem = ({ item }) => {
     const displayPrice = product?.sizes?.[0];
 
     return (
-        <li className='w-full relative'>
+        <li className='w-full relative bg-white border border-zinc-200 shadow-sm rounded-xl p-4'>
             {/* Loading Overlay */}
             {isUpdating && (
-                <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center z-10">
-                    <Icon icon="eos-icons:loading" className="text-3xl text-white" />
+                <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] rounded-xl flex items-center justify-center z-20">
+                    <Icon icon="eos-icons:loading" className="text-3xl text-red-600" />
                 </div>
             )}
 
             <div className="wishlist-product-main-dets w-full">
                 <Link to={`/products/${product._id}`} className='w-full flex justify-between'>
-                    <div className="wishlist-product-img aspect-square rounded bg-zinc-800 overflow-hidden w-[33%] shrink-0 relative">
+                    <div className="wishlist-product-img aspect-square rounded-lg bg-zinc-100 border border-zinc-200 overflow-hidden w-[30%] shrink-0 relative">
                         <img 
                             className='w-full h-full object-cover' 
                             src={product.images?.[0]?.url || '/placeholder-image.jpg'} 
@@ -96,15 +96,15 @@ const WishlistItem = ({ item }) => {
                             }}
                         />
                         {isOutOfStock && (
-                            <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                                <span className="text-xs font-semibold text-red-400 bg-black/80 px-2 py-1 rounded">
+                            <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
+                                <span className="text-[10px] font-bold text-red-600 bg-white border border-red-200 shadow-sm px-2 py-1 rounded uppercase tracking-wider">
                                     OUT OF STOCK
                                 </span>
                             </div>
                         )}
                     </div>
-                    <div className="wishlist-product-dets w-[63%]">
-                        <h2 className="wishlist-product-name font-medium text-lg tracking-wide w-full line-clamp-2">
+                    <div className="wishlist-product-dets w-[65%] pl-2">
+                        <h2 className="wishlist-product-name font-bold text-[#0f0f0f] text-lg tracking-wide w-full line-clamp-2">
                             {product.name}
                         </h2>
                         
@@ -112,38 +112,38 @@ const WishlistItem = ({ item }) => {
                             <>
                                 {displayPrice.discount > 0 ? (
                                     <div className="flex items-center gap-2 mt-1">
-                                        <p className="wishlist-product-price font-medium text-lg tracking-wide">
-                                            ₹{displayPrice.price}
+                                        <p className="wishlist-product-price font-black text-[#0f0f0f] text-lg tracking-wide">
+                                            ₹{displayPrice.price.toLocaleString('en-IN')}
                                         </p>
-                                        <p className="text-sm text-zinc-500 line-through">
-                                            ₹{displayPrice.formattedOriginalPrice}
+                                        <p className="text-sm font-medium text-zinc-400 line-through">
+                                            ₹{displayPrice.originalPrice.toLocaleString('en-IN')}
                                         </p>
-                                        <span className="text-xs bg-green-600 text-white px-2 py-1 rounded">
+                                        <span className="text-[10px] font-bold bg-green-100 border border-green-200 text-green-700 px-2 py-0.5 rounded">
                                             {displayPrice.discount}% OFF
                                         </span>
                                     </div>
                                 ) : (
-                                    <p className="wishlist-product-price font-medium text-lg tracking-wide mt-1">
-                                        ₹{displayPrice.price}
+                                    <p className="wishlist-product-price font-black text-[#0f0f0f] text-lg tracking-wide mt-1">
+                                        ₹{displayPrice.price.toLocaleString('en-IN')}
                                     </p>
                                 )}
                             </>
                         )}
 
-                        <p className="wishlist-product-category font-medium tracking-wide text-zinc-400 capitalize mt-1">
+                        <p className="wishlist-product-category font-bold uppercase text-[10px] tracking-widest text-zinc-400 mt-2">
                             {product.category?.replace('-', ' ')}
                         </p>
 
                         {/* Stock Status */}
                         {!isOutOfStock && (
-                            <p className="text-sm text-green-400 mt-1 flex items-center gap-1">
+                            <p className="text-xs font-bold text-green-600 mt-1.5 flex items-center gap-1">
                                 <Icon icon="mdi:check-circle" className="text-base" />
                                 In Stock
                             </p>
                         )}
 
                         {/* Added date */}
-                        <p className="text-xs text-zinc-500 mt-2">
+                        <p className="text-xs font-medium text-zinc-400 mt-3">
                             Added {new Date(item.addedAt).toLocaleDateString('en-IN', {
                                 day: 'numeric',
                                 month: 'short',
@@ -156,44 +156,44 @@ const WishlistItem = ({ item }) => {
 
             {/* Size Selector (Expandable) */}
             {showSizeSelector && !isOutOfStock && (
-                <div className="mt-4 p-4 bg-zinc-900 rounded border border-zinc-800">
-                    <div className="flex items-center justify-between mb-3">
-                        <label className="text-sm font-medium">Select Size:</label>
+                <div className="mt-4 p-5 bg-white border border-zinc-200 shadow-sm rounded-xl relative z-10">
+                    <div className="flex items-center justify-between mb-4">
+                        <label className="text-sm font-bold text-[#0f0f0f] uppercase tracking-wider">Select Size:</label>
                         <button
                             onClick={() => setShowSizeSelector(false)}
-                            className="text-zinc-500 hover:text-zinc-300"
+                            className="text-zinc-400 hover:text-[#0f0f0f] transition-colors"
                         >
-                            <Icon icon="mdi:close" className="text-lg" />
+                            <Icon icon="mdi:close" className="text-xl" />
                         </button>
                     </div>
                     
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 gap-3">
                         {availableSizes.map((size) => (
                             <button
                                 key={size.value}
                                 onClick={() => setSelectedSize(size.value)}
-                                className={`px-3 py-2 rounded border text-sm font-medium transition ${
+                                className={`px-3 py-2.5 rounded-lg border text-sm font-bold transition-all shadow-sm ${
                                     selectedSize === size.value
-                                        ? 'border-indigo-500 bg-indigo-600 text-white'
-                                        : 'border-zinc-700 bg-zinc-800 hover:border-zinc-600'
+                                        ? 'border-[#0f0f0f] bg-[#0f0f0f] text-white shadow-black/20'
+                                        : 'border-zinc-300 bg-white hover:border-[#0f0f0f] text-[#0f0f0f]'
                                 }`}
                             >
-                                <div className="flex flex-col items-center">
+                                <div className="flex flex-col items-center gap-0.5">
                                     <span className="uppercase">{size.label || size.value}</span>
-                                    <span className="text-xs text-zinc-400">₹{size.price}</span>
+                                    <span className={`text-[10px] ${selectedSize === size.value ? 'text-zinc-300' : 'text-zinc-500'}`}>₹{size.price}</span>
                                 </div>
                             </button>
                         ))}
                     </div>
 
                     {outOfStockSizes.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-zinc-800">
-                            <p className="text-xs text-zinc-500 mb-2">Out of stock sizes:</p>
+                        <div className="mt-4 pt-4 border-t border-zinc-100">
+                            <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Out of stock sizes:</p>
                             <div className="flex flex-wrap gap-2">
                                 {outOfStockSizes.map((size) => (
                                     <span
                                         key={size.value}
-                                        className="px-2 py-1 text-xs bg-zinc-800 text-zinc-600 rounded line-through uppercase"
+                                        className="px-2 py-1 text-xs font-bold bg-zinc-100 border border-zinc-200 text-zinc-400 rounded line-through uppercase"
                                     >
                                         {size.label || size.value}
                                     </span>
@@ -205,17 +205,17 @@ const WishlistItem = ({ item }) => {
                     <button
                         onClick={handleMoveToCart}
                         disabled={!selectedSize || moveLoading}
-                        className="w-full mt-3 bg-red-600 text-white py-2 rounded font-medium hover:bg-red-700 disabled:bg-red-900 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+                        className="w-full mt-5 bg-[#0f0f0f] text-white py-3 rounded-lg font-bold uppercase tracking-wider hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md flex items-center justify-center gap-2"
                     >
                         {moveLoading ? (
                             <>
-                                <Icon icon="eos-icons:loading" className="text-lg" />
+                                <Icon icon="eos-icons:loading" className="text-xl" />
                                 Moving to Cart...
                             </>
                         ) : (
                             <>
-                                <Icon icon="material-symbols:add-shopping-cart" className="text-lg" />
-                                Add to Cart
+                                <Icon icon="material-symbols:add-shopping-cart" className="text-xl" />
+                                Confirm & Add
                             </>
                         )}
                     </button>
@@ -223,14 +223,18 @@ const WishlistItem = ({ item }) => {
             )}
 
             {/* Actions */}
-            <div className="wishlist-product-actions w-full flex items-center gap-3 mt-4">
+            <div className="wishlist-product-actions w-full flex items-center gap-3 mt-5 border-t border-zinc-100 pt-4">
                 {!isOutOfStock ? (
                     <>
                         {/* Move to Cart Button */}
                         <button
                             onClick={() => setShowSizeSelector(!showSizeSelector)}
                             disabled={isUpdating || moveLoading}
-                            className="flex-1 bg-red-600 text-white text-sm py-2.5 px-5 rounded font-medium hover:bg-red-700 disabled:bg-red-900 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+                            className={`flex-1 text-sm py-3 px-4 rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-sm border ${
+                                showSizeSelector 
+                                ? 'bg-white border-zinc-300 text-[#0f0f0f] hover:bg-zinc-50' 
+                                : 'bg-[#0f0f0f] border-[#0f0f0f] text-white hover:bg-zinc-800'
+                            }`}
                         >
                             <Icon icon="material-symbols:add-shopping-cart" className="text-lg" />
                             {showSizeSelector ? 'Cancel' : 'Add to Cart'}
@@ -239,18 +243,18 @@ const WishlistItem = ({ item }) => {
                         {/* View Product Button */}
                         <Link
                             to={`/products/${product._id}`}
-                            className="flex-1 bg-zinc-800 text-white text-sm py-2.5 rounded font-medium hover:bg-zinc-700 transition flex items-center justify-center gap-2"
+                            className="flex-1 bg-white border border-zinc-300 text-[#0f0f0f] text-sm py-3 rounded-lg font-bold hover:bg-zinc-50 transition-all flex items-center justify-center gap-2 shadow-sm"
                         >
-                            <Icon icon="mdi:eye-outline" className="text-lg" />
+                            <Icon icon="mdi:eye-outline" className="text-lg text-zinc-500" />
                             View
                         </Link>
                     </>
                 ) : (
                     <Link
                         to={`/products/${product._id}`}
-                        className="flex-1 bg-zinc-800 text-white py-2.5 rounded font-medium hover:bg-zinc-700 transition flex items-center justify-center gap-2"
+                        className="flex-1 bg-white border border-zinc-300 text-[#0f0f0f] py-3 rounded-lg font-bold hover:bg-zinc-50 transition-all shadow-sm flex items-center justify-center gap-2"
                     >
-                        <Icon icon="mdi:bell-outline" className="text-lg" />
+                        <Icon icon="mdi:bell-outline" className="text-lg text-amber-500" />
                         Notify When Available
                     </Link>
                 )}
@@ -259,10 +263,10 @@ const WishlistItem = ({ item }) => {
                 <button
                     onClick={handleRemove}
                     disabled={isUpdating || actionLoading}
-                    className="w-12 h-10 bg-zinc-800 rounded flex items-center justify-center text-red-400 hover:bg-red-950 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    className="w-[52px] h-[46px] bg-red-50 border border-red-100 rounded-lg flex items-center justify-center text-red-500 hover:bg-red-100 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
                     title="Remove from wishlist"
                 >
-                    <Icon icon="material-symbols:favorite-rounded" className="text-xl" />
+                    <Icon icon="material-symbols:favorite-rounded" className="text-2xl" />
                 </button>
             </div>
         </li>

@@ -13,6 +13,7 @@ import {
   handleRazorpayWebhook,
   requestReturn,
   handleDelhiveryWebhook,
+  checkFlashSaleStatus, // 🔥 NEW: Imported the Flash Sale controller
 } from "../../../controllers/user/order/order-controllers.js";
 import {
   validateCreateOrder,
@@ -46,6 +47,9 @@ router.post("/delhivery-webhook", handleDelhiveryWebhook);
 // All routes below support both authenticated users and guests
 router.use(optionalAuth);
 
+// Check flash sale timer status
+router.get("/flash-sale/status", checkFlashSaleStatus);
+
 // Get order summary for checkout page
 router.get("/summary", getOrderSummary);
 
@@ -72,6 +76,5 @@ router.post("/:orderId/return", validateOrderId, requestReturn);
 
 // Download invoice
 router.get("/:orderId/invoice", validateOrderId, downloadInvoice);
-
 
 export default router;

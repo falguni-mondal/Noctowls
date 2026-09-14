@@ -31,10 +31,10 @@ import adminWishlistRouter from "./routes/admin/wishlist/admin-wishlist-routes.j
 
 const app = express();
 
-// 1. Initialize Global Leaky Limiter (50 req/sec)
+// Initialize Global Leaky Limiter (50 req/sec)
 const globalLimiter = new LeakyLimiter(50);
 
-// 2. Initialize User Limiter (40 requests per 10 seconds)
+// Initialize User Limiter (40 requests per 10 seconds)
 const userLimiter = new UserLimiter(40, 10000); 
 
 // Optional: Cleanup stale IPs every 60 seconds to save memory
@@ -67,7 +67,7 @@ app.use(
 // NO CACHE MIDDLEWARE (For not storing anything in the cache)
 app.use(noCache);
 
-// 3. APPLY USER LIMITER (The Guard)
+// APPLY USER LIMITER (The Guard)
 // This runs FIRST. If a specific user is spamming, we reject them immediately.
 app.use((req, res, next) => {
   const userIp = req.ip; // Identify by IP address
@@ -81,7 +81,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// 4. APPLY GLOBAL LEAKY LIMITER (The Traffic Cop)
+// APPLY GLOBAL LEAKY LIMITER (The Traffic Cop)
 // This runs SECOND. It delays valid requests to ensure the server isn't overwhelmed by a burst.
 app.use(async (req, res, next) => {
   await globalLimiter.wait();

@@ -4,6 +4,21 @@ import { logoutUser, deleteAccount } from "./authSlice";
 
 // ==================== ASYNC THUNKS ====================
 
+// 🔥 NEW: Check Phase-00 Flash Sale Status
+export const checkFlashSaleStatus = createAsyncThunk(
+  "order/checkFlashSaleStatus",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await userApi.get("/order/flash-sale/status");
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to check flash sale status"
+      );
+    }
+  }
+);
+
 // Create order
 export const createOrder = createAsyncThunk(
   "order/createOrder",
@@ -216,6 +231,13 @@ const initialState = {
     discount: null,
   },
 
+  // 🔥 Phase-00 Flash Sale State
+  flashSale: {
+    loading: false,
+    isEligible: false,
+    expiresAt: null,
+  },
+
   // Current checkout order (before payment)
   checkoutOrder: null,
   razorpayDetails: null,
@@ -231,7 +253,7 @@ const initialState = {
   createOrderLoading: false,
   verifyPaymentLoading: false,
   cancelOrderLoading: false,
-  returnRequestLoading: false, // [!code ++] New loading state for returns
+  returnRequestLoading: false,
   summaryLoading: false,
   trackGuestOrderLoading: false,
 
@@ -291,6 +313,22 @@ const orderSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
+    // ===== 🔥 FLASH SALE STATUS =====
+    builder
+      .addCase(checkFlashSaleStatus.pending, (state) => {
+        state.flashSale.loading = true;
+      })
+      .addCase(checkFlashSaleStatus.fulfilled, (state, action) => {
+        state.flashSale.loading = false;
+        state.flashSale.isEligible = action.payload.isEligible;
+        state.flashSale.expiresAt = action.payload.expiresAt;
+      })
+      .addCase(checkFlashSaleStatus.rejected, (state, action) => {
+        state.flashSale.loading = false;
+        state.flashSale.isEligible = false;
+        state.flashSale.expiresAt = null;
+      });
+
     // ===== CREATE ORDER =====
     builder
       .addCase(createOrder.pending, (state) => {
@@ -323,6 +361,9 @@ const orderSlice = createSlice({
         state.checkoutOrder = null;
         state.razorpayDetails = null;
         state.error = null;
+        // 🔥 Reset flash sale state once order is verified
+        state.flashSale.isEligible = false;
+        state.flashSale.expiresAt = null;
       })
       .addCase(verifyPayment.rejected, (state, action) => {
         state.verifyPaymentLoading = false;
@@ -399,7 +440,7 @@ const orderSlice = createSlice({
         state.error = action.payload;
       });
 
-    // ===== [!code ++] NEW: REQUEST RETURN =====
+    // ===== REQUEST RETURN =====
     builder
       .addCase(requestReturn.pending, (state) => {
         state.returnRequestLoading = true;
@@ -466,7 +507,10 @@ const orderSlice = createSlice({
         state.couponValidation.loading = false;
         state.couponValidation.isValid = true;
         state.couponValidation.coupon = action.payload.coupon;
+        
+        // Ensure discount is correctly structured matching the backend response
         state.couponValidation.discount = action.payload.discount;
+        
         state.couponValidation.error = null;
       })
       .addCase(validateCoupon.rejected, (state, action) => {
@@ -511,14 +555,12 @@ const orderSlice = createSlice({
         state.error = action.payload;
       });
 
-    // ON USER LOGOUT....................................................................
+    // ON USER LOGOUT
     builder
       .addCase(logoutUser.fulfilled, (state) => {
-        // Reset orders to initial state on logout
         Object.assign(state, initialState);
       })
       .addCase(deleteAccount.fulfilled, (state) => {
-        // Reset orders to initial state on account deletion
         Object.assign(state, initialState);
       });
   },
@@ -545,6 +587,10 @@ export const selectPagination = (state) => state.order.pagination;
 export const selectCustomerType = (state) => state.order.customerType;
 export const selectOrderSummary = (state) => state.order.orderSummary;
 export const selectCouponValidation = (state) => state.order.couponValidation;
+
+// 🔥 Export Phase-00 Flash Sale Selector
+export const selectFlashSale = (state) => state.order.flashSale;
+
 export const selectCheckoutOrder = (state) => state.order.checkoutOrder;
 export const selectRazorpayDetails = (state) => state.order.razorpayDetails;
 export const selectTrackedGuestOrder = (state) => state.order.trackedGuestOrder;
@@ -552,17 +598,12 @@ export const selectInvoice = (state) => state.order.invoice;
 
 // Loading selectors
 export const selectOrderLoading = (state) => state.order.loading;
-export const selectCreateOrderLoading = (state) =>
-  state.order.createOrderLoading;
-export const selectVerifyPaymentLoading = (state) =>
-  state.order.verifyPaymentLoading;
-export const selectCancelOrderLoading = (state) =>
-  state.order.cancelOrderLoading;
-export const selectReturnRequestLoading = (state) => // [!code ++] Export selector
-  state.order.returnRequestLoading;
+export const selectCreateOrderLoading = (state) => state.order.createOrderLoading;
+export const selectVerifyPaymentLoading = (state) => state.order.verifyPaymentLoading;
+export const selectCancelOrderLoading = (state) => state.order.cancelOrderLoading;
+export const selectReturnRequestLoading = (state) => state.order.returnRequestLoading;
 export const selectSummaryLoading = (state) => state.order.summaryLoading;
-export const selectTrackGuestOrderLoading = (state) =>
-  state.order.trackGuestOrderLoading;
+export const selectTrackGuestOrderLoading = (state) => state.order.trackGuestOrderLoading;
 
 // Error & success selectors
 export const selectOrderError = (state) => state.order.error;
@@ -598,8 +639,7 @@ export const selectCancelledOrders = (state) => {
   );
 };
 
-export const selectIsCouponValid = (state) =>
-  state.order.couponValidation.isValid;
+export const selectIsCouponValid = (state) => state.order.couponValidation.isValid;
 
 export const selectCouponDiscount = (state) => {
   return state.order.couponValidation.discount?.amount || 0;

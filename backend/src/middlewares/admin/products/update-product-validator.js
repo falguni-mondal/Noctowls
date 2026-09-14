@@ -288,7 +288,7 @@ const isUpdateProductFormValid = (req, res, next) => {
     });
 
     // ==================== OTHER VALIDATIONS ====================
-    const validInventories = ["Sanmilan, Yuri Gagarin Path, Muchipara"];
+    const validInventories = ["Sanmilan, Yuri Gagarin Path, Muchipara", "Shri Bhumi Park, Bidhannagar"];
     if (
       !inventory ||
       typeof inventory !== "string" ||

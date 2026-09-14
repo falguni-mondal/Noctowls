@@ -132,22 +132,26 @@ const ReviewModal = ({ productId, onClose, userName: propUserName }) => {
 
   return (
     <div 
-        className="fixed inset-0 z-999 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200"
-        onClick={onClose} // MODIFICATION 1: Close on clicking background
+        // Light theme overlay background
+        className="fixed inset-0 z-999 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+        onClick={onClose} 
     >
       <div 
-        className="bg-zinc-950 border border-zinc-800 w-full max-w-lg rounded-lg p-6 relative shadow-2xl"
-        onClick={(e) => e.stopPropagation()} // MODIFICATION 1: Stop propagation so click inside doesn't close modal
+        // Light theme modal wrapper
+        className="bg-white border border-zinc-200 w-full max-w-lg rounded-lg p-6 relative shadow-2xl"
+        onClick={(e) => e.stopPropagation()} 
       >
 
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors"
+          // Light theme close button
+          className="absolute top-4 right-4 text-zinc-400 hover:text-[#0f0f0f] transition-colors"
         >
           <Icon icon="mingcute:close-line" className="text-2xl" />
         </button>
 
-        <h3 className="text-lg font-bold mb-6 text-center uppercase tracking-widest text-white border-b border-zinc-800 pb-4">
+        {/* Light theme heading */}
+        <h3 className="text-lg font-bold mb-6 text-center uppercase tracking-widest text-[#0f0f0f] border-b border-zinc-200 pb-4">
           {hasReviewed ? "Edit Review" : "Write a Review"}
         </h3>
 
@@ -164,7 +168,8 @@ const ReviewModal = ({ productId, onClose, userName: propUserName }) => {
               type="text"
               value={formData.userName}
               onChange={(e) => setFormData({ ...formData, userName: e.target.value })}
-              className={`w-full bg-zinc-900 border border-zinc-700 rounded p-3 text-sm focus:border-red-600 focus:ring-1 focus:ring-red-600/50 outline-none text-zinc-200 transition-all placeholder:text-zinc-600 font-medium ${isUserLoggedIn || hasReviewed ? "opacity-60 cursor-not-allowed" : ""}`}
+              // Light theme input fields
+              className={`w-full bg-white border border-zinc-300 rounded p-3 text-sm focus:border-red-600 focus:ring-1 focus:ring-red-600/50 outline-none text-[#0f0f0f] transition-all placeholder:text-zinc-400 shadow-sm font-medium ${isUserLoggedIn || hasReviewed ? "bg-zinc-50 text-zinc-500 cursor-not-allowed" : ""}`}
               placeholder="e.g. John Doe"
               required
               disabled={isUserLoggedIn || hasReviewed}
@@ -176,7 +181,8 @@ const ReviewModal = ({ productId, onClose, userName: propUserName }) => {
             <textarea
               value={formData.comment}
               onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
-              className="w-full bg-zinc-900 border border-zinc-700 rounded p-3 text-sm focus:border-red-600 focus:ring-1 focus:ring-red-600/50 outline-none h-28 resize-none text-zinc-200 transition-all placeholder:text-zinc-600 font-medium"
+              // Light theme text area
+              className="w-full bg-white border border-zinc-300 rounded p-3 text-sm focus:border-red-600 focus:ring-1 focus:ring-red-600/50 outline-none h-28 resize-none text-[#0f0f0f] transition-all placeholder:text-zinc-400 shadow-sm font-medium"
               placeholder="Share your experience with us..."
               required
               minLength={10}
@@ -193,8 +199,9 @@ const ReviewModal = ({ productId, onClose, userName: propUserName }) => {
 
             <div className="grid grid-cols-5 gap-2">
               {existingImages.map((img, idx) => (
-                <div key={`exist-${idx}`} className="relative aspect-square rounded overflow-hidden group border border-zinc-700 bg-black">
-                  <img src={img.url} alt="existing" className="w-full h-full object-cover opacity-80" />
+                // Light theme existing image wrappers
+                <div key={`exist-${idx}`} className="relative aspect-square rounded overflow-hidden group border border-zinc-200 bg-zinc-100 shadow-sm">
+                  <img src={img.url} alt="existing" className="w-full h-full object-cover" />
                   <button
                     type="button"
                     onClick={() => removeExistingImage(idx)}
@@ -206,7 +213,8 @@ const ReviewModal = ({ productId, onClose, userName: propUserName }) => {
               ))}
 
               {newPreviews.map((src, idx) => (
-                <div key={`new-${idx}`} className="relative aspect-square rounded overflow-hidden border border-amber-500/50 bg-black group">
+                // Light theme new image previews
+                <div key={`new-${idx}`} className="relative aspect-square rounded overflow-hidden border border-amber-400 bg-zinc-50 group shadow-sm">
                   <img src={src} alt="new-preview" className="w-full h-full object-cover" />
                   <button
                     type="button"
@@ -219,7 +227,8 @@ const ReviewModal = ({ productId, onClose, userName: propUserName }) => {
               ))}
 
               {(existingImages.length + newImages.length) < 5 && (
-                <label className="aspect-square flex flex-col items-center justify-center border border-dashed border-zinc-700 rounded cursor-pointer hover:border-zinc-500 hover:bg-zinc-900/50 transition-all text-zinc-500 hover:text-white">
+                // Light theme image uploader block
+                <label className="aspect-square flex flex-col items-center justify-center border border-dashed border-zinc-300 rounded cursor-pointer hover:border-[#0f0f0f] hover:bg-zinc-50 transition-all text-zinc-400 hover:text-[#0f0f0f]">
                   <Icon icon="solar:camera-add-linear" className="text-xl" />
                   <input type="file" accept="image/png, image/jpeg, image/webp" multiple hidden onChange={handleImageChange} />
                 </label>
@@ -230,7 +239,7 @@ const ReviewModal = ({ productId, onClose, userName: propUserName }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-red-600 hover:bg-red-700 text-white py-3.5 rounded font-bold text-sm uppercase tracking-widest transition-all shadow-lg shadow-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center gap-2 items-center mt-2"
+            className="w-full bg-red-600 hover:bg-red-700 text-white py-3.5 rounded font-bold text-sm uppercase tracking-widest transition-all shadow-lg shadow-red-600/20 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center gap-2 items-center mt-2"
           >
             {loading ? (
               <>

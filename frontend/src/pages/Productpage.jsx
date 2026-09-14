@@ -355,13 +355,16 @@ const Productpage = () => {
 
     if (productError || !product) {
         return (
-            <div className="w-full py-20 flex justify-center items-center bg-black text-white">
-                <p className="bg-red-950 border-red-700 border rounded px-5 py-2">Product not found.</p>
+            <div className="w-full py-20 flex justify-center items-center bg-[#f4f4f4] text-[#0f0f0f]">
+                <p className="bg-red-50 border-red-200 text-red-600 font-medium border rounded px-5 py-2">Product not found.</p>
             </div>
         )
     }
 
-    const { name, category, images, highlightImages, sizes, rating, description } = product;
+    const { name, category, group, images, highlightImages, sizes, rating, description } = product;
+    
+    // 🔥 NEW: Check if product is Phase-00
+    const isPhase00 = group === "phase-00";
 
     const handleShare = async () => {
         const url = window.location.href;
@@ -382,7 +385,7 @@ const Productpage = () => {
     };
 
     return (
-        <div className="product-page-wrapper pb-10 bg-black min-h-screen text-zinc-100 font-sans">
+        <div className="product-page-wrapper pb-10 bg-[#f4f4f4] min-h-screen text-[#0f0f0f] font-sans">
             {isReviewModalOpen && (
                 <ReviewModal
                     productId={product?.id || productId}
@@ -394,7 +397,7 @@ const Productpage = () => {
             {/* Render the Overlay outside of the document flow structure */}
             {zoomState.show && (
                 <div 
-                    className="hidden lg:block bg-zinc-950 rounded-lg shadow-2xl border border-zinc-800 overflow-hidden pointer-events-none"
+                    className="hidden lg:block bg-white rounded-lg shadow-2xl border border-zinc-200 overflow-hidden pointer-events-none"
                     style={zoomState.style}
                 >
                     <div
@@ -415,12 +418,20 @@ const Productpage = () => {
                 <div className="product-left-col w-full lg:w-[60%]">
                     <div className="lg:hidden relative">
                         <ImageSlider images={images} />
-                        <div onClick={handleShare} className="product-link-share-btn absolute top-4 right-4 z-20 w-10 aspect-square rounded-full bg-black/50 backdrop-blur-sm border border-zinc-700 flex justify-center items-center text-white text-lg cursor-pointer">
+                        <div onClick={handleShare} className="product-link-share-btn absolute top-4 right-4 z-20 w-10 aspect-square rounded-full bg-white/80 backdrop-blur-md shadow-sm border border-zinc-200 flex justify-center items-center text-[#0f0f0f] text-lg cursor-pointer">
                             <Icon icon="ic:baseline-share" />
                         </div>
-                        <div onClick={handleWishlistToggle} className={`absolute top-4 left-4 z-20 w-10 aspect-square rounded-full flex justify-center items-center text-lg cursor-pointer border border-zinc-700 backdrop-blur-sm ${isInWishlist ? 'bg-red-600 text-white border-red-600' : 'bg-black/50 text-white'}`}>
-                            <Icon icon={isInWishlist ? "mdi:heart" : "mdi:heart-outline"} />
-                        </div>
+                        
+                        {/* 🔥 MODIFIED: Disabled Wishlist for Phase-00 on Mobile */}
+                        {isPhase00 ? (
+                            <div className={`absolute top-4 left-4 z-20 w-10 aspect-square rounded-full flex justify-center items-center text-lg shadow-sm border border-zinc-200 backdrop-blur-md bg-zinc-200 text-zinc-400 cursor-not-allowed`}>
+                                <Icon icon="mdi:heart-outline" />
+                            </div>
+                        ) : (
+                            <div onClick={handleWishlistToggle} className={`absolute top-4 left-4 z-20 w-10 aspect-square rounded-full flex justify-center items-center text-lg shadow-sm cursor-pointer border border-zinc-200 backdrop-blur-md ${isInWishlist ? 'bg-red-600 text-white border-red-600' : 'bg-white/80 text-[#0f0f0f]'}`}>
+                                <Icon icon={isInWishlist ? "mdi:heart" : "mdi:heart-outline"} />
+                            </div>
+                        )}
                     </div>
                     <div className="hidden lg:flex flex-col gap-4">
                         {images.map((img, idx) => {
@@ -428,15 +439,23 @@ const Productpage = () => {
                                 return (
                                     <div 
                                       key={`prod-img-${idx}`} 
-                                      className="w-full relative group overflow-hidden rounded-lg border border-zinc-900 bg-zinc-950 cursor-crosshair"
+                                      className="w-full relative group overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 cursor-crosshair"
                                       onMouseEnter={(e) => handleMouseEnter(e, img.url)}
                                       onMouseMove={handleMouseMove}
                                       onMouseLeave={handleMouseLeave}
                                     >
                                         <img src={img.url} alt={`${name}-${idx}`} className="w-full h-auto object-cover" />
-                                        <div onClick={handleWishlistToggle} onMouseMove={(e) => e.stopPropagation()} className={`absolute top-6 left-6 z-20 w-12 aspect-square rounded-full flex justify-center items-center text-2xl cursor-pointer transition border border-zinc-700 backdrop-blur-sm ${isInWishlist ? 'bg-red-600 text-white border-red-600' : 'bg-black/60 text-white hover:bg-zinc-800'}`}>
-                                            <Icon icon={isInWishlist ? "mdi:heart" : "mdi:heart-outline"} />
-                                        </div>
+                                        
+                                        {/* 🔥 MODIFIED: Disabled Wishlist for Phase-00 on Desktop */}
+                                        {isPhase00 ? (
+                                            <div onMouseMove={(e) => e.stopPropagation()} className={`absolute top-6 left-6 z-20 w-12 aspect-square rounded-full flex justify-center items-center text-2xl shadow-sm border border-zinc-200 backdrop-blur-md bg-zinc-200 text-zinc-400 cursor-not-allowed`}>
+                                                <Icon icon="mdi:heart-outline" />
+                                            </div>
+                                        ) : (
+                                            <div onClick={handleWishlistToggle} onMouseMove={(e) => e.stopPropagation()} className={`absolute top-6 left-6 z-20 w-12 aspect-square rounded-full flex justify-center items-center text-2xl cursor-pointer shadow-sm transition border border-zinc-200 backdrop-blur-md ${isInWishlist ? 'bg-red-600 text-white border-red-600' : 'bg-white/80 text-[#0f0f0f] hover:bg-white'}`}>
+                                                <Icon icon={isInWishlist ? "mdi:heart" : "mdi:heart-outline"} />
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             }
@@ -446,7 +465,7 @@ const Productpage = () => {
                             {images.slice(1).map((img, idx) => (
                                 <div 
                                   key={`prod-img-grid-${idx}`} 
-                                  className="w-full overflow-hidden rounded-lg border border-zinc-900 bg-zinc-950 relative cursor-crosshair"
+                                  className="w-full overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 relative cursor-crosshair"
                                   onMouseEnter={(e) => handleMouseEnter(e, img.url)}
                                   onMouseMove={handleMouseMove}
                                   onMouseLeave={handleMouseLeave}
@@ -459,37 +478,72 @@ const Productpage = () => {
                 </div>
 
                 {/* RIGHT: DETAILS */}
-                {/* ✅ FIXED: Attach the Ref here to dynamically capture the layout coordinates */}
                 <div ref={rightColRef} className="product-right-col w-full lg:w-[40%] md:pt-0 relative">
                     <div className="sticky top-24 h-fit pb-10">
                         
                         <div className="product-dets-container">
-                            <MainDets selectedSize={selectedSize} setselectedSize={setselectedSize} dets={{ name, description, category, sizes, reviewCount: rating?.count || 0 }} />
-                            <ProductQuantity quantitySetter={quantitySetter} quantity={quantity} stockValidation={stockValidation} isValidating={stockValidation.loading} />
+                            <MainDets selectedSize={selectedSize} setselectedSize={setselectedSize} dets={{ name, description, category, group, sizes, reviewCount: rating?.count || 0 }} />
+                            
+                            {/* 🔥 NEW: Hide Quantity Selector if Phase-00 */}
+                            {!isPhase00 && (
+                                <ProductQuantity quantitySetter={quantitySetter} quantity={quantity} stockValidation={stockValidation} isValidating={stockValidation.loading} />
+                            )}
 
                             <div className="product-page-btns px-3 md:px-0 mt-6 space-y-3">
-                                <button onClick={addToCartHandler} disabled={!canPurchase || cartActionLoading || isInCart} className={`product-add-to-cart-btn w-full py-4 text-center rounded-sm uppercase text-sm font-bold tracking-widest transition-all relative ${isInCart ? 'bg-zinc-800 text-white border border-zinc-700 cursor-pointer' : canPurchase && !cartActionLoading ? 'bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-900/20' : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'}`}>
-                                    {cartActionLoading ? <span className="flex items-center justify-center gap-2"><Icon icon="eos-icons:loading" className="text-lg" /> Adding...</span> : isInCart ? <span className="flex items-center justify-center gap-2"><Icon icon="mdi:check-circle" className="text-lg" /> Added to Cart</span> : 'Add to Cart'}
-                                </button>
+                                
+                                {/* 🔥 MODIFIED: Phase-00 Check for Action Buttons */}
+                                {isPhase00 ? (
+                                    <>
+                                        <button disabled className="w-full py-4 text-center rounded-sm uppercase text-sm font-bold tracking-widest bg-zinc-800 text-zinc-400 cursor-not-allowed">
+                                            COMING SOON
+                                        </button>
+                                        <button disabled className="w-full py-4 text-center rounded-sm uppercase text-sm font-bold tracking-widest bg-zinc-200 text-zinc-500 cursor-not-allowed border border-zinc-300">
+                                            COMING SOON
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        {/* ORIGINAL ADD TO CART BUTTON */}
+                                        {/* 
+                                        <button onClick={addToCartHandler} disabled={!canPurchase || cartActionLoading || isInCart} className={`product-add-to-cart-btn w-full py-4 text-center rounded-sm uppercase text-sm font-bold tracking-widest transition-all relative ${isInCart ? 'bg-white text-[#0f0f0f] border border-zinc-300 cursor-pointer' : canPurchase && !cartActionLoading ? 'bg-[#0f0f0f] text-white hover:bg-zinc-800 shadow-lg shadow-black/10' : 'bg-zinc-200 text-zinc-500 cursor-not-allowed'}`}>
+                                            {cartActionLoading ? <span className="flex items-center justify-center gap-2"><Icon icon="eos-icons:loading" className="text-lg" /> Adding...</span> : isInCart ? <span className="flex items-center justify-center gap-2"><Icon icon="mdi:check-circle" className="text-lg" /> Added to Cart</span> : 'Add to Cart'}
+                                        </button>
+                                        */}
 
-                                <button onClick={buyNowHandler} disabled={!canPurchase || cartActionLoading} className={`product-buy-btn w-full py-4 text-center rounded-sm uppercase text-sm font-bold tracking-widest transition-all ${canPurchase && !cartActionLoading ? 'bg-white text-black hover:bg-zinc-200 shadow-lg shadow-white/10 cursor-pointer' : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'}`}>
-                                    {cartActionLoading ? 'Processing...' : 'Buy Now'}
-                                </button>
+                                        {/* ORIGINAL BUY NOW BUTTON */}
+                                        {/*
+                                        <button onClick={buyNowHandler} disabled={!canPurchase || cartActionLoading} className={`product-buy-btn w-full py-4 text-center rounded-sm uppercase text-sm font-bold tracking-widest transition-all ${canPurchase && !cartActionLoading ? 'bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-600/20 cursor-pointer' : 'bg-zinc-200 text-zinc-500 cursor-not-allowed'}`}>
+                                            {cartActionLoading ? 'Processing...' : 'Buy Now'}
+                                        </button>
+                                        */}
 
-                                <button
-                                    onClick={handleWishlistToggle}
-                                    disabled={wishlistActionLoading || !isLoggedInUser}
-                                    className={`w-full py-4 text-center rounded-[3px] uppercase text-sm font-semibold transition-all border ${isInWishlist ? 'bg-purple-500 text-black hover:bg-purple-600' : 'bg-purple-700 border-purple-800 text-white hover:bg-purple-800'
-                                        } ${!isLoggedInUser ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} flex items-center justify-center gap-2`}
-                                >
-                                    {wishlistActionLoading ? (
-                                        <><Icon icon="eos-icons:loading" className="text-lg" /> {isInWishlist ? 'Removing...' : 'Adding...'}</>
-                                    ) : (
-                                        <><Icon icon={isInWishlist ? "mdi:heart" : "mdi:heart-outline"} className="text-lg" /> {isInWishlist ? 'Remove from Wishlist' : 'Add to Wishlist'}</>
-                                    )}
-                                </button>
+                                        {/* ACTIVE ADD TO CART */}
+                                        <button onClick={addToCartHandler} disabled={!canPurchase || cartActionLoading || isInCart} className={`product-add-to-cart-btn w-full py-4 text-center rounded-sm uppercase text-sm font-bold tracking-widest transition-all relative ${isInCart ? 'bg-white text-[#0f0f0f] border border-zinc-300 cursor-pointer' : canPurchase && !cartActionLoading ? 'bg-[#0f0f0f] text-white hover:bg-zinc-800 shadow-lg shadow-black/10' : 'bg-zinc-200 text-zinc-500 cursor-not-allowed'}`}>
+                                            {cartActionLoading ? <span className="flex items-center justify-center gap-2"><Icon icon="eos-icons:loading" className="text-lg" /> Adding...</span> : isInCart ? <span className="flex items-center justify-center gap-2"><Icon icon="mdi:check-circle" className="text-lg" /> Added to Cart</span> : 'Add to Cart'}
+                                        </button>
 
-                                {!isLoggedInUser && <p className="text-xs text-center text-zinc-500 mt-2"><Link to="/account/signin" className="text-zinc-300 hover:text-white underline">Login</Link> to save items to your wishlist</p>}
+                                        {/* ACTIVE BUY NOW */}
+                                        <button onClick={buyNowHandler} disabled={!canPurchase || cartActionLoading} className={`product-buy-btn w-full py-4 text-center rounded-sm uppercase text-sm font-bold tracking-widest transition-all ${canPurchase && !cartActionLoading ? 'bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-600/20 cursor-pointer' : 'bg-zinc-200 text-zinc-500 cursor-not-allowed'}`}>
+                                            {cartActionLoading ? 'Processing...' : 'Buy Now'}
+                                        </button>
+
+                                        {/* Wishlist Button */}
+                                        <button
+                                            onClick={handleWishlistToggle}
+                                            disabled={wishlistActionLoading || !isLoggedInUser}
+                                            className={`w-full py-4 text-center rounded-[3px] uppercase text-sm font-semibold transition-all border ${isInWishlist ? 'bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-200' : 'bg-white border-purple-200 text-purple-600 hover:bg-purple-50'
+                                                } ${!isLoggedInUser ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} flex items-center justify-center gap-2`}
+                                        >
+                                            {wishlistActionLoading ? (
+                                                <><Icon icon="eos-icons:loading" className="text-lg" /> {isInWishlist ? 'Removing...' : 'Adding...'}</>
+                                            ) : (
+                                                <><Icon icon={isInWishlist ? "mdi:heart" : "mdi:heart-outline"} className="text-lg" /> {isInWishlist ? 'Remove from Wishlist' : 'Add to Wishlist'}</>
+                                            )}
+                                        </button>
+
+                                        {!isLoggedInUser && <p className="text-xs text-center text-zinc-500 mt-2"><Link to="/account/signin" className="text-[#0f0f0f] hover:text-red-600 underline font-medium">Login</Link> to save items to your wishlist</p>}
+                                    </>
+                                )}
                             </div>
 
                             <div className="product-extra-dets md:mt-8">
@@ -505,26 +559,26 @@ const Productpage = () => {
             </div>
 
             {/* REVIEWS SECTION */}
-            <div className="product-review-container bg-black w-full py-12 border-t border-zinc-900 mt-4 relative">
+            <div className="product-review-container bg-[#f4f4f4] w-full py-12 border-t border-zinc-200 mt-4 relative">
                 <div className="max-w-[1440px] mx-auto px-4 md:px-8">
-                    <h2 id="reviews-title" className="uppercase font-bold text-xl md:text-3xl text-white mb-8">Customer Reviews</h2>
+                    <h2 id="reviews-title" className="uppercase font-bold text-xl md:text-3xl text-[#0f0f0f] mb-8">Customer Reviews</h2>
 
                     {/* Review Distribution Header */}
-                    <div className="flex flex-col items-center md:flex-row md:items-start gap-10 mb-10 pb-10 border-b border-zinc-800 flex-wrap">
+                    <div className="flex flex-col items-center md:flex-row md:items-start gap-10 mb-10 pb-10 border-b border-zinc-200 flex-wrap">
                         <div className="flex flex-col items-center justify-center min-w-[120px]">
-                            <span className="text-6xl font-bold text-white tracking-tighter">{rating?.average?.toFixed(1) || "0.0"}</span>
+                            <span className="text-6xl font-bold text-[#0f0f0f] tracking-tighter">{rating?.average?.toFixed(1) || "0.0"}</span>
                             <div className="flex text-red-600 text-lg my-1">
                                 {[...Array(5)].map((_, i) => (
-                                    <Icon key={i} icon={i < Math.round(rating?.average || 0) ? "material-symbols:star-rounded" : "material-symbols:star-rounded"} className={i >= Math.round(rating?.average || 0) ? "text-zinc-800" : ""} />
+                                    <Icon key={i} icon={i < Math.round(rating?.average || 0) ? "material-symbols:star-rounded" : "material-symbols:star-rounded"} className={i >= Math.round(rating?.average || 0) ? "text-zinc-300" : ""} />
                                 ))}
                             </div>
-                            <span className="text-sm font-bold text-zinc-400">{rating?.count || 0} reviews</span>
+                            <span className="text-sm font-bold text-zinc-500">{rating?.count || 0} reviews</span>
                         </div>
                         <div className="flex-1 w-full max-w-md space-y-2">
                             {[5, 4, 3, 2, 1].map((star) => (
-                                <div key={star} className="flex items-center gap-3 text-xs font-bold text-zinc-400">
+                                <div key={star} className="flex items-center gap-3 text-xs font-bold text-zinc-500">
                                     <span className="w-12">{star} Star</span>
-                                    <div className="flex-1 h-2 bg-zinc-800 rounded-full overflow-hidden">
+                                    <div className="flex-1 h-2 bg-zinc-200 rounded-full overflow-hidden">
                                         <div className="h-full bg-red-600" style={{ width: `${rating?.count ? (distribution[star] / rating.count) * 100 : 0}%` }}></div>
                                     </div>
                                     <span className="w-4 text-right">{distribution[star]}</span>
@@ -532,24 +586,26 @@ const Productpage = () => {
                             ))}
                         </div>
                         <div className="md:ml-auto flex gap-2 h-fit relative">
+                            
+                            {/* 🔥 NEW: Hide Write Review for Phase-00 */}
+                            {!isPhase00 && (
+                                <button onClick={() => setIsReviewModalOpen(true)} className={`px-14 sm:px-20 md:px-6 py-2 ${reviewEligibility.canReview ? "bg-red-600 text-white hover:bg-red-700" : "bg-zinc-200 text-zinc-500"} text-sm font-bold uppercase tracking-wide rounded-xs transition-colors`} disabled={!reviewEligibility.canReview}>
+                                    {reviewEligibility.hasReviewed ? "Edit Review" : "Write a review"}
+                                </button>
+                            )}
 
-                            <button onClick={() => setIsReviewModalOpen(true)} className={`px-14 sm:px-20 md:px-6 py-2 ${reviewEligibility.canReview ? "bg-red-600" : "bg-zinc-600"} text-white text-sm font-bold uppercase tracking-wide rounded-xs hover:bg-red-700 transition-colors`} disabled={!reviewEligibility.canReview}>
-                                {reviewEligibility.hasReviewed ? "Edit Review" : "Write a review"}
-                            </button>
-
-                            {/* Sorting Filter */}
                             <div className="relative pr-4 lg:pr-0" ref={sortRef}>
                                 <button onClick={() => setIsSortOpen(!isSortOpen)} className="h-full aspect-square bg-red-600 text-white flex items-center justify-center rounded-xs hover:bg-red-700 transition-colors">
                                     <Icon icon="mi:filter" className="text-xl" />
                                 </button>
                                 {isSortOpen && (
-                                    <div className="absolute top-full right-0 mt-2 w-48 bg-white text-black rounded shadow-xl z-50 py-2 animate-in fade-in zoom-in-95 duration-200">
+                                    <div className="absolute top-full right-0 mt-2 w-48 bg-white text-[#0f0f0f] border border-zinc-200 rounded shadow-xl z-50 py-2 animate-in fade-in zoom-in-95 duration-200">
                                         <div className="px-4 py-2 text-xs font-bold text-zinc-500 uppercase tracking-wide">Sort by</div>
                                         {["Featured", "Photo priority", "Newest", "Highest Ratings", "Lowest Ratings"].map(opt => (
                                             <div
                                                 key={opt}
                                                 onClick={() => handleSortChange(opt)}
-                                                className={`px-4 py-2 hover:bg-zinc-100 cursor-pointer text-sm font-medium flex justify-between items-center ${sortBy === opt ? "text-red-600 font-bold" : ""}`}
+                                                className={`px-4 py-2 hover:bg-zinc-50 cursor-pointer text-sm font-medium flex justify-between items-center ${sortBy === opt ? "text-red-600 font-bold" : ""}`}
                                             >
                                                 {opt}
                                                 {sortBy === opt && <Icon icon="mdi:check" />}
@@ -561,7 +617,6 @@ const Productpage = () => {
                         </div>
                     </div>
 
-                    {/* Review List (Limit 5) */}
                     <div className="reviews space-y-6 pb-10">
                         {(publicReviews && publicReviews.length > 0) || (hasReviewed && existingReview) ? (
                             <>
@@ -577,12 +632,11 @@ const Productpage = () => {
                         )}
                     </div>
 
-                    {/* SEE ALL REVIEWS BUTTON */}
                     {(rating?.count > 5 || (reviewStats && reviewStats.totalReviews > 5)) && (
                         <div className="flex justify-center pb-10">
                             <Link
                                 to={`/products/${productId}/reviews`}
-                                className="bg-zinc-900 border border-zinc-700 text-white px-10 py-3 rounded-full uppercase text-xs font-bold tracking-widest hover:bg-zinc-800 hover:border-red-600 transition-all flex items-center gap-2 group"
+                                className="bg-white border border-zinc-300 text-[#0f0f0f] px-10 py-3 rounded-full uppercase text-xs font-bold tracking-widest hover:bg-zinc-50 hover:border-red-600 hover:text-red-600 transition-all flex items-center gap-2 group shadow-sm"
                             >
                                 See All Reviews
                                 <Icon icon="solar:arrow-right-linear" className="text-lg group-hover:translate-x-1 transition-transform" />
@@ -594,29 +648,30 @@ const Productpage = () => {
 
             {/* FEATURES & HIGHLIGHTS & SPECS */}
             <div className="max-w-6xl mx-auto px-4 mt-8"><ProductFeature /></div>
-            <div className="product-highlights bg-black w-full mt-12 py-12 border-t border-zinc-900">
+            
+            {/* <div className="product-highlights bg-[#f4f4f4] w-full mt-12 py-12 border-t border-zinc-200">
                 <div className="max-w-6xl mx-auto px-4 flex flex-col lg:flex-row">
                     <div className="product-highlights-header lg:w-1/3 text-left mb-8">
-                        <h2 className="product-highlights-heading uppercase font-bold text-2xl md:text-3xl text-white mb-2 border-l-4 border-red-600 pl-4">Highlights</h2>
-                        <p className="font-medium text-sm md:text-base text-zinc-400 pl-5">Precision meets aesthetics.</p>
+                        <h2 className="product-highlights-heading uppercase font-bold text-2xl md:text-3xl text-[#0f0f0f] mb-2 border-l-4 border-red-600 pl-4">Highlights</h2>
+                        <p className="font-medium text-sm md:text-base text-zinc-500 pl-5">Precision meets aesthetics.</p>
                     </div>
                     <div className="product-hightlights-image-container lg:w-2/3 grid grid-cols-1 md:grid-cols-2 gap-6">
                         {highlightImages.map((highlight, idx) => (
-                            <div key={`${highlight.url}-highlight-${idx}`} className={`${idx === 0 && "lg:col-span-2"} highlight-img-container w-full bg-zinc-900 rounded-lg overflow-hidden border border-zinc-800`}>
+                            <div key={`${highlight.url}-highlight-${idx}`} className={`${idx === 0 && "lg:col-span-2"} highlight-img-container w-full bg-zinc-100 rounded-lg overflow-hidden border border-zinc-200`}>
                                 <img className="w-full h-full object-cover opacity-90 hover:opacity-100 transition-opacity duration-500" src={highlight.url} alt="Highlight" />
                             </div>
                         ))}
                     </div>
                 </div>
-            </div>
-            <div className="max-w-6xl mx-auto px-4 mt-12 pb-20"><ProductSpecs /></div>
+            </div> */}
+            <div className="max-w-6xl mx-auto px-4 mt-32 pb-20"><ProductSpecs /></div>
 
             {/* BEST SELLING SECTION */}
             <div className="max-w-[1440px] mx-auto px-4 md:px-8 pb-10">
                 <BestSelling />
             </div>
 
-            {/* NEW: RECENTLY VIEWED SECTION */}
+            {/* RECENTLY VIEWED SECTION */}
             <div className="max-w-[1440px] mx-auto px-4 md:px-8 pb-10">
                 <RecentlyViewed />
             </div>
