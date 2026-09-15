@@ -240,8 +240,8 @@ const UpdateProduct = () => {
       others: []
     };
 
-    if (!productName || productName.trim().length < 10) {
-      newErrors.general.push('Product title must be at least 10 characters long');
+    if (!productName || productName.trim().length < 5) {
+      newErrors.general.push('Product title must be at least 5 characters long');
     }
 
     if (!productDescription || productDescription.trim().length < 20) {

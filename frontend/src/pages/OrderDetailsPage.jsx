@@ -5,7 +5,7 @@ import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
 import toastControls from "../utils/global/toastControls";
 
-// ✅ Import Logo for Invoice
+// Import Logo for Invoice
 import Logo from "../utils/logo/Logo";
 
 import {
@@ -30,7 +30,7 @@ const OrderDetailsPage = () => {
   const cancelLoading = useSelector(selectCancelOrderLoading);
 
   // Local State
-  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showCancelModal, useState] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [customReason, setCustomReason] = useState("");
 
@@ -418,9 +418,20 @@ const OrderDetailsPage = () => {
                   )}
                 </span>
               </div>
+
+              {/* PHASE 00 DISCOUNT IN SCREEN VIEW */}
+              {order.pricing?.phase00DiscountAmount > 0 && (
+                <div className="flex justify-between text-sm font-bold text-green-600">
+                  <span>⚡ Phase-00 Discount</span>
+                  <span>
+                    - ₹{formatCurrency(order.pricing?.phase00DiscountAmount)}
+                  </span>
+                </div>
+              )}
+
               {order.pricing?.couponDiscount > 0 && (
                 <div className="flex justify-between text-sm font-bold text-green-600">
-                  <span>Discount</span>
+                  <span>Coupon Discount</span>
                   <span>
                     - ₹{formatCurrency(order.pricing?.couponDiscount)}
                   </span>
@@ -548,9 +559,11 @@ const OrderDetailsPage = () => {
         </div>
       )}
 
-      {/* ======================== FULL PAGE PRINT VIEW (Remains same as it was already white/black) ======================== */}
+
+
+      {/* INVOICE */}
+      {/* ======================== FULL PAGE PRINT VIEW ======================== */}
       <div className="hidden print:block print:fixed print:inset-0 print:z-9999 print:bg-white print:py-4 print:px-8 font-sans text-black">
-        {/* ... (Print view remains unchanged since it was already designed to print black ink on white paper) ... */}
         <div className="h-full flex flex-col max-w-3xl mx-auto relative">
 
           {/* Cancelled Watermark Logic */}
@@ -793,6 +806,17 @@ const OrderDetailsPage = () => {
                     )}
                   </span>
                 </div>
+
+                {/* 🔥 NEW: PHASE 00 DISCOUNT IN PRINT INVOICE */}
+                {order.pricing?.phase00DiscountAmount > 0 && (
+                  <div className="flex justify-between text-xs text-green-700">
+                    <span>Phase-00 Discount:</span>
+                    <span>
+                      - ₹{formatCurrency(order.pricing?.phase00DiscountAmount)}
+                    </span>
+                  </div>
+                )}
+
                 {order.pricing?.couponDiscount > 0 && (
                   <div className="flex justify-between text-xs text-green-700">
                     <span>Discount ({order.coupon?.code}):</span>

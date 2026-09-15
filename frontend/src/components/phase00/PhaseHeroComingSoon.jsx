@@ -4,7 +4,9 @@ const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!<>-_\\/[]{}—=+*^?#";
 
 const PhaseHeroComingSoon = ({ introFinished, currentPhase }) => {
   // 1. Dynamically build the scrambling phrases based on the current active phase
-  const phrases = [`PHASE ${currentPhase.id}`, "COMING SOON"];
+  // 🔥 IF phase is 00, it says "IS LIVE NOW", otherwise it says "COMING SOON"
+  const secondPhrase = currentPhase.id === "00" ? "IS LIVE NOW" : "COMING SOON";
+  const phrases = [`PHASE ${currentPhase.id}`, secondPhrase];
   
   const [displayText, setDisplayText] = useState(phrases[0]);
 

@@ -1,9 +1,10 @@
 import { Icon } from '@iconify/react/dist/iconify.js';
 import { useRef, useEffect } from 'react';
 
+// Adjusted colors for better contrast on light theme
 const STATUS_OPTIONS = [
-  { value: "published", label: "Published", color: "text-green-400" },
-  { value: "archived", label: "Archived", color: "text-red-400" }
+  { value: "published", label: "Published", color: "text-emerald-600" },
+  { value: "archived", label: "Archived", color: "text-rose-600" }
 ];
 
 const StatusInput = ({ prodStatus, setProdStatus, reveal, setReveal }) => {
@@ -27,26 +28,29 @@ const StatusInput = ({ prodStatus, setProdStatus, reveal, setReveal }) => {
   const currentStatus = STATUS_OPTIONS.find(s => s.value === prodStatus) || STATUS_OPTIONS[0];
 
   return (
-    <div className="update-prod-status w-full flex flex-col relative mt-4">
-      <label className='text-sm mb-0.5 w-fit'>Product Status</label>
+    <div className="update-prod-status w-full flex flex-col relative mt-2">
+      <label className='text-sm font-semibold text-zinc-700 mb-1.5 w-fit'>Product Status</label>
       <div
         ref={statusRef}
         onClick={() => revealer("status")}
-        className="update-prod-status-preview w-full flex justify-between items-center p-2 rounded-[3px] bg-zinc-800 cursor-pointer"
+        className="update-prod-status-preview w-full flex justify-between items-center p-3 rounded-lg border border-zinc-300 bg-white cursor-pointer hover:border-zinc-400 transition-colors shadow-sm"
       >
-        <p className={`capitalize ${currentStatus.color}`}>{currentStatus.label}</p>
-        <Icon icon="iconoir:nav-arrow-down" />
+        <p className={`capitalize font-medium ${currentStatus.color}`}>{currentStatus.label}</p>
+        <Icon icon="iconoir:nav-arrow-down" className="text-zinc-500" />
       </div>
       <ul 
-        className={`update-prod-status-list w-full rounded-[3px] bg-zinc-950 absolute z-50 top-full left-0 overflow-hidden ${
-          reveal.status ? "mt-1" : "h-0 m-0"
+        className={`update-prod-status-list w-full rounded-lg bg-white border border-zinc-200 shadow-xl absolute z-50 top-full left-0 overflow-hidden transition-all duration-200 ${
+          reveal.status ? "mt-1 opacity-100 visible" : "h-0 m-0 opacity-0 invisible border-none"
         }`}
       >
         {STATUS_OPTIONS.map(status => (
           <li
             key={`${status.value}-status-key`}
-            onClick={() => setProdStatus(status.value)}
-            className={`w-full py-1.5 px-3 cursor-pointer hover:bg-zinc-700 capitalize ${status.color}`}
+            onClick={() => {
+                setProdStatus(status.value);
+                setReveal(prev => ({ ...prev, status: false }));
+            }}
+            className={`w-full py-2.5 px-4 cursor-pointer hover:bg-zinc-50 transition-colors capitalize font-medium ${status.color} ${prodStatus === status.value ? 'bg-zinc-50' : ''}`}
           >
             {status.label}
           </li>

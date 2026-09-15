@@ -32,29 +32,35 @@ const FooterNav = () => {
         {
             title: "home",
             icon: "mdi:home",
-            path: "/"
+            path: "/",
+            isPhase: false
         },
         {
             title: "wishlist",
             icon: "material-symbols:favorite",
-            path: "/wishlist"
+            path: "/wishlist",
+            isPhase: false
         },
         {
             title: "orders",
             icon: "material-symbols:delivery-truck-speed",
-            path: "/orders"
+            path: "/orders",
+            isPhase: false
         },
         {
             // Dynamic title based on auth state
             title: user ? (user.isVerified ? "signout" : "account") : "account",
             icon: user ? (user.isVerified ? "solar:logout-2-bold" : "material-symbols:person-rounded") : "material-symbols:person-rounded",
             // If user is null, path is irrelevant because we hijack the click, but keeping it for structure
-            path: user ? (user.isVerified ? "" : "/account/verify") : "/account/signin"
+            path: user ? (user.isVerified ? "" : "/account/verify") : "/account/signin",
+            isPhase: false
         },
         {
-            title: "contact",
-            icon: "mingcute:message-4-fill",
-            path: "/contact"
+            // 🔥 PHASE 00 WITH CUSTOM IMAGE
+            title: "new moon",
+            imgSrc: "/moon.webp", // Points directly to public folder
+            path: "/series/moon/00",
+            isPhase: true
         },
     ];
 
@@ -91,7 +97,7 @@ const FooterNav = () => {
             <nav className={`w-full flex justify-between items-center ${admin ? "px-3" : "px-5"} bg-black py-3`}>
                 
                 {/* USER NAVIGATION */}
-                {!admin && links.map(({ title, icon, path }) => {
+                {!admin && links.map(({ title, icon, imgSrc, path, isPhase }) => {
                     
                     // Case 1: Sign Out Button (Verified User)
                     if (title === "signout") {
@@ -154,14 +160,24 @@ const FooterNav = () => {
                         );
                     }
 
-                    // Case 3: Standard Link
+                    // Case 3: Standard Link (Including Phase-00)
                     const isActive = location.pathname === path;
+                    
                     return (
                         <div key={`${title}-footer-nav-key`} className="relative flex flex-col items-center gap-1 group">
                             {/* Visuals */}
-                            <div className={`flex flex-col items-center gap-1 transition-colors pointer-events-none ${isActive ? "text-white" : "text-zinc-400 group-hover:text-zinc-200"}`}>
-                                <Icon className='text-2xl' icon={icon} />
-                                <span className='text-[0.65rem] capitalize font-medium'>{title}</span>
+                            <div className={`flex flex-col items-center gap-1 transition-colors pointer-events-none 
+                                ${isPhase ? "phase-shine phase-txt uppercase" : ""} 
+                                ${!isPhase && isActive ? "text-white" : ""} 
+                                ${!isPhase && !isActive ? "text-zinc-400 group-hover:text-zinc-200" : ""}
+                            `}>
+                                {/* 🔥 Render custom image if imgSrc is present, otherwise render the Icon */}
+                                {imgSrc ? (
+                                    <img src={imgSrc} alt={title} className="w-6 h-6 object-contain drop-shadow-md" />
+                                ) : (
+                                    <Icon className={`text-2xl ${isPhase ? "phase-txt phase-shine" : ""}`} icon={icon} />
+                                )}
+                                <span className={`text-[0.65rem] font-medium ${isPhase ? "uppercase phase-txt phase-shine" : "capitalize"}`}>{title}</span>
                             </div>
                             {/* Interaction Fix */}
                             <Link to={path} className="absolute inset-0 z-10" />

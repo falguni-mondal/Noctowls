@@ -37,7 +37,10 @@ const Moon = () => {
   const currentPhase = moonPhasesData.find((p) => p.id === phase) || moonPhasesData[0];
 
   // --- 2. STATE ---
-  const [introFinished, setIntroFinished] = useState(false);
+  // Check session storage FIRST before setting initial state
+  const hasSeenIntro = sessionStorage.getItem("hasSeenPhaseIntro") === "true";
+  const [introFinished, setIntroFinished] = useState(hasSeenIntro); // If seen, it starts as finished
+  const [shouldPlayIntro, setShouldPlayIntro] = useState(!hasSeenIntro); // If not seen, we should play it
 
   // Grab state from Redux
   const products = useSelector(selectFilteredProducts);
@@ -88,74 +91,102 @@ const Moon = () => {
         repeat: -1,
       });
 
-      // --- INTRO SEQUENCE (Plays unconditionally on mount) ---
       const tl = gsap.timeline();
-      const animationDuration = 5.5; 
 
-      // INITIAL STATES
-      gsap.set(".dial-wheel", { rotation: -315 });
+      // IF INTRO NEEDS TO PLAY
+      if (shouldPlayIntro) {
+        const animationDuration = 5.5; 
 
-      // PART A: INTRO DIAL ANIMATION
-      tl.to(".dial-wheel", {
-        rotation: 0,
-        duration: animationDuration,
-        ease: "power2.inOut",
-      })
-        .fromTo(".intro-overlay", { backgroundColor: "#000000" }, { backgroundColor: "#F7F7F8", duration: animationDuration, ease: "power2.inOut" }, "<")
-        .fromTo(".intro-galaxy", { opacity: 1 }, { opacity: 0, duration: animationDuration, ease: "power2.inOut" }, "<")
-        .fromTo(".dial-tick-main", { backgroundColor: "#e4e4e7" }, { backgroundColor: "#27272A", duration: animationDuration, ease: "power2.inOut" }, "<")
-        .fromTo(".dial-tick-sub", { backgroundColor: "#a1a1aa" }, { backgroundColor: "#52525B", duration: animationDuration, ease: "power2.inOut" }, "<")
-        .fromTo(".dial-text", { color: "#e4e4e7" }, { color: "#27272A", duration: animationDuration, ease: "power2.inOut" }, "<")
-        .fromTo(".dial-border", { borderColor: "#3f3f46" }, { borderColor: "#d4d4d8", duration: animationDuration, ease: "power2.inOut" }, "<")
-        .fromTo(".calibrating-text", { color: "#d4d4d8" }, { color: "#71717A", duration: animationDuration, ease: "power2.inOut" }, "<")
+        // INITIAL STATES
+        gsap.set(".dial-wheel", { rotation: -315 });
 
-        // Pause to admire the dial
-        .to({}, { duration: 0.8 })
-
-        // Explode the Dial 
-        .to(".intro-content-wrapper", {
-          opacity: 0,
-          scale: 1.15,
-          duration: 0.8,
-          ease: "power2.out",
+        // PART A: INTRO DIAL ANIMATION
+        tl.to(".dial-wheel", {
+          rotation: 0,
+          duration: animationDuration,
+          ease: "power2.inOut",
         })
-        // Fade out White Overlay 
-        .to(".intro-overlay", { opacity: 0, display: "none", duration: 0.6 }, "-=0.4")
+          .fromTo(".intro-overlay", { backgroundColor: "#000000" }, { backgroundColor: "#F7F7F8", duration: animationDuration, ease: "power2.inOut" }, "<")
+          .fromTo(".intro-galaxy", { opacity: 1 }, { opacity: 0, duration: animationDuration, ease: "power2.inOut" }, "<")
+          .fromTo(".dial-tick-main", { backgroundColor: "#e4e4e7" }, { backgroundColor: "#27272A", duration: animationDuration, ease: "power2.inOut" }, "<")
+          .fromTo(".dial-tick-sub", { backgroundColor: "#a1a1aa" }, { backgroundColor: "#52525B", duration: animationDuration, ease: "power2.inOut" }, "<")
+          .fromTo(".dial-text", { color: "#e4e4e7" }, { color: "#27272A", duration: animationDuration, ease: "power2.inOut" }, "<")
+          .fromTo(".dial-border", { borderColor: "#3f3f46" }, { borderColor: "#d4d4d8", duration: animationDuration, ease: "power2.inOut" }, "<")
+          .fromTo(".calibrating-text", { color: "#d4d4d8" }, { color: "#71717A", duration: animationDuration, ease: "power2.inOut" }, "<")
 
-        // ==========================================
-        // PART B: TRUE CINEMATIC CAMERA PAN
-        // ==========================================
-        .to(".moon-canvas", {
+          // Pause to admire the dial
+          .to({}, { duration: 0.8 })
+
+          // Explode the Dial 
+          .to(".intro-content-wrapper", {
+            opacity: 0,
+            scale: 1.15,
+            duration: 0.8,
+            ease: "power2.out",
+          })
+          // Fade out White Overlay 
+          .to(".intro-overlay", { opacity: 0, display: "none", duration: 0.6 }, "-=0.4")
+
+          // ==========================================
+          // PART B: TRUE CINEMATIC CAMERA PAN
+          // ==========================================
+          .to(".moon-canvas", {
+            y: "-150vh",
+            scale: 1.6,
+            opacity: 0,
+            filter: "blur(20px)",
+            duration: 3.5,
+            ease: "power3.inOut"
+          }, "-=0.2")
+
+          // PART C: HERO TEXT REVEAL
+          .to(".hero-text-element", {
+            y: 0,
+            opacity: 1,
+            duration: 1.5,
+            stagger: 0.2,
+            ease: "expo.out",
+            onStart: () => {
+              setIntroFinished(true);
+              // Save to session storage so it doesn't play again
+              sessionStorage.setItem("hasSeenPhaseIntro", "true");
+            }, 
+          }, "-=2.2")
+
+          // 🔥 FIXED: Changed from .from() to .fromTo() to force it to opacity: 1
+          // Reveal the rest of the page content
+          .fromTo(".void-content", 
+            { opacity: 0, y: 40 },
+            { opacity: 1, y: 0, duration: 1.2, ease: "power2.out" }, 
+            "-=1.0"
+          );
+
+      } else {
+        // IF INTRO ALREADY PLAYED (Skip to End State instantly)
+        
+        // Hide the moon canvas instantly
+        gsap.set(".moon-canvas", {
           y: "-150vh",
           scale: 1.6,
           opacity: 0,
           filter: "blur(20px)",
-          duration: 3.5,
-          ease: "power3.inOut"
-        }, "-=0.2")
+        });
 
-        // PART C: HERO TEXT REVEAL
-        .to(".hero-text-element", {
+        // Show the hero text instantly
+        gsap.set(".hero-text-element", {
           y: 0,
           opacity: 1,
-          duration: 1.5,
-          stagger: 0.2,
-          ease: "expo.out",
-          onStart: () => {
-            setIntroFinished(true);
-          }, 
-        }, "-=2.2")
+        });
 
-        // Reveal the rest of the page content
-        .from(".void-content", {
-          opacity: 0,
-          y: 40,
-          duration: 1.2,
-          ease: "power2.out",
-        }, "-=1.0");
+        // Show the content instantly
+        gsap.set(".void-content", {
+          opacity: 1,
+          y: 0,
+        });
+      }
         
     },
-    { scope: containerRef } 
+    { scope: containerRef, dependencies: [shouldPlayIntro] } 
   );
 
   // Generate the dynamic text string for the marquee
@@ -168,17 +199,17 @@ const Moon = () => {
     >
       <GalaxyBackground className="z-0" />
 
-      <PhaseIntro />
+      {/* Conditionally render the intro component */}
+      {shouldPlayIntro && <PhaseIntro />}
       
       {/* PASS THE DYNAMIC DATA DOWN TO HERO */}
       <PhaseHeroComingSoon introFinished={introFinished} currentPhase={currentPhase} />
 
-      <div className="void-content relative z-20 px-5 lg:px-10 max-w-[1600px] mx-auto mt-10">
+      <div className={`void-content relative z-20 px-5 lg:px-10 max-w-[1600px] mx-auto mt-10 ${!shouldPlayIntro ? 'opacity-100' : 'opacity-0'}`}>
         
         {/* PASS THE CURRENT PHASE ID TO NAVIGATOR */}
         <PhaseNavigator currentPhaseId={currentPhase.id} />
 
-        {/* --- FIX APPLIED HERE: Added currentPhase={currentPhase} --- */}
         <PhaseProducts products={products} loading={loading} error={error} currentPhase={currentPhase} />
 
         {/* DYNAMIC INFINITE MARQUEE */}

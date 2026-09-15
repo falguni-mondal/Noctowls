@@ -18,8 +18,8 @@ const isAddProductFormValid = (req, res, next) => {
     // Validate product name
     if (!name || typeof name !== "string") {
       errors.general.push("Product title is required");
-    } else if (name.trim().length < 10) {
-      errors.general.push("Product title must be at least 10 characters long");
+    } else if (name.trim().length < 5) {
+      errors.general.push("Product title must be at least 5 characters long");
     } else if (name.trim().length > 200) {
       errors.general.push("Product title cannot exceed 200 characters");
     }
@@ -144,8 +144,8 @@ const isAddProductFormValid = (req, res, next) => {
             sizeErrors.push("Stock must be a valid number");
           } else if (!Number.isInteger(stock)) {
             sizeErrors.push("Stock must be a whole number");
-          } else if (stock <= 0) {
-            sizeErrors.push("Stock must be greater than 0");
+          } else if (stock < 0) {
+            sizeErrors.push("Stock cannot be negative");
           } else if (stock > 100000) {
             sizeErrors.push("Stock quantity is too high");
           }

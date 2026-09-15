@@ -1,7 +1,7 @@
-import { Icon } from '@iconify/react/dist/iconify.js';
-import { useEffect } from 'react';
-import { useState } from 'react'
-import { Link } from 'react-router-dom';
+import { Icon } from "@iconify/react/dist/iconify.js";
+import { useEffect } from "react";
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import toastControls from "../../../utils/global/toastControls";
 
@@ -10,34 +10,38 @@ const MainDets = ({ selectedSize, setselectedSize, dets }) => {
   const [price, setPrice] = useState({
     original: "",
     discounted: "",
-  })
+  });
 
   // 🔥 NEW: Check if product is Phase-00
   const isPhase00 = group === "phase-00";
 
   useEffect(() => {
     if (sizes && sizes.length > 0) {
-      const selectedSizeData = sizes.find(size => size.value === selectedSize);
+      const selectedSizeData = sizes.find(
+        (size) => size.value === selectedSize,
+      );
 
       if (selectedSizeData) {
         setPrice({
-          original: selectedSizeData.formattedOriginalPrice || selectedSizeData.originalPrice,
+          original:
+            selectedSizeData.formattedOriginalPrice ||
+            selectedSizeData.originalPrice,
           discounted: selectedSizeData.price || selectedSizeData.numPrice,
         });
       }
     }
-  }, [selectedSize, sizes])
+  }, [selectedSize, sizes]);
 
   const isSizeInStock = (sizeValue) => {
-    const sizeData = sizes?.find(s => s.value === sizeValue);
+    const sizeData = sizes?.find((s) => s.value === sizeValue);
     return sizeData && sizeData.stock > 0;
-  }
+  };
 
   const handleSizeClick = (sizeValue) => {
     if (isSizeInStock(sizeValue)) {
       setselectedSize(sizeValue);
     }
-  }
+  };
 
   const handleShare = async () => {
     const url = window.location.href;
@@ -59,7 +63,6 @@ const MainDets = ({ selectedSize, setselectedSize, dets }) => {
 
   return (
     <div className="product-main-dets mt-5 md:mt-0 px-3 md:px-0">
-
       {/* SHARE & BRAND */}
       <div className="flex justify-between items-center mb-1">
         <div className="flex flex-col gap-4">
@@ -84,11 +87,9 @@ const MainDets = ({ selectedSize, setselectedSize, dets }) => {
       {/* REVIEWS */}
       <div className="product-rating-container flex items-center text-lg gap-2 mt-2">
         <div className="rating-stars flex text-amber-400 text-sm">
-          {
-            ["1", "2", "3", "4", "5"].map((item, index) => (
-              <Icon key={`${index}`} icon="material-symbols:star-rounded" />
-            ))
-          }
+          {["1", "2", "3", "4", "5"].map((item, index) => (
+            <Icon key={`${index}`} icon="material-symbols:star-rounded" />
+          ))}
         </div>
         <div className="reviews-count text-xs font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-2">
           {`${reviewCount}`} reviews
@@ -97,45 +98,31 @@ const MainDets = ({ selectedSize, setselectedSize, dets }) => {
 
       {/* PRICE SECTION */}
       <div className="price-container flex flex-col mt-6 border-b border-zinc-200 pb-6">
-        {/* 🔥 NEW: Phase-00 Hidden Price Logic */}
-        {isPhase00 ? (
-          <div className="flex flex-col gap-2">
-            <span className="text-3xl md:text-4xl font-black text-zinc-800 uppercase tracking-widest">COMING SOON</span>
-            <span className="text-xs font-bold text-red-600 uppercase tracking-wide">Phase-00 Exclusive Drop</span>
-          </div>
-        ) : (
-          <>
-            {/* ORIGINAL PRICE BLOCK */}
-            {/*
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-zinc-500 line-through">Rs. {price.original}.00</span>
-              <span className="sale-badge text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-red-600 text-white rounded-xs">
-                Sale
-              </span>
-            </div>
-            <div className="price-val mt-1">
-              <span className="text-3xl md:text-4xl font-bold text-[#0f0f0f]">Rs. {price.discounted}.00</span>
-            </div>
-            <div className="tax-text-container text-[10px] text-zinc-500 mt-1 uppercase tracking-wide">
-              Tax included. <Link to="/policies/shipping-policy" className="underline hover:text-[#0f0f0f]">Free shipping</Link> available.
-            </div>
-            */}
+        {/* ORIGINAL PRICE BLOCK */}
 
-            {/* ACTIVE PRICE BLOCK */}
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-zinc-500 line-through">Rs. {price.original}.00</span>
-              <span className="sale-badge text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-red-600 text-white rounded-xs">
-                Sale
-              </span>
-            </div>
-            <div className="price-val mt-1">
-              <span className="text-3xl md:text-4xl font-bold text-[#0f0f0f]">Rs. {price.discounted}.00</span>
-            </div>
-            <div className="tax-text-container text-[10px] text-zinc-500 mt-1 uppercase tracking-wide">
-              Tax included. <Link to="/policies/shipping-policy" className="underline hover:text-[#0f0f0f]">Free shipping</Link> available.
-            </div>
-          </>
-        )}
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-zinc-500 line-through">
+            Rs. {price.original}.00
+          </span>
+          {/* <span className="sale-badge text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-red-600 text-white rounded-xs">
+            Sale
+          </span> */}
+        </div>
+        <div className="price-val mt-1">
+          <span className="text-3xl md:text-4xl font-bold text-[#0f0f0f]">
+            Rs. {price.discounted}.00
+          </span>
+        </div>
+        <div className="tax-text-container text-[10px] text-zinc-500 mt-1 uppercase tracking-wide">
+          Tax included.{" "}
+          <Link
+            to="/policies/shipping-policy"
+            className="underline hover:text-[#0f0f0f]"
+          >
+            Free shipping
+          </Link>{" "}
+          available.
+        </div>
       </div>
 
       {/* SIZE SELECTOR */}
@@ -147,29 +134,28 @@ const MainDets = ({ selectedSize, setselectedSize, dets }) => {
         </div>
 
         <div className="product-sizes flex flex-wrap gap-3">
-          {
-            sizes?.map(sizeObj => {
-              const isInStock = sizeObj.stock > 0;
-              const isSelected = selectedSize === sizeObj.value;
+          {sizes?.map((sizeObj) => {
+            const isInStock = sizeObj.stock > 0;
+            const isSelected = selectedSize === sizeObj.value;
 
-              return (
-                <button
-                  onClick={() => handleSizeClick(sizeObj.value)}
-                  key={`${sizeObj.value}-size-key`}
-                  disabled={!isInStock}
-                  className={`
+            return (
+              <button
+                onClick={() => handleSizeClick(sizeObj.value)}
+                key={`${sizeObj.value}-size-key`}
+                disabled={!isInStock}
+                className={`
                             px-6 py-2 rounded-full text-xs font-bold uppercase tracking-wider border transition-all duration-200 min-w-[60px]
-                            ${isInStock
-                      ? `cursor-pointer ${isSelected ? "bg-[#0f0f0f] text-white border-[#0f0f0f]" : "bg-white border-zinc-300 text-[#0f0f0f] hover:border-[#0f0f0f]"}`
-                      : "bg-zinc-100 border-zinc-200 text-zinc-400 cursor-not-allowed"
-                    }
+                            ${
+                              isInStock
+                                ? `cursor-pointer ${isSelected ? "bg-[#0f0f0f] text-white border-[#0f0f0f]" : "bg-white border-zinc-300 text-[#0f0f0f] hover:border-[#0f0f0f]"}`
+                                : "bg-zinc-100 border-zinc-200 text-zinc-400 cursor-not-allowed"
+                            }
                         `}
-                >
-                  {sizeObj.label || sizeObj.value}
-                </button>
-              )
-            })
-          }
+              >
+                {sizeObj.label || sizeObj.value}
+              </button>
+            );
+          })}
         </div>
 
         {/* --- SIZE DETAILS CONTAINER --- */}
@@ -188,7 +174,7 @@ const MainDets = ({ selectedSize, setselectedSize, dets }) => {
         )}
       </div>
     </div>
-  )
-}
+  );
+};
 
 export default MainDets;

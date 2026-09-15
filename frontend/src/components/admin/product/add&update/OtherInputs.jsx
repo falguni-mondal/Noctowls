@@ -31,35 +31,42 @@ const OtherInputs = ({
 
   return (
     <section 
-      className="p-4 bg-zinc-900 rounded-lg mt-10" 
+      className="flex flex-col gap-4 p-5 md:p-6 bg-zinc-50 border border-zinc-200 rounded-xl mb-6 shadow-sm" 
       id={`${mode}-prod-other-section`}
     >
-      <h2 className="section-heading font-medium mb-3 tracking-wide">
+      <h2 className="section-heading font-bold text-lg text-zinc-800 mb-2 border-b border-zinc-200 pb-2">
         Other Details
       </h2>
 
       <ErrorDisplay errors={errors.others} />
 
       <div className={`${mode}-prod-inventory w-full flex flex-col relative`}>
-        <label className='text-sm mb-0.5 w-fit'>Select Inventory</label>
+        <label className='text-sm font-semibold text-zinc-700 mb-1.5 w-fit'>Select Inventory</label>
         <div
           ref={inventoryRef}
           onClick={() => revealer("inventory")}
-          className={`${mode}-prod-inventory-preview w-full flex justify-between items-center p-2 rounded-[3px] bg-zinc-800 capitalize cursor-pointer`}
+          className={`${mode}-prod-inventory-preview w-full flex justify-between items-center p-3 rounded-lg border border-zinc-300 bg-white text-zinc-900 capitalize cursor-pointer hover:border-zinc-400 transition-colors shadow-sm`}
         >
-          <p className='w-[90%] truncate'>{prodInventory}</p>
-          <Icon icon="iconoir:nav-arrow-down" />
+          <p className='w-[90%] truncate font-medium'>{prodInventory}</p>
+          <Icon icon="iconoir:nav-arrow-down" className="text-zinc-500" />
         </div>
         <ul 
-          className={`${mode}-prod-inventory-list w-full rounded-[3px] bg-zinc-950 absolute z-50 top-full left-0 overflow-hidden ${
-            reveal.inventory ? "mt-1" : "h-0 m-0"
+          className={`${mode}-prod-inventory-list w-full rounded-lg bg-white border border-zinc-200 shadow-xl absolute z-50 top-full left-0 overflow-hidden transition-all duration-200 ${
+            reveal.inventory ? "mt-1 opacity-100 visible" : "h-0 m-0 opacity-0 invisible border-none"
           }`}
         >
           {PRODUCT_INVENTORY.map(inventory => (
             <li
               key={`${inventory}-inventory-key`}
-              onClick={() => setProdInventory(inventory)}
-              className='w-full py-1.5 px-3 cursor-pointer hover:bg-zinc-700'
+              onClick={() => {
+                setProdInventory(inventory);
+                setReveal(prev => ({ ...prev, inventory: false }));
+              }}
+              className={`w-full py-2.5 px-4 cursor-pointer font-medium transition-colors ${
+                prodInventory === inventory 
+                  ? 'bg-indigo-50 text-indigo-700' 
+                  : 'text-zinc-700 hover:bg-zinc-100 hover:text-indigo-600'
+              }`}
             >
               {inventory}
             </li>

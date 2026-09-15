@@ -240,8 +240,8 @@ const AddProduct = () => {
     };
 
     const productName = formData.get('name');
-    if (!productName || productName.trim().length < 10) {
-      newErrors.general.push('Product title must be at least 10 characters long');
+    if (!productName || productName.trim().length < 5) {
+      newErrors.general.push('Product title must be at least 5 characters long');
     }
 
     const description = formData.get('description');
@@ -258,8 +258,8 @@ const AddProduct = () => {
       if (size.discount < 0 || size.discount > 100) {
         sizeErrors.push('Discount must be between 0 and 100');
       }
-      if (size.stock <= 0) {
-        sizeErrors.push('Stock must be greater than 0');
+      if (size.stock < 0) {
+        sizeErrors.push('Stock cannot be negative');
       }
       if (!size.skuCode || size.skuCode.trim().length === 0) {
         sizeErrors.push('SKU code is required');
@@ -430,8 +430,8 @@ const AddProduct = () => {
   }, []);
 
   return (
-    <div className='px-3 py-10' id='add-product-page'>
-      <h1 className='ad-product-heading text-2xl font-semibold mb-3'>
+    <div className='px-4 py-8 max-w-4xl mx-auto text-zinc-800 bg-white min-h-screen' id='add-product-page'>
+      <h1 className='ad-product-heading text-2xl font-bold mb-6 text-zinc-900 border-b border-zinc-200 pb-3'>
         Add Product
       </h1>
 
@@ -478,11 +478,11 @@ const AddProduct = () => {
           setReveal={setReveal}
         />
 
-        <section className="w-full mt-10 flex flex-col gap-2" id='add-product-btns'>
+        <section className="w-full mt-12 flex flex-col gap-3" id='add-product-btns'>
           <button
             type='submit'
             disabled={loading}
-            className="w-full h-10 rounded-[3px] flex justify-center items-center bg-indigo-600 text-sm font-medium hover:bg-indigo-500 disabled:bg-indigo-950 disabled:cursor-not-allowed relative tracking-wide"
+            className="w-full h-12 rounded-lg flex justify-center items-center bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed transition-colors tracking-wide shadow-sm"
           >
             {loading ? <MiniLoading /> : 'Add Product'}
           </button>
@@ -491,7 +491,7 @@ const AddProduct = () => {
             onClick={() => navigate("/admin/products")}
             type='button'
             disabled={loading}
-            className="w-full h-10 rounded-[3px] flex justify-center items-center bg-zinc-700 text-sm font-medium hover:bg-zinc-600 disabled:bg-zinc-800 disabled:cursor-not-allowed relative tracking-wide"
+            className="w-full h-12 rounded-lg flex justify-center items-center bg-white border border-zinc-300 text-zinc-700 text-sm font-bold hover:bg-zinc-50 disabled:bg-zinc-100 disabled:text-zinc-400 disabled:cursor-not-allowed transition-colors tracking-wide shadow-sm"
           >
             Cancel
           </button>

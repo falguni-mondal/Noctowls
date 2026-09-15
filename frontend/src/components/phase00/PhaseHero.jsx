@@ -5,16 +5,20 @@ const PhaseHero = ({ currentPhase }) => {
     <div className="relative w-full pt-32 pb-10 px-5 lg:px-10 max-w-[1600px] mx-auto z-30 flex flex-col items-center pointer-events-none">
       
       {/* THE MASSIVE MOON SHAPE */}
-      <div className="moon-canvas absolute top-0 left-1/2 -translate-x-1/2 w-[200vw] md:w-[150vw] xl:w-[120vw] h-[65vh] md:h-[75vh] rounded-b-[50%] overflow-hidden z-0 
-        shadow-[0_10px_40px_rgba(255,255,255,0.4),_0_40px_120px_rgba(37,99,235,0.4),_0_80px_250px_rgba(30,58,138,0.5)]">
+      {/* FIX: Added transform-gpu and a WebKit mask to force iOS Safari to respect the overflow hidden on rounded corners */}
+      <div 
+        className="moon-canvas absolute top-0 left-1/2 -translate-x-1/2 w-[200vw] md:w-[150vw] xl:w-[120vw] h-[65vh] md:h-[75vh] rounded-b-[50%] overflow-hidden z-0 
+        shadow-[0_10px_40px_rgba(255,255,255,0.4),_0_40px_120px_rgba(37,99,235,0.4),_0_80px_250px_rgba(30,58,138,0.5)] transform-gpu"
+        style={{ WebkitMaskImage: '-webkit-radial-gradient(white, black)' }}
+      >
         
         <div className="absolute inset-0 bg-zinc-100"></div>
         
-        <img 
-          src="/moon.png" 
-          alt="Lunar Surface" 
-          className="absolute inset-0 w-full h-full object-cover object-center opacity-90 select-none pointer-events-none"
-        />
+        {/* FIX: Replaced <img> tag with a background-image div to prevent iOS rendering bugs */}
+        <div 
+          className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat opacity-90 select-none pointer-events-none"
+          style={{ backgroundImage: "url('/moon.png')" }}
+        ></div>
 
         <div className="absolute inset-0 shadow-[inset_0_-10px_30px_rgba(255,255,255,0.6),_inset_0_-40px_80px_rgba(0,0,0,0.5)] rounded-b-[50%] pointer-events-none"></div>
       </div>

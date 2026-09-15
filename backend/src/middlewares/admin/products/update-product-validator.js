@@ -12,7 +12,7 @@ const isUpdateProductFormValid = (req, res, next) => {
       name,
       description,
       category,
-      group, // ✅ Extracted group
+      group,
       sizes,
       inventory,
       status,
@@ -39,8 +39,8 @@ const isUpdateProductFormValid = (req, res, next) => {
     // ==================== GENERAL VALIDATIONS ====================
     if (!name || typeof name !== "string") {
       errors.general.push("Product title is required");
-    } else if (name.trim().length < 10) {
-      errors.general.push("Product title must be at least 10 characters long");
+    } else if (name.trim().length < 5) {
+      errors.general.push("Product title must be at least 5 characters long");
     } else if (name.trim().length > 200) {
       errors.general.push("Product title cannot exceed 200 characters");
     }

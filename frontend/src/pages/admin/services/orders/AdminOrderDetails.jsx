@@ -327,38 +327,46 @@ const AdminOrderDetails = () => {
                                     </div>
                                 </div>
 
-                                {order.pricing.couponDiscount > 0 && (
+                                {/* 🔥 NEW: Phase-00 Discount Display (Screen View) */}
+                                {order.pricing?.phase00DiscountAmount > 0 && (
+                                    <div className="flex justify-between text-green-500">
+                                        <span>Phase-00 Discount</span>
+                                        <span>- ₹{formatCurrency(order.pricing.phase00DiscountAmount)}</span>
+                                    </div>
+                                )}
+
+                                {order.pricing?.couponDiscount > 0 && (
                                     <div className="flex justify-between text-green-500">
                                         <span>Coupon Discount ({order.coupon?.code})</span>
-                                        <span>- ₹{order.pricing.couponDiscount}</span>
+                                        <span>- ₹{formatCurrency(order.pricing.couponDiscount)}</span>
                                     </div>
                                 )}
                                 <div className="flex justify-between text-zinc-400">
                                     <span>Shipping Charges</span>
-                                    <span>{order.pricing.shippingCharges === 0 ? "Free" : `₹${order.pricing.shippingCharges}`}</span>
+                                    <span>{order.pricing?.shippingCharges === 0 ? "Free" : `₹${formatCurrency(order.pricing?.shippingCharges)}`}</span>
                                 </div>
-                                {order.pricing.codFee > 0 && (
+                                {order.pricing?.codFee > 0 && (
                                     <div className="flex justify-between text-zinc-400">
                                         <span>COD Handling Fee</span>
-                                        <span>₹{order.pricing.codFee}</span>
+                                        <span>₹{formatCurrency(order.pricing.codFee)}</span>
                                     </div>
                                 )}
                                 <div className="border-t border-zinc-800 pt-3 flex justify-between text-base font-semibold text-zinc-100">
                                     <span>Total Amount</span>
-                                    <span>₹{formatCurrency(Math.round(order.pricing.finalTotal))}</span>
+                                    <span>₹{formatCurrency(Math.round(order.pricing?.finalTotal))}</span>
                                 </div>
 
                                 <div className="mt-4 pt-3 border-t border-dashed border-zinc-800 space-y-2">
                                     <div className="flex justify-between text-sm text-zinc-400">
                                         <span>Paid Online</span>
-                                        <span className="text-zinc-300">₹{order.payment.amountPaidOnline}</span>
+                                        <span className="text-zinc-300">₹{formatCurrency(order.payment?.amountPaidOnline)}</span>
                                     </div>
                                     <div className="flex justify-between text-sm font-medium">
-                                        <span className={order.payment.amountPaidOnDelivery > 0 ? "text-amber-500" : "text-green-500"}>
-                                            {order.payment.amountPaidOnDelivery > 0 ? "Due on Delivery" : "Balance Due"}
+                                        <span className={order.payment?.amountPaidOnDelivery > 0 ? "text-amber-500" : "text-green-500"}>
+                                            {order.payment?.amountPaidOnDelivery > 0 ? "Due on Delivery" : "Balance Due"}
                                         </span>
-                                        <span className={order.payment.amountPaidOnDelivery > 0 ? "text-amber-500" : "text-green-500"}>
-                                            ₹{order.payment.amountPaidOnDelivery}
+                                        <span className={order.payment?.amountPaidOnDelivery > 0 ? "text-amber-500" : "text-green-500"}>
+                                            ₹{formatCurrency(order.payment?.amountPaidOnDelivery)}
                                         </span>
                                     </div>
                                 </div>
@@ -540,7 +548,7 @@ const AdminOrderDetails = () => {
                     <div className="w-[45%]">
                         <div className="flex justify-between py-1 text-gray-600">
                             <span>Taxable Subtotal</span>
-                            <span>₹{formatCurrency(Math.round(order.subTotal || order.pricing.productsSubtotal))}</span>
+                            <span>₹{formatCurrency(Math.round(order.subTotal || order.pricing?.productsSubtotal))}</span>
                         </div>
                         
                         {/* GST Breakdown for Print */}
@@ -568,35 +576,43 @@ const AdminOrderDetails = () => {
                             </div>
                         </div>
 
-                        {order.pricing.couponDiscount > 0 && (
+                        {/* 🔥 NEW: Phase-00 Discount Display (Print View) */}
+                        {order.pricing?.phase00DiscountAmount > 0 && (
+                            <div className="flex justify-between py-1 text-green-600">
+                                <span>Phase-00 Discount</span>
+                                <span>- ₹{formatCurrency(order.pricing.phase00DiscountAmount)}</span>
+                            </div>
+                        )}
+
+                        {order.pricing?.couponDiscount > 0 && (
                             <div className="flex justify-between py-1 text-gray-600">
                                 <span>Coupon Discount</span>
-                                <span>- ₹{order.pricing.couponDiscount}</span>
+                                <span>- ₹{formatCurrency(order.pricing.couponDiscount)}</span>
                             </div>
                         )}
                         <div className="flex justify-between py-1 text-gray-600">
                             <span>Shipping Charges</span>
-                            <span>{order.pricing.shippingCharges === 0 ? "Free" : `₹${order.pricing.shippingCharges}`}</span>
+                            <span>{order.pricing?.shippingCharges === 0 ? "Free" : `₹${formatCurrency(order.pricing?.shippingCharges)}`}</span>
                         </div>
-                        {order.pricing.codFee > 0 && (
+                        {order.pricing?.codFee > 0 && (
                             <div className="flex justify-between py-1 text-gray-600">
                                 <span>COD Handling Fee</span>
-                                <span>₹{order.pricing.codFee}</span>
+                                <span>₹{formatCurrency(order.pricing.codFee)}</span>
                             </div>
                         )}
                         <div className="flex justify-between py-3 border-t-2 border-gray-800 mt-2 text-lg font-bold text-black">
                             <span>Grand Total</span>
-                            <span>₹{formatCurrency(Math.round(order.pricing.finalTotal))}</span>
+                            <span>₹{formatCurrency(Math.round(order.pricing?.finalTotal))}</span>
                         </div>
                     </div>
                 </div>
 
                 {/* FOOTER / TERMS */}
                 <div className="border-t border-gray-300 pt-4 relative z-10">
-                    <p className="font-bold text-xs uppercase mb-1">Payment Method: {order.payment.method}</p>
-                    {order.payment.method === "COD" && (
+                    <p className="font-bold text-xs uppercase mb-1">Payment Method: {order.payment?.method}</p>
+                    {order.payment?.method === "COD" && (
                         <p className="text-sm font-bold border border-black inline-block px-2 py-1">
-                            AMOUNT TO COLLECT: ₹{order.payment.amountPaidOnDelivery}
+                            AMOUNT TO COLLECT: ₹{formatCurrency(order.payment?.amountPaidOnDelivery)}
                         </p>
                     )}
                     <p className="text-[10px] text-gray-500 mt-4">

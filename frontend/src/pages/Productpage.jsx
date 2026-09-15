@@ -363,7 +363,7 @@ const Productpage = () => {
 
     const { name, category, group, images, highlightImages, sizes, rating, description } = product;
     
-    // 🔥 NEW: Check if product is Phase-00
+    // Check if product is Phase-00
     const isPhase00 = group === "phase-00";
 
     const handleShare = async () => {
@@ -422,16 +422,10 @@ const Productpage = () => {
                             <Icon icon="ic:baseline-share" />
                         </div>
                         
-                        {/* 🔥 MODIFIED: Disabled Wishlist for Phase-00 on Mobile */}
-                        {isPhase00 ? (
-                            <div className={`absolute top-4 left-4 z-20 w-10 aspect-square rounded-full flex justify-center items-center text-lg shadow-sm border border-zinc-200 backdrop-blur-md bg-zinc-200 text-zinc-400 cursor-not-allowed`}>
-                                <Icon icon="mdi:heart-outline" />
-                            </div>
-                        ) : (
-                            <div onClick={handleWishlistToggle} className={`absolute top-4 left-4 z-20 w-10 aspect-square rounded-full flex justify-center items-center text-lg shadow-sm cursor-pointer border border-zinc-200 backdrop-blur-md ${isInWishlist ? 'bg-red-600 text-white border-red-600' : 'bg-white/80 text-[#0f0f0f]'}`}>
-                                <Icon icon={isInWishlist ? "mdi:heart" : "mdi:heart-outline"} />
-                            </div>
-                        )}
+                        {/* Enabled Wishlist for all products on Mobile */}
+                        <div onClick={handleWishlistToggle} className={`absolute top-4 left-4 z-20 w-10 aspect-square rounded-full flex justify-center items-center text-lg shadow-sm cursor-pointer border border-zinc-200 backdrop-blur-md ${isInWishlist ? 'bg-red-600 text-white border-red-600' : 'bg-white/80 text-[#0f0f0f]'}`}>
+                            <Icon icon={isInWishlist ? "mdi:heart" : "mdi:heart-outline"} />
+                        </div>
                     </div>
                     <div className="hidden lg:flex flex-col gap-4">
                         {images.map((img, idx) => {
@@ -446,16 +440,10 @@ const Productpage = () => {
                                     >
                                         <img src={img.url} alt={`${name}-${idx}`} className="w-full h-auto object-cover" />
                                         
-                                        {/* 🔥 MODIFIED: Disabled Wishlist for Phase-00 on Desktop */}
-                                        {isPhase00 ? (
-                                            <div onMouseMove={(e) => e.stopPropagation()} className={`absolute top-6 left-6 z-20 w-12 aspect-square rounded-full flex justify-center items-center text-2xl shadow-sm border border-zinc-200 backdrop-blur-md bg-zinc-200 text-zinc-400 cursor-not-allowed`}>
-                                                <Icon icon="mdi:heart-outline" />
-                                            </div>
-                                        ) : (
-                                            <div onClick={handleWishlistToggle} onMouseMove={(e) => e.stopPropagation()} className={`absolute top-6 left-6 z-20 w-12 aspect-square rounded-full flex justify-center items-center text-2xl cursor-pointer shadow-sm transition border border-zinc-200 backdrop-blur-md ${isInWishlist ? 'bg-red-600 text-white border-red-600' : 'bg-white/80 text-[#0f0f0f] hover:bg-white'}`}>
-                                                <Icon icon={isInWishlist ? "mdi:heart" : "mdi:heart-outline"} />
-                                            </div>
-                                        )}
+                                        {/* Enabled Wishlist for all products on Desktop */}
+                                        <div onClick={handleWishlistToggle} onMouseMove={(e) => e.stopPropagation()} className={`absolute top-6 left-6 z-20 w-12 aspect-square rounded-full flex justify-center items-center text-2xl cursor-pointer shadow-sm transition border border-zinc-200 backdrop-blur-md ${isInWishlist ? 'bg-red-600 text-white border-red-600' : 'bg-white/80 text-[#0f0f0f] hover:bg-white'}`}>
+                                            <Icon icon={isInWishlist ? "mdi:heart" : "mdi:heart-outline"} />
+                                        </div>
                                     </div>
                                 );
                             }
@@ -484,66 +472,37 @@ const Productpage = () => {
                         <div className="product-dets-container">
                             <MainDets selectedSize={selectedSize} setselectedSize={setselectedSize} dets={{ name, description, category, group, sizes, reviewCount: rating?.count || 0 }} />
                             
-                            {/* 🔥 NEW: Hide Quantity Selector if Phase-00 */}
-                            {!isPhase00 && (
-                                <ProductQuantity quantitySetter={quantitySetter} quantity={quantity} stockValidation={stockValidation} isValidating={stockValidation.loading} />
-                            )}
+                            {/* Re-enabled Quantity Selector for all products */}
+                            <ProductQuantity quantitySetter={quantitySetter} quantity={quantity} stockValidation={stockValidation} isValidating={stockValidation.loading} />
 
                             <div className="product-page-btns px-3 md:px-0 mt-6 space-y-3">
                                 
-                                {/* 🔥 MODIFIED: Phase-00 Check for Action Buttons */}
-                                {isPhase00 ? (
-                                    <>
-                                        <button disabled className="w-full py-4 text-center rounded-sm uppercase text-sm font-bold tracking-widest bg-zinc-800 text-zinc-400 cursor-not-allowed">
-                                            COMING SOON
-                                        </button>
-                                        <button disabled className="w-full py-4 text-center rounded-sm uppercase text-sm font-bold tracking-widest bg-zinc-200 text-zinc-500 cursor-not-allowed border border-zinc-300">
-                                            COMING SOON
-                                        </button>
-                                    </>
-                                ) : (
-                                    <>
-                                        {/* ORIGINAL ADD TO CART BUTTON */}
-                                        {/* 
-                                        <button onClick={addToCartHandler} disabled={!canPurchase || cartActionLoading || isInCart} className={`product-add-to-cart-btn w-full py-4 text-center rounded-sm uppercase text-sm font-bold tracking-widest transition-all relative ${isInCart ? 'bg-white text-[#0f0f0f] border border-zinc-300 cursor-pointer' : canPurchase && !cartActionLoading ? 'bg-[#0f0f0f] text-white hover:bg-zinc-800 shadow-lg shadow-black/10' : 'bg-zinc-200 text-zinc-500 cursor-not-allowed'}`}>
-                                            {cartActionLoading ? <span className="flex items-center justify-center gap-2"><Icon icon="eos-icons:loading" className="text-lg" /> Adding...</span> : isInCart ? <span className="flex items-center justify-center gap-2"><Icon icon="mdi:check-circle" className="text-lg" /> Added to Cart</span> : 'Add to Cart'}
-                                        </button>
-                                        */}
+                                {/* Re-enabled Action Buttons for all products */}
+                                {/* ACTIVE ADD TO CART */}
+                                <button onClick={addToCartHandler} disabled={!canPurchase || cartActionLoading || isInCart} className={`product-add-to-cart-btn w-full py-4 text-center rounded-sm uppercase text-sm font-bold tracking-widest transition-all relative ${isInCart ? 'bg-white text-[#0f0f0f] border border-zinc-300 cursor-pointer' : canPurchase && !cartActionLoading ? 'bg-[#0f0f0f] text-white hover:bg-zinc-800 shadow-lg shadow-black/10' : 'bg-zinc-200 text-zinc-500 cursor-not-allowed'}`}>
+                                    {cartActionLoading ? <span className="flex items-center justify-center gap-2"><Icon icon="eos-icons:loading" className="text-lg" /> Adding...</span> : isInCart ? <span className="flex items-center justify-center gap-2"><Icon icon="mdi:check-circle" className="text-lg" /> Added to Cart</span> : 'Add to Cart'}
+                                </button>
 
-                                        {/* ORIGINAL BUY NOW BUTTON */}
-                                        {/*
-                                        <button onClick={buyNowHandler} disabled={!canPurchase || cartActionLoading} className={`product-buy-btn w-full py-4 text-center rounded-sm uppercase text-sm font-bold tracking-widest transition-all ${canPurchase && !cartActionLoading ? 'bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-600/20 cursor-pointer' : 'bg-zinc-200 text-zinc-500 cursor-not-allowed'}`}>
-                                            {cartActionLoading ? 'Processing...' : 'Buy Now'}
-                                        </button>
-                                        */}
+                                {/* ACTIVE BUY NOW */}
+                                <button onClick={buyNowHandler} disabled={!canPurchase || cartActionLoading} className={`product-buy-btn w-full py-4 text-center rounded-sm uppercase text-sm font-bold tracking-widest transition-all ${canPurchase && !cartActionLoading ? 'bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-600/20 cursor-pointer' : 'bg-zinc-200 text-zinc-500 cursor-not-allowed'}`}>
+                                    {cartActionLoading ? 'Processing...' : 'Buy Now'}
+                                </button>
 
-                                        {/* ACTIVE ADD TO CART */}
-                                        <button onClick={addToCartHandler} disabled={!canPurchase || cartActionLoading || isInCart} className={`product-add-to-cart-btn w-full py-4 text-center rounded-sm uppercase text-sm font-bold tracking-widest transition-all relative ${isInCart ? 'bg-white text-[#0f0f0f] border border-zinc-300 cursor-pointer' : canPurchase && !cartActionLoading ? 'bg-[#0f0f0f] text-white hover:bg-zinc-800 shadow-lg shadow-black/10' : 'bg-zinc-200 text-zinc-500 cursor-not-allowed'}`}>
-                                            {cartActionLoading ? <span className="flex items-center justify-center gap-2"><Icon icon="eos-icons:loading" className="text-lg" /> Adding...</span> : isInCart ? <span className="flex items-center justify-center gap-2"><Icon icon="mdi:check-circle" className="text-lg" /> Added to Cart</span> : 'Add to Cart'}
-                                        </button>
+                                {/* Wishlist Button */}
+                                <button
+                                    onClick={handleWishlistToggle}
+                                    disabled={wishlistActionLoading || !isLoggedInUser}
+                                    className={`w-full py-4 text-center rounded-[3px] uppercase text-sm font-semibold transition-all border ${isInWishlist ? 'bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-200' : 'bg-white border-purple-200 text-purple-600 hover:bg-purple-50'
+                                        } ${!isLoggedInUser ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} flex items-center justify-center gap-2`}
+                                >
+                                    {wishlistActionLoading ? (
+                                        <><Icon icon="eos-icons:loading" className="text-lg" /> {isInWishlist ? 'Removing...' : 'Adding...'}</>
+                                    ) : (
+                                        <><Icon icon={isInWishlist ? "mdi:heart" : "mdi:heart-outline"} className="text-lg" /> {isInWishlist ? 'Remove from Wishlist' : 'Add to Wishlist'}</>
+                                    )}
+                                </button>
 
-                                        {/* ACTIVE BUY NOW */}
-                                        <button onClick={buyNowHandler} disabled={!canPurchase || cartActionLoading} className={`product-buy-btn w-full py-4 text-center rounded-sm uppercase text-sm font-bold tracking-widest transition-all ${canPurchase && !cartActionLoading ? 'bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-600/20 cursor-pointer' : 'bg-zinc-200 text-zinc-500 cursor-not-allowed'}`}>
-                                            {cartActionLoading ? 'Processing...' : 'Buy Now'}
-                                        </button>
-
-                                        {/* Wishlist Button */}
-                                        <button
-                                            onClick={handleWishlistToggle}
-                                            disabled={wishlistActionLoading || !isLoggedInUser}
-                                            className={`w-full py-4 text-center rounded-[3px] uppercase text-sm font-semibold transition-all border ${isInWishlist ? 'bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-200' : 'bg-white border-purple-200 text-purple-600 hover:bg-purple-50'
-                                                } ${!isLoggedInUser ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} flex items-center justify-center gap-2`}
-                                        >
-                                            {wishlistActionLoading ? (
-                                                <><Icon icon="eos-icons:loading" className="text-lg" /> {isInWishlist ? 'Removing...' : 'Adding...'}</>
-                                            ) : (
-                                                <><Icon icon={isInWishlist ? "mdi:heart" : "mdi:heart-outline"} className="text-lg" /> {isInWishlist ? 'Remove from Wishlist' : 'Add to Wishlist'}</>
-                                            )}
-                                        </button>
-
-                                        {!isLoggedInUser && <p className="text-xs text-center text-zinc-500 mt-2"><Link to="/account/signin" className="text-[#0f0f0f] hover:text-red-600 underline font-medium">Login</Link> to save items to your wishlist</p>}
-                                    </>
-                                )}
+                                {!isLoggedInUser && <p className="text-xs text-center text-zinc-500 mt-2"><Link to="/account/signin" className="text-[#0f0f0f] hover:text-red-600 underline font-medium">Login</Link> to save items to your wishlist</p>}
                             </div>
 
                             <div className="product-extra-dets md:mt-8">
@@ -587,12 +546,10 @@ const Productpage = () => {
                         </div>
                         <div className="md:ml-auto flex gap-2 h-fit relative">
                             
-                            {/* 🔥 NEW: Hide Write Review for Phase-00 */}
-                            {!isPhase00 && (
-                                <button onClick={() => setIsReviewModalOpen(true)} className={`px-14 sm:px-20 md:px-6 py-2 ${reviewEligibility.canReview ? "bg-red-600 text-white hover:bg-red-700" : "bg-zinc-200 text-zinc-500"} text-sm font-bold uppercase tracking-wide rounded-xs transition-colors`} disabled={!reviewEligibility.canReview}>
-                                    {reviewEligibility.hasReviewed ? "Edit Review" : "Write a review"}
-                                </button>
-                            )}
+                            {/* Re-enabled Write Review for all products */}
+                            <button onClick={() => setIsReviewModalOpen(true)} className={`px-14 sm:px-20 md:px-6 py-2 ${reviewEligibility.canReview ? "bg-red-600 text-white hover:bg-red-700" : "bg-zinc-200 text-zinc-500"} text-sm font-bold uppercase tracking-wide rounded-xs transition-colors`} disabled={!reviewEligibility.canReview}>
+                                {reviewEligibility.hasReviewed ? "Edit Review" : "Write a review"}
+                            </button>
 
                             <div className="relative pr-4 lg:pr-0" ref={sortRef}>
                                 <button onClick={() => setIsSortOpen(!isSortOpen)} className="h-full aspect-square bg-red-600 text-white flex items-center justify-center rounded-xs hover:bg-red-700 transition-colors">
@@ -649,21 +606,25 @@ const Productpage = () => {
             {/* FEATURES & HIGHLIGHTS & SPECS */}
             <div className="max-w-6xl mx-auto px-4 mt-8"><ProductFeature /></div>
             
-            {/* <div className="product-highlights bg-[#f4f4f4] w-full mt-12 py-12 border-t border-zinc-200">
-                <div className="max-w-6xl mx-auto px-4 flex flex-col lg:flex-row">
-                    <div className="product-highlights-header lg:w-1/3 text-left mb-8">
-                        <h2 className="product-highlights-heading uppercase font-bold text-2xl md:text-3xl text-[#0f0f0f] mb-2 border-l-4 border-red-600 pl-4">Highlights</h2>
-                        <p className="font-medium text-sm md:text-base text-zinc-500 pl-5">Precision meets aesthetics.</p>
-                    </div>
-                    <div className="product-hightlights-image-container lg:w-2/3 grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {highlightImages.map((highlight, idx) => (
-                            <div key={`${highlight.url}-highlight-${idx}`} className={`${idx === 0 && "lg:col-span-2"} highlight-img-container w-full bg-zinc-100 rounded-lg overflow-hidden border border-zinc-200`}>
-                                <img className="w-full h-full object-cover opacity-90 hover:opacity-100 transition-opacity duration-500" src={highlight.url} alt="Highlight" />
-                            </div>
-                        ))}
+            {/* 🔥 CONDITIONAL HIGHLIGHTS SECTION: ONLY SHOW IF NOT PHASE-00 */}
+            {!isPhase00 && highlightImages && highlightImages.length > 0 && (
+                <div className="product-highlights bg-[#f4f4f4] w-full mt-12 py-12 border-t border-zinc-200">
+                    <div className="max-w-6xl mx-auto px-4 flex flex-col lg:flex-row">
+                        <div className="product-highlights-header lg:w-1/3 text-left mb-8">
+                            <h2 className="product-highlights-heading uppercase font-bold text-2xl md:text-3xl text-[#0f0f0f] mb-2 border-l-4 border-red-600 pl-4">Highlights</h2>
+                            <p className="font-medium text-sm md:text-base text-zinc-500 pl-5">Precision meets aesthetics.</p>
+                        </div>
+                        <div className="product-hightlights-image-container lg:w-2/3 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {highlightImages.map((highlight, idx) => (
+                                <div key={`${highlight.url}-highlight-${idx}`} className={`${idx === 0 && "lg:col-span-2"} highlight-img-container w-full bg-zinc-100 rounded-lg overflow-hidden border border-zinc-200`}>
+                                    <img className="w-full h-full object-cover opacity-90 hover:opacity-100 transition-opacity duration-500" src={highlight.url} alt="Highlight" />
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
-            </div> */}
+            )}
+
             <div className="max-w-6xl mx-auto px-4 mt-32 pb-20"><ProductSpecs /></div>
 
             {/* BEST SELLING SECTION */}
