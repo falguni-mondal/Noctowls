@@ -148,7 +148,7 @@ const MainDets = ({ selectedSize, setselectedSize, dets }) => {
                             ${
                               isInStock
                                 ? `cursor-pointer ${isSelected ? "bg-[#0f0f0f] text-white border-[#0f0f0f]" : "bg-white border-zinc-300 text-[#0f0f0f] hover:border-[#0f0f0f]"}`
-                                : "bg-zinc-100 border-zinc-200 text-zinc-400 cursor-not-allowed"
+                                : "bg-zinc-100 border-zinc-200 text-zinc-400 cursor-not-allowed line-through"
                             }
                         `}
               >

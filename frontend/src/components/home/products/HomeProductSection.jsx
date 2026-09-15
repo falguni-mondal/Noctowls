@@ -17,7 +17,8 @@ const HomeProductSection = () => {
             
             {/* Added explicit text-[#0f0f0f] to match the global text color for high contrast */}
             <h2 className='uppercase font-bold text-[#0f0f0f] tracking-wide w-full mb-4 md:mb-8 text-xl md:text-2xl border-l-4 border-l-red-600 pl-2'>
-              {group.category}s
+              {/* {group.category}s */}
+              Our Collections
             </h2>
             
             {/* Responsive Grid System */}
