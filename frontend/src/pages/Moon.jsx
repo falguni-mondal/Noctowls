@@ -29,6 +29,7 @@ gsap.registerPlugin(useGSAP, ScrollTrigger);
 const Moon = () => {
   const dispatch = useDispatch();
   const containerRef = useRef(null);
+  const lenisRef = useRef(null); // Keep track of the Lenis instance
 
   // --- 1. DYNAMIC ROUTING & DATA LOOKUP ---
   const { phase } = useParams(); // Grabs the "00", "01", etc., from the URL
@@ -64,6 +65,9 @@ const Moon = () => {
       lerp: 0.1, 
       wheelMultiplier: 1,
     });
+    
+    // Save instance to ref
+    lenisRef.current = lenis;
 
     lenis.on("scroll", ScrollTrigger.update);
 
@@ -77,8 +81,21 @@ const Moon = () => {
     return () => {
       gsap.ticker.remove(update);
       lenis.destroy();
+      lenisRef.current = null;
     };
   }, []);
+
+  // --- 4.5. LENIS RESIZE FIX ---
+  // Force Lenis to recalculate page height whenever products load or change
+  useEffect(() => {
+    if (lenisRef.current && products && products.length > 0) {
+      // Use setTimeout to ensure the DOM has finished painting the new products
+      setTimeout(() => {
+        lenisRef.current.resize();
+        ScrollTrigger.refresh();
+      }, 100);
+    }
+  }, [products]);
 
   // --- 5. GSAP ANIMATIONS (Cinematic Pan + Marquee) ---
   useGSAP(
@@ -153,7 +170,6 @@ const Moon = () => {
             }, 
           }, "-=2.2")
 
-          // 🔥 FIXED: Changed from .from() to .fromTo() to force it to opacity: 1
           // Reveal the rest of the page content
           .fromTo(".void-content", 
             { opacity: 0, y: 40 },
@@ -195,7 +211,7 @@ const Moon = () => {
   return (
     <div
       ref={containerRef}
-      className="min-h-screen bg-[#000000] relative selection:bg-red-600 selection:text-white overflow-hidden"
+      className="min-h-screen bg-[#000000] relative selection:bg-red-600 selection:text-white overflow-clip"
     >
       <GalaxyBackground className="z-0" />
 
