@@ -7,7 +7,7 @@ const startCronJobs = () => {
     // '*/5 * * * *' means it runs exactly every 5 minutes
     cron.schedule('*/5 * * * *', async () => {
         try {
-            // 1. Calculate the time 15 minutes ago
+            // 1. Calculate the time 15 minutes ago (Using 10 mins in your code logic)
             const fifteenMinsAgo = new Date(Date.now() - 10 * 60 * 1000);
 
             // 2. Find all orders stuck in "pending" that are older than 15 mins
@@ -24,6 +24,19 @@ const startCronJobs = () => {
             // 3. Process each abandoned order safely
             for (const order of abandonedOrders) {
                 try {
+                    // ==========================================
+                    // 🔥 LEGACY DATA SANITIZER FIX
+                    // Fix negative pricing values before Mongoose validation runs
+                    // ==========================================
+                    if (order.pricing) {
+                        if (order.pricing.subtotalAfterCoupon < 0) {
+                            order.pricing.subtotalAfterCoupon = 0;
+                        }
+                        if (order.pricing.finalTotal < 0) {
+                            order.pricing.finalTotal = 0;
+                        }
+                    }
+
                     // Trigger the model's built-in cancel method
                     const { order: cancelledOrder, couponToRevert } = await order.cancelOrder(
                         "system", 

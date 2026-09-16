@@ -30,7 +30,7 @@ const OrderDetailsPage = () => {
   const cancelLoading = useSelector(selectCancelOrderLoading);
 
   // Local State
-  const [showCancelModal, useState] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [customReason, setCustomReason] = useState("");
 

@@ -46,7 +46,7 @@ import { fireGooglePurchasePixel } from '../utils/googleTracking';
 // IMPORT META PIXEL TRACKING
 import { trackEvent } from '../utils/pixel/pixel';
 
-// ✅ List of Indian States for robust GST calculation (State selection preserved)
+// List of Indian States for robust GST calculation (State selection preserved)
 const INDIAN_STATES = [
   "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam",
   "Bihar", "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli and Daman and Diu",

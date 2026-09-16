@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
-import mobile_video from "../../../assets/videos/mobile_hero_video.mp4";
-import website_video from "../../../assets/videos/website_hero_video.mp4";
+import mobile_video from "../../../assets/videos/mobile_hero_video.webm";
+import website_video from "../../../assets/videos/website_hero_video.webm";
 
 // TODO: Import your specific tablet and desktop videos here.
 const tablet_video = mobile_video; 
@@ -8,7 +8,7 @@ const desktop_video = website_video;
 
 const Hero = () => {
   return (
-    <section className='relative w-full h-[82dvh] lg:h-[82dvh] overflow-hidden' id='hero-section'>
+    <section className='relative w-full h-[82svh] lg:h-[82svh] overflow-hidden' id='hero-section'>
         
         {/* --- MOBILE VIDEO (0px - 767px) --- */}
         {/* Keeps original mobile design. Hidden on tablets and up. */}
