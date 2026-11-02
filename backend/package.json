@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node server.js",
+    "deliver-orders": "node src/scripts/autoDeliverOrders.js",
+    "auto-deliver": "node src/scripts/autoDeliverOrders.js"
   },
   "keywords": [],
   "author": "",
@@ -21,11 +23,9 @@
     "imagekit": "^6.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^9.0.0",
-    "multer": "^2.0.2",
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.11",
     "razorpay": "^2.9.6",
-    "resend": "^6.9.1",
-    "sharp": "^0.34.5"
+    "resend": "^6.9.1"
   }
 }

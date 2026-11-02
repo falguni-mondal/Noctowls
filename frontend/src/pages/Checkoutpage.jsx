@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Icon } from '@iconify/react'; 
+import { Icon } from '@iconify/react';
+import { optimizeImage } from '../utils/helpers/imageOptimizer'; 
 
 import {
   createOrder,
@@ -1120,7 +1121,9 @@ const CheckoutPage = () => {
                   >
                     <div className="relative shrink-0">
                         <img
-                        src={item.product.image}
+                        src={optimizeImage(item.product.image, { width: 160, quality: 75 })}
+                        loading="lazy"
+                        decoding="async"
                         alt={item.product.name}
                         className="w-16 h-16 object-cover rounded-lg border border-zinc-200 shadow-sm"
                         />

@@ -78,11 +78,9 @@ const UpdateCoupon = () => {
 
   useEffect(() => {
     if (currentCoupon) {
-      // Check if coupon has been used
       const isUsed = currentCoupon.totalUsedCount > 0;
       setHasBeenUsed(isUsed);
 
-      // Format dates
       const startsAt = new Date(currentCoupon.startsAt);
       const expiresAt = new Date(currentCoupon.expiresAt);
 
@@ -125,7 +123,6 @@ const UpdateCoupon = () => {
       [field]: value
     }));
 
-    // Clear related errors
     setValidationErrors(prev => ({
       ...prev,
       [field]: [],
@@ -133,7 +130,6 @@ const UpdateCoupon = () => {
     }));
   };
 
-  // Prevent number input from changing on scroll
   const handleNumberInputWheel = (e) => {
     e.target.blur();
   };
@@ -147,7 +143,6 @@ const UpdateCoupon = () => {
       general: [],
     };
 
-    // Validate coupon code
     if (!formData.code || formData.code.trim().length < 3) {
       newErrors.code.push('Coupon code must be at least 3 characters long');
     }
@@ -155,7 +150,6 @@ const UpdateCoupon = () => {
       newErrors.code.push('Coupon code must contain only uppercase letters and numbers');
     }
 
-    // Validate discount value
     if (formData.discountValue <= 0) {
       newErrors.discount.push('Discount value must be greater than 0');
     }
@@ -166,7 +160,6 @@ const UpdateCoupon = () => {
       newErrors.discount.push('Fixed discount seems too high (max ₹10,000)');
     }
 
-    // Validate usage limits
     if (formData.usageLimitType === 'multiple-per-user') {
       if (!formData.perUserLimit || formData.perUserLimit <= 0) {
         newErrors.usage.push('Per user limit must be greater than 0');
@@ -184,7 +177,6 @@ const UpdateCoupon = () => {
         newErrors.usage.push('Maximum total usage seems too high (max 100,000)');
       }
 
-      // Prevent reducing below current usage
       if (currentCoupon && formData.maxTotalUsage < currentCoupon.totalUsedCount) {
         newErrors.usage.push(
           `Cannot set limit below current usage (${currentCoupon.totalUsedCount} times used)`
@@ -192,7 +184,6 @@ const UpdateCoupon = () => {
       }
     }
 
-    // Validate dates
     if (!formData.startDate) {
       newErrors.dates.push('Start date is required');
     }
@@ -206,7 +197,6 @@ const UpdateCoupon = () => {
       newErrors.dates.push('End time is required');
     }
 
-    // Validate date logic
     if (formData.startDate && formData.endDate && formData.startTime && formData.endTime) {
       const startDateTime = new Date(`${formData.startDate}T${formData.startTime}`);
       const endDateTime = new Date(`${formData.endDate}T${formData.endTime}`);
@@ -216,7 +206,6 @@ const UpdateCoupon = () => {
       }
     }
 
-    // Validate description
     if (!formData.description || formData.description.trim().length < 10) {
       newErrors.general.push('Description must be at least 10 characters long');
     }
@@ -227,7 +216,6 @@ const UpdateCoupon = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Clear previous errors
     setValidationErrors({
       code: [],
       discount: [],
@@ -236,7 +224,6 @@ const UpdateCoupon = () => {
       general: [],
     });
 
-    // Validate form
     const errors = validateForm();
     const hasErrors = Object.values(errors).some(arr => arr.length > 0);
 
@@ -246,7 +233,6 @@ const UpdateCoupon = () => {
       return;
     }
 
-    // Prepare data for API
     const couponData = {
       code: formData.code.toUpperCase().trim(),
       description: formData.description.trim(),
@@ -259,20 +245,17 @@ const UpdateCoupon = () => {
       isActive: formData.isActive,
     };
 
-    // Add conditional fields based on usage limit type
     if (formData.usageLimitType === 'multiple-per-user') {
       couponData.perUserLimit = parseInt(formData.perUserLimit);
     } else if (formData.usageLimitType === 'max-total') {
       couponData.maxTotalUsage = parseInt(formData.maxTotalUsage);
     }
 
-    // Dispatch update coupon action
     await dispatch(updateCoupon({ id, couponData }));
   };
 
   // ==================== EFFECTS ====================
 
-  // Handle success
   useEffect(() => {
     if (successMessage) {
       toast.success(successMessage, toastControls);
@@ -287,7 +270,6 @@ const UpdateCoupon = () => {
     }
   }, [successMessage, dispatch, navigate]);
 
-  // Handle backend errors
   useEffect(() => {
     if (error) {
       toast.error(error.message || "Failed to update coupon!", toastControls);
@@ -336,15 +318,12 @@ const UpdateCoupon = () => {
     }
   }, [error, dispatch]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       dispatch(clearError());
       dispatch(clearSuccessMessage());
     };
   }, [dispatch]);
-
-  // ==================== USAGE LIMIT OPTIONS ====================
 
   const getUsageLimitLabel = () => {
     switch (formData.usageLimitType) {
@@ -359,28 +338,24 @@ const UpdateCoupon = () => {
     }
   };
 
-  // ==================== RENDER ====================
-
-  // Show loading while fetching coupon
   if (loading && !currentCoupon) {
     return (
-      <div className='px-3 py-10 flex justify-center items-center min-h-screen'>
+      <div className='px-3 py-10 flex justify-center items-center min-h-screen bg-[#f4f4f4]'>
         <Loader />
       </div>
     );
   }
 
-  // Show error if coupon not found
   if (!loading && !currentCoupon) {
     return (
-      <div className='px-3 py-10'>
-        <div className="bg-red-950/30 border border-red-800 rounded p-6 text-center">
-          <Icon icon="mdi:alert-circle" className="text-6xl text-red-400 mx-auto mb-3" />
-          <h2 className="text-xl font-semibold text-red-400 mb-2">Coupon Not Found</h2>
-          <p className="text-zinc-400 mb-4">The coupon you're looking for doesn't exist.</p>
+      <div className='px-3 py-10 min-h-screen bg-[#f4f4f4]'>
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center max-w-lg mx-auto">
+          <Icon icon="mdi:alert-circle" className="text-6xl text-red-500 mx-auto mb-3" />
+          <h2 className="text-xl font-semibold text-red-700 mb-2">Coupon Not Found</h2>
+          <p className="text-zinc-600 mb-4">The coupon you're looking for doesn't exist.</p>
           <button
             onClick={() => navigate('/admin/coupons')}
-            className="px-4 py-2 bg-zinc-700 rounded hover:bg-zinc-600"
+            className="px-4 py-2 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800"
           >
             Back to Coupons
           </button>
@@ -398,27 +373,27 @@ const UpdateCoupon = () => {
   ];
 
   return (
-    <div className='px-3 py-10' id='update-coupon-page'>
-      <div className="flex items-center gap-3 mb-3">
+    <div className='min-h-screen bg-[#f4f4f4] text-zinc-900 px-3 py-10 md:px-8 max-w-4xl mx-auto' id='update-coupon-page'>
+      <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => navigate('/admin/coupons')}
-          className="w-8 h-8 flex items-center justify-center rounded hover:bg-zinc-800 transition"
+          className="w-9 h-9 flex items-center justify-center rounded-lg bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-100 transition shadow-2xs"
         >
           <Icon icon="mdi:arrow-left" className="text-xl" />
         </button>
-        <h1 className='ad-coupon-heading text-2xl font-semibold'>
+        <h1 className='ad-coupon-heading text-2xl font-bold text-zinc-900'>
           Update Coupon
         </h1>
       </div>
 
       {/* Usage Warning */}
       {hasBeenUsed && (
-        <div className="mb-5 p-4 bg-amber-950/30 border border-amber-800 rounded">
+        <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl">
           <div className="flex items-start gap-3">
-            <Icon icon="mdi:alert" className="text-2xl text-amber-400 mt-0.5" />
+            <Icon icon="mdi:alert" className="text-2xl text-amber-600 mt-0.5" />
             <div>
-              <h3 className="text-amber-400 font-medium mb-1">Coupon In Use</h3>
-              <p className="text-sm text-amber-300/80">
+              <h3 className="text-amber-800 font-semibold mb-1">Coupon In Use</h3>
+              <p className="text-sm text-amber-700">
                 This coupon has been used <strong>{currentCoupon.totalUsedCount}</strong> {currentCoupon.totalUsedCount === 1 ? 'time' : 'times'} by{' '}
                 <strong>{currentCoupon.userUsageHistory?.length || 0}</strong> {currentCoupon.userUsageHistory?.length === 1 ? 'user' : 'users'}.
                 Be careful when modifying discount values or usage limits.
@@ -428,18 +403,18 @@ const UpdateCoupon = () => {
         </div>
       )}
 
-      <form id='update-coupon-form' onSubmit={handleSubmit} ref={formRef}>
+      <form id='update-coupon-form' onSubmit={handleSubmit} ref={formRef} className="bg-white border border-zinc-200 rounded-xl p-6 shadow-sm">
         
         {/* Error Messages */}
         {allErrors.length > 0 && (
-          <section className="mb-5 p-4 bg-red-950/30 border border-red-800 rounded">
-            <h3 className="text-red-400 font-medium mb-2 flex items-center gap-2">
+          <section className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <h3 className="text-red-700 font-semibold mb-2 flex items-center gap-2">
               <Icon icon="material-symbols:error-outline" className="text-xl" />
               Please fix the following errors:
             </h3>
-            <ul className="list-disc list-inside space-y-1 text-sm text-red-300">
-              {allErrors.map((error, idx) => (
-                <li key={idx}>{error}</li>
+            <ul className="list-disc list-inside space-y-1 text-sm text-red-600">
+              {allErrors.map((errText, idx) => (
+                <li key={idx}>{errText}</li>
               ))}
             </ul>
           </section>
@@ -447,14 +422,14 @@ const UpdateCoupon = () => {
 
         {/* Coupon Code */}
         <section className='mb-8'>
-          <h2 className='text-lg font-medium mb-4 flex items-center gap-2'>
-            <Icon icon="mdi:ticket-percent" className="text-xl text-indigo-400" />
+          <h2 className='text-lg font-semibold text-zinc-900 mb-4 flex items-center gap-2'>
+            <Icon icon="mdi:ticket-percent" className="text-xl text-indigo-600" />
             Coupon Code
           </h2>
           <div className='space-y-4'>
             <div>
-              <label htmlFor='code' className='block text-sm text-zinc-400 mb-2'>
-                Code <span className="text-red-400">*</span>
+              <label htmlFor='code' className='block text-sm font-medium text-zinc-700 mb-2'>
+                Code <span className="text-red-500">*</span>
               </label>
               <input
                 type='text'
@@ -463,16 +438,16 @@ const UpdateCoupon = () => {
                 value={formData.code}
                 onChange={(e) => handleInputChange('code', e.target.value.toUpperCase())}
                 placeholder='e.g., SAVE50, WELCOME2024'
-                className={`w-full h-10 px-3 bg-zinc-900 border ${
-                  validationErrors.code.length > 0 ? 'border-red-500' : 'border-zinc-800'
-                } rounded-[3px] text-sm focus:outline-none focus:border-indigo-500 uppercase`}
+                className={`w-full h-10 px-3 bg-white text-zinc-900 border ${
+                  validationErrors.code.length > 0 ? 'border-red-500' : 'border-zinc-300'
+                } rounded-md text-sm focus:outline-none focus:border-indigo-500 uppercase`}
               />
               <p className="text-xs text-zinc-500 mt-1">Use uppercase letters and numbers only</p>
             </div>
 
             <div>
-              <label htmlFor='description' className='block text-sm text-zinc-400 mb-2'>
-                Description <span className="text-red-400">*</span>
+              <label htmlFor='description' className='block text-sm font-medium text-zinc-700 mb-2'>
+                Description <span className="text-red-500">*</span>
               </label>
               <textarea
                 id='description'
@@ -481,7 +456,7 @@ const UpdateCoupon = () => {
                 onChange={(e) => handleInputChange('description', e.target.value)}
                 placeholder='Brief description of this coupon (min 10 characters)'
                 rows={3}
-                className='w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-[3px] text-sm focus:outline-none focus:border-indigo-500 resize-none'
+                className='w-full px-3 py-2 bg-white text-zinc-900 border border-zinc-300 rounded-md text-sm focus:outline-none focus:border-indigo-500 resize-none'
               />
             </div>
           </div>
@@ -489,39 +464,39 @@ const UpdateCoupon = () => {
 
         {/* Discount Settings */}
         <section className='mb-8'>
-          <h2 className='text-lg font-medium mb-4 flex items-center gap-2'>
-            <Icon icon="mdi:sale" className="text-xl text-green-400" />
+          <h2 className='text-lg font-semibold text-zinc-900 mb-4 flex items-center gap-2'>
+            <Icon icon="mdi:sale" className="text-xl text-emerald-600" />
             Discount Settings
           </h2>
           <div className='space-y-4'>
             {/* Discount Type */}
             <div>
-              <label className='block text-sm text-zinc-400 mb-2'>
-                Discount Type <span className="text-red-400">*</span>
+              <label className='block text-sm font-medium text-zinc-700 mb-2'>
+                Discount Type <span className="text-red-500">*</span>
               </label>
               <div className='relative'>
                 <button
                   type='button'
                   onClick={() => setReveal(prev => ({ ...prev, discountType: !prev.discountType }))}
-                  className='w-full h-10 px-3 bg-zinc-900 border border-zinc-800 rounded-[3px] text-sm text-left flex items-center justify-between focus:outline-none focus:border-indigo-500'
+                  className='w-full h-10 px-3 bg-white text-zinc-900 border border-zinc-300 rounded-md text-sm text-left flex items-center justify-between focus:outline-none focus:border-indigo-500'
                 >
                   <span className='capitalize'>
                     {formData.discountType === 'fixed' ? 'Fixed Price (₹)' : 'Percentage (%)'}
                   </span>
                   <Icon 
                     icon="iconamoon:arrow-down-2-duotone" 
-                    className={`text-xl transition-transform ${reveal.discountType ? 'rotate-180' : ''}`}
+                    className={`text-xl text-zinc-500 transition-transform ${reveal.discountType ? 'rotate-180' : ''}`}
                   />
                 </button>
                 {reveal.discountType && (
-                  <div className='absolute top-full left-0 w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-[3px] overflow-hidden z-10'>
+                  <div className='absolute top-full left-0 w-full mt-1 bg-white border border-zinc-200 rounded-md overflow-hidden z-10 shadow-lg'>
                     <button
                       type='button'
                       onClick={() => {
                         handleInputChange('discountType', 'fixed');
                         setReveal(prev => ({ ...prev, discountType: false }));
                       }}
-                      className='w-full h-10 px-3 text-sm text-left hover:bg-zinc-800 transition'
+                      className='w-full h-10 px-3 text-sm text-zinc-800 text-left hover:bg-zinc-50 transition'
                     >
                       Fixed Price (₹)
                     </button>
@@ -531,7 +506,7 @@ const UpdateCoupon = () => {
                         handleInputChange('discountType', 'percentage');
                         setReveal(prev => ({ ...prev, discountType: false }));
                       }}
-                      className='w-full h-10 px-3 text-sm text-left hover:bg-zinc-800 transition'
+                      className='w-full h-10 px-3 text-sm text-zinc-800 text-left hover:bg-zinc-50 transition'
                     >
                       Percentage (%)
                     </button>
@@ -542,8 +517,8 @@ const UpdateCoupon = () => {
 
             {/* Discount Value */}
             <div>
-              <label htmlFor='discountValue' className='block text-sm text-zinc-400 mb-2'>
-                Discount Value <span className="text-red-400">*</span>
+              <label htmlFor='discountValue' className='block text-sm font-medium text-zinc-700 mb-2'>
+                Discount Value <span className="text-red-500">*</span>
               </label>
               <div className='relative'>
                 <input
@@ -557,9 +532,9 @@ const UpdateCoupon = () => {
                   max={formData.discountType === 'percentage' ? '100' : '10000'}
                   step={formData.discountType === 'percentage' ? '1' : '10'}
                   placeholder={formData.discountType === 'fixed' ? 'Enter amount in ₹' : 'Enter percentage'}
-                  className={`w-full h-10 px-3 ${formData.discountType === 'fixed' ? 'pl-8' : 'pr-8'} bg-zinc-900 border ${
-                    validationErrors.discount.length > 0 ? 'border-red-500' : 'border-zinc-800'
-                  } rounded-[3px] text-sm focus:outline-none focus:border-indigo-500`}
+                  className={`w-full h-10 px-3 ${formData.discountType === 'fixed' ? 'pl-8' : 'pr-8'} bg-white text-zinc-900 border ${
+                    validationErrors.discount.length > 0 ? 'border-red-500' : 'border-zinc-300'
+                  } rounded-md text-sm focus:outline-none focus:border-indigo-500`}
                 />
                 {formData.discountType === 'fixed' && (
                   <span className='absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500'>₹</span>
@@ -577,32 +552,32 @@ const UpdateCoupon = () => {
 
             {/* Apply Type */}
             <div>
-              <label className='block text-sm text-zinc-400 mb-2'>
-                Apply To <span className="text-red-400">*</span>
+              <label className='block text-sm font-medium text-zinc-700 mb-2'>
+                Apply To <span className="text-red-500">*</span>
               </label>
               <div className='relative'>
                 <button
                   type='button'
                   onClick={() => setReveal(prev => ({ ...prev, applyType: !prev.applyType }))}
-                  className='w-full h-10 px-3 bg-zinc-900 border border-zinc-800 rounded-[3px] text-sm text-left flex items-center justify-between focus:outline-none focus:border-indigo-500'
+                  className='w-full h-10 px-3 bg-white text-zinc-900 border border-zinc-300 rounded-md text-sm text-left flex items-center justify-between focus:outline-none focus:border-indigo-500'
                 >
                   <span className='capitalize'>
                     {formData.applyType === 'each-product' ? 'Each Product' : 'Each Order'}
                   </span>
                   <Icon 
                     icon="iconamoon:arrow-down-2-duotone" 
-                    className={`text-xl transition-transform ${reveal.applyType ? 'rotate-180' : ''}`}
+                    className={`text-xl text-zinc-500 transition-transform ${reveal.applyType ? 'rotate-180' : ''}`}
                   />
                 </button>
                 {reveal.applyType && (
-                  <div className='absolute top-full left-0 w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-[3px] overflow-hidden z-10'>
+                  <div className='absolute top-full left-0 w-full mt-1 bg-white border border-zinc-200 rounded-md overflow-hidden z-10 shadow-lg'>
                     <button
                       type='button'
                       onClick={() => {
                         handleInputChange('applyType', 'each-product');
                         setReveal(prev => ({ ...prev, applyType: false }));
                       }}
-                      className='w-full px-3 py-2 text-sm text-left hover:bg-zinc-800 transition'
+                      className='w-full px-3 py-2 text-sm text-zinc-800 text-left hover:bg-zinc-50 transition'
                     >
                       <div>
                         <p className="font-medium">Each Product</p>
@@ -615,7 +590,7 @@ const UpdateCoupon = () => {
                         handleInputChange('applyType', 'each-order');
                         setReveal(prev => ({ ...prev, applyType: false }));
                       }}
-                      className='w-full px-3 py-2 text-sm text-left hover:bg-zinc-800 transition'
+                      className='w-full px-3 py-2 text-sm text-zinc-800 text-left hover:bg-zinc-50 transition'
                     >
                       <div>
                         <p className="font-medium">Each Order</p>
@@ -631,40 +606,40 @@ const UpdateCoupon = () => {
 
         {/* Usage Limit */}
         <section className='mb-8'>
-          <h2 className='text-lg font-medium mb-4 flex items-center gap-2'>
-            <Icon icon="mdi:counter" className="text-xl text-amber-400" />
+          <h2 className='text-lg font-semibold text-zinc-900 mb-4 flex items-center gap-2'>
+            <Icon icon="mdi:counter" className="text-xl text-amber-600" />
             Usage Limit
           </h2>
           <div className='space-y-4'>
             <div>
-              <label className='block text-sm text-zinc-400 mb-2'>
-                Limit Type <span className="text-red-400">*</span>
+              <label className='block text-sm font-medium text-zinc-700 mb-2'>
+                Limit Type <span className="text-red-500">*</span>
               </label>
               <div className='relative'>
                 <button
                   type='button'
                   onClick={() => setReveal(prev => ({ ...prev, usageLimitType: !prev.usageLimitType }))}
-                  className='w-full h-10 px-3 bg-zinc-900 border border-zinc-800 rounded-[3px] text-sm text-left flex items-center justify-between focus:outline-none focus:border-indigo-500'
+                  className='w-full h-10 px-3 bg-white text-zinc-900 border border-zinc-300 rounded-md text-sm text-left flex items-center justify-between focus:outline-none focus:border-indigo-500'
                 >
                   <span>{getUsageLimitLabel()}</span>
                   <Icon 
                     icon="iconamoon:arrow-down-2-duotone" 
-                    className={`text-xl transition-transform ${reveal.usageLimitType ? 'rotate-180' : ''}`}
+                    className={`text-xl text-zinc-500 transition-transform ${reveal.usageLimitType ? 'rotate-180' : ''}`}
                   />
                 </button>
                 {reveal.usageLimitType && (
-                  <div className='absolute top-full left-0 w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-[3px] overflow-hidden z-10 shadow-xl'>
+                  <div className='absolute top-full left-0 w-full mt-1 bg-white border border-zinc-200 rounded-md overflow-hidden z-10 shadow-lg'>
                     <button
                       type='button'
                       onClick={() => {
                         handleInputChange('usageLimitType', 'once-per-user');
                         setReveal(prev => ({ ...prev, usageLimitType: false }));
                       }}
-                      className='w-full px-3 py-3 text-sm text-left hover:bg-zinc-800 transition border-b border-zinc-800'
+                      className='w-full px-3 py-3 text-sm text-zinc-800 text-left hover:bg-zinc-50 transition border-b border-zinc-100'
                     >
                       <div>
                         <p className="font-medium flex items-center gap-2">
-                          <Icon icon="mdi:account-check" className="text-blue-400" />
+                          <Icon icon="mdi:account-check" className="text-blue-600" />
                           Once Per User
                         </p>
                         <p className="text-xs text-zinc-500 mt-1">Each user can use this coupon only once</p>
@@ -676,11 +651,11 @@ const UpdateCoupon = () => {
                         handleInputChange('usageLimitType', 'multiple-per-user');
                         setReveal(prev => ({ ...prev, usageLimitType: false }));
                       }}
-                      className='w-full px-3 py-3 text-sm text-left hover:bg-zinc-800 transition border-b border-zinc-800'
+                      className='w-full px-3 py-3 text-sm text-zinc-800 text-left hover:bg-zinc-50 transition border-b border-zinc-100'
                     >
                       <div>
                         <p className="font-medium flex items-center gap-2">
-                          <Icon icon="mdi:account-multiple-check" className="text-green-400" />
+                          <Icon icon="mdi:account-multiple-check" className="text-emerald-600" />
                           Multiple Per User
                         </p>
                         <p className="text-xs text-zinc-500 mt-1">Set how many times each user can use this coupon</p>
@@ -692,11 +667,11 @@ const UpdateCoupon = () => {
                         handleInputChange('usageLimitType', 'max-total');
                         setReveal(prev => ({ ...prev, usageLimitType: false }));
                       }}
-                      className='w-full px-3 py-3 text-sm text-left hover:bg-zinc-800 transition'
+                      className='w-full px-3 py-3 text-sm text-zinc-800 text-left hover:bg-zinc-50 transition'
                     >
                       <div>
                         <p className="font-medium flex items-center gap-2">
-                          <Icon icon="mdi:counter" className="text-purple-400" />
+                          <Icon icon="mdi:counter" className="text-purple-600" />
                           Max Total Uses
                         </p>
                         <p className="text-xs text-zinc-500 mt-1">Set maximum total uses across all users</p>
@@ -707,11 +682,10 @@ const UpdateCoupon = () => {
               </div>
             </div>
 
-            {/* Conditional inputs based on usage limit type */}
             {formData.usageLimitType === 'multiple-per-user' && (
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded p-4">
-                <label htmlFor='perUserLimit' className='block text-sm text-zinc-400 mb-2'>
-                  Uses Per User <span className="text-red-400">*</span>
+              <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-4">
+                <label htmlFor='perUserLimit' className='block text-sm font-medium text-zinc-700 mb-2'>
+                  Uses Per User <span className="text-red-500">*</span>
                 </label>
                 <input
                   type='number'
@@ -723,9 +697,9 @@ const UpdateCoupon = () => {
                   min='1'
                   max='1000'
                   placeholder='e.g., 3'
-                  className={`w-full h-10 px-3 bg-zinc-900 border ${
-                    validationErrors.usage.length > 0 ? 'border-red-500' : 'border-zinc-800'
-                  } rounded-[3px] text-sm focus:outline-none focus:border-indigo-500`}
+                  className={`w-full h-10 px-3 bg-white text-zinc-900 border ${
+                    validationErrors.usage.length > 0 ? 'border-red-500' : 'border-zinc-300'
+                  } rounded-md text-sm focus:outline-none focus:border-indigo-500`}
                 />
                 <p className="text-xs text-zinc-500 mt-2">
                   Each user can use this coupon up to {formData.perUserLimit} {formData.perUserLimit === 1 ? 'time' : 'times'}
@@ -734,9 +708,9 @@ const UpdateCoupon = () => {
             )}
 
             {formData.usageLimitType === 'max-total' && (
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded p-4">
-                <label htmlFor='maxTotalUsage' className='block text-sm text-zinc-400 mb-2'>
-                  Maximum Total Uses <span className="text-red-400">*</span>
+              <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-4">
+                <label htmlFor='maxTotalUsage' className='block text-sm font-medium text-zinc-700 mb-2'>
+                  Maximum Total Uses <span className="text-red-500">*</span>
                 </label>
                 <input
                   type='number'
@@ -748,26 +722,26 @@ const UpdateCoupon = () => {
                   min={currentCoupon?.totalUsedCount || 1}
                   max='100000'
                   placeholder='e.g., 100'
-                  className={`w-full h-10 px-3 bg-zinc-900 border ${
-                    validationErrors.usage.length > 0 ? 'border-red-500' : 'border-zinc-800'
-                  } rounded-[3px] text-sm focus:outline-none focus:border-indigo-500`}
+                  className={`w-full h-10 px-3 bg-white text-zinc-900 border ${
+                    validationErrors.usage.length > 0 ? 'border-red-500' : 'border-zinc-300'
+                  } rounded-md text-sm focus:outline-none focus:border-indigo-500`}
                 />
                 <p className="text-xs text-zinc-500 mt-2">
                   This coupon can be used a total of {formData.maxTotalUsage} {formData.maxTotalUsage === 1 ? 'time' : 'times'} across all users
                   {currentCoupon?.totalUsedCount > 0 && (
-                    <span className="text-amber-400"> (Already used {currentCoupon.totalUsedCount} {currentCoupon.totalUsedCount === 1 ? 'time' : 'times'})</span>
+                    <span className="text-amber-700 font-medium"> (Already used {currentCoupon.totalUsedCount} {currentCoupon.totalUsedCount === 1 ? 'time' : 'times'})</span>
                   )}
                 </p>
               </div>
             )}
 
             {formData.usageLimitType === 'once-per-user' && (
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded p-4">
+              <div className="bg-blue-50/70 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-start gap-3">
-                  <Icon icon="mdi:information" className="text-blue-400 text-xl mt-0.5" />
+                  <Icon icon="mdi:information" className="text-blue-600 text-xl mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-zinc-300">One-Time Use Per User</p>
-                    <p className="text-xs text-zinc-500 mt-1">
+                    <p className="text-sm font-medium text-zinc-800">One-Time Use Per User</p>
+                    <p className="text-xs text-zinc-600 mt-1">
                       Each user can use this coupon only once. Perfect for first-time customer discounts or exclusive one-time offers.
                     </p>
                   </div>
@@ -779,16 +753,15 @@ const UpdateCoupon = () => {
 
         {/* Validity Period */}
         <section className='mb-8'>
-          <h2 className='text-lg font-medium mb-4 flex items-center gap-2'>
-            <Icon icon="mdi:calendar-clock" className="text-xl text-blue-400" />
+          <h2 className='text-lg font-semibold text-zinc-900 mb-4 flex items-center gap-2'>
+            <Icon icon="mdi:calendar-clock" className="text-xl text-blue-600" />
             Validity Period
           </h2>
           <div className='space-y-4'>
-            {/* Start Date & Time */}
             <div className='grid grid-cols-2 gap-3'>
               <div>
-                <label htmlFor='startDate' className='block text-sm text-zinc-400 mb-2'>
-                  Start Date <span className="text-red-400">*</span>
+                <label htmlFor='startDate' className='block text-sm font-medium text-zinc-700 mb-2'>
+                  Start Date <span className="text-red-500">*</span>
                 </label>
                 <input
                   type='date'
@@ -796,14 +769,14 @@ const UpdateCoupon = () => {
                   name='startDate'
                   value={formData.startDate}
                   onChange={(e) => handleInputChange('startDate', e.target.value)}
-                  className={`w-full h-10 px-3 bg-zinc-900 border ${
-                    validationErrors.dates.length > 0 ? 'border-red-500' : 'border-zinc-800'
-                  } rounded-[3px] text-sm focus:outline-none focus:border-indigo-500`}
+                  className={`w-full h-10 px-3 bg-white text-zinc-900 border ${
+                    validationErrors.dates.length > 0 ? 'border-red-500' : 'border-zinc-300'
+                  } rounded-md text-sm focus:outline-none focus:border-indigo-500`}
                 />
               </div>
               <div>
-                <label htmlFor='startTime' className='block text-sm text-zinc-400 mb-2'>
-                  Start Time <span className="text-red-400">*</span>
+                <label htmlFor='startTime' className='block text-sm font-medium text-zinc-700 mb-2'>
+                  Start Time <span className="text-red-500">*</span>
                 </label>
                 <input
                   type='time'
@@ -811,18 +784,17 @@ const UpdateCoupon = () => {
                   name='startTime'
                   value={formData.startTime}
                   onChange={(e) => handleInputChange('startTime', e.target.value)}
-                  className={`w-full h-10 px-3 bg-zinc-900 border ${
-                    validationErrors.dates.length > 0 ? 'border-red-500' : 'border-zinc-800'
-                  } rounded-[3px] text-sm focus:outline-none focus:border-indigo-500`}
+                  className={`w-full h-10 px-3 bg-white text-zinc-900 border ${
+                    validationErrors.dates.length > 0 ? 'border-red-500' : 'border-zinc-300'
+                  } rounded-md text-sm focus:outline-none focus:border-indigo-500`}
                 />
               </div>
             </div>
 
-            {/* End Date & Time */}
             <div className='grid grid-cols-2 gap-3'>
               <div>
-                <label htmlFor='endDate' className='block text-sm text-zinc-400 mb-2'>
-                  End Date <span className="text-red-400">*</span>
+                <label htmlFor='endDate' className='block text-sm font-medium text-zinc-700 mb-2'>
+                  End Date <span className="text-red-500">*</span>
                 </label>
                 <input
                   type='date'
@@ -830,14 +802,14 @@ const UpdateCoupon = () => {
                   name='endDate'
                   value={formData.endDate}
                   onChange={(e) => handleInputChange('endDate', e.target.value)}
-                  className={`w-full h-10 px-3 bg-zinc-900 border ${
-                    validationErrors.dates.length > 0 ? 'border-red-500' : 'border-zinc-800'
-                  } rounded-[3px] text-sm focus:outline-none focus:border-indigo-500`}
+                  className={`w-full h-10 px-3 bg-white text-zinc-900 border ${
+                    validationErrors.dates.length > 0 ? 'border-red-500' : 'border-zinc-300'
+                  } rounded-md text-sm focus:outline-none focus:border-indigo-500`}
                 />
               </div>
               <div>
-                <label htmlFor='endTime' className='block text-sm text-zinc-400 mb-2'>
-                  End Time <span className="text-red-400">*</span>
+                <label htmlFor='endTime' className='block text-sm font-medium text-zinc-700 mb-2'>
+                  End Time <span className="text-red-500">*</span>
                 </label>
                 <input
                   type='time'
@@ -845,18 +817,17 @@ const UpdateCoupon = () => {
                   name='endTime'
                   value={formData.endTime}
                   onChange={(e) => handleInputChange('endTime', e.target.value)}
-                  className={`w-full h-10 px-3 bg-zinc-900 border ${
-                    validationErrors.dates.length > 0 ? 'border-red-500' : 'border-zinc-800'
-                  } rounded-[3px] text-sm focus:outline-none focus:border-indigo-500`}
+                  className={`w-full h-10 px-3 bg-white text-zinc-900 border ${
+                    validationErrors.dates.length > 0 ? 'border-red-500' : 'border-zinc-300'
+                  } rounded-md text-sm focus:outline-none focus:border-indigo-500`}
                 />
               </div>
             </div>
 
-            {/* Display formatted date range */}
             {formData.startDate && formData.endDate && formData.startTime && formData.endTime && (
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded p-3">
-                <p className="text-xs text-zinc-400 mb-1">Coupon will be valid:</p>
-                <p className="text-sm">
+              <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3">
+                <p className="text-xs text-zinc-500 mb-1">Coupon will be valid:</p>
+                <p className="text-sm font-medium text-zinc-900">
                   {new Date(`${formData.startDate}T${formData.startTime}`).toLocaleString('en-IN', {
                     dateStyle: 'medium',
                     timeStyle: 'short'
@@ -874,8 +845,8 @@ const UpdateCoupon = () => {
 
         {/* Status */}
         <section className='mb-8'>
-          <h2 className='text-lg font-medium mb-4 flex items-center gap-2'>
-            <Icon icon="mdi:toggle-switch" className="text-xl text-purple-400" />
+          <h2 className='text-lg font-semibold text-zinc-900 mb-4 flex items-center gap-2'>
+            <Icon icon="mdi:toggle-switch" className="text-xl text-purple-600" />
             Status
           </h2>
           <div className='flex items-center gap-3'>
@@ -883,20 +854,20 @@ const UpdateCoupon = () => {
               type='button'
               onClick={() => handleInputChange('isActive', !formData.isActive)}
               className={`relative w-14 h-7 rounded-full transition-colors ${
-                formData.isActive ? 'bg-green-600' : 'bg-zinc-700'
+                formData.isActive ? 'bg-emerald-600' : 'bg-zinc-300'
               }`}
             >
               <span
-                className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform ${
+                className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-xs transition-transform ${
                   formData.isActive ? 'translate-x-7' : 'translate-x-0'
                 }`}
               />
             </button>
-            <span className='text-sm'>
+            <span className='text-sm font-medium'>
               {formData.isActive ? (
-                <span className="text-green-400">Active (Coupon is enabled)</span>
+                <span className="text-emerald-700">Active (Coupon is enabled)</span>
               ) : (
-                <span className="text-zinc-400">Inactive (Coupon is disabled)</span>
+                <span className="text-zinc-500">Inactive (Coupon is disabled)</span>
               )}
             </span>
           </div>
@@ -907,7 +878,7 @@ const UpdateCoupon = () => {
           <button
             type='submit'
             disabled={actionLoading}
-            className="w-full h-10 rounded-[3px] flex justify-center items-center bg-indigo-600 text-sm font-medium hover:bg-indigo-500 disabled:bg-indigo-950 disabled:cursor-not-allowed relative tracking-wide"
+            className="w-full h-10 rounded-md flex justify-center items-center bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 disabled:bg-indigo-300 disabled:cursor-not-allowed relative tracking-wide"
           >
             {actionLoading ? <MiniLoading /> : 'Update Coupon'}
           </button>
@@ -916,7 +887,7 @@ const UpdateCoupon = () => {
             onClick={() => navigate("/admin/coupons")}
             type='button'
             disabled={actionLoading}
-            className="w-full h-10 rounded-[3px] flex justify-center items-center bg-zinc-700 text-sm font-medium hover:bg-zinc-600 disabled:bg-zinc-800 disabled:cursor-not-allowed relative tracking-wide"
+            className="w-full h-10 rounded-md flex justify-center items-center bg-zinc-100 border border-zinc-300 text-zinc-700 text-sm font-medium hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed relative tracking-wide"
           >
             Cancel
           </button>

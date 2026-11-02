@@ -400,11 +400,31 @@ export const getAllAdminOrders = async (req, res) => {
       ];
     }
 
-    const orders = await Order.find(query)
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.max(1, parseInt(limit, 10) || 10);
+
+    const rawOrders = await Order.find(query)
       .populate("user", "name email phone")
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(limitNum)
+      .skip((pageNum - 1) * limitNum);
+
+    const getOrderTime = (ord) => {
+      if (ord?.createdAt) {
+        const t = new Date(ord.createdAt).getTime();
+        if (!Number.isNaN(t)) return t;
+      }
+      const idStr = String(ord?._id || "");
+      return /^[0-9a-fA-F]{24}$/.test(idStr)
+        ? parseInt(idStr.substring(0, 8), 16) * 1000
+        : 0;
+    };
+
+    const orders = [...rawOrders].sort((a, b) => {
+      const diff = getOrderTime(b) - getOrderTime(a);
+      if (diff !== 0) return diff;
+      return String(b._id).localeCompare(String(a._id));
+    });
 
     const count = await Order.countDocuments(query);
 
@@ -832,7 +852,7 @@ export const ordersExporter = async (req, res) => {
     // --- 3. FETCH FULL DATASET (NO PAGINATION) ---
     const orders = await Order.find(query)
       .populate("user", "name email phone")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1, _id: -1 });
 
     if (!orders || orders.length === 0) {
       return res.status(404).json({

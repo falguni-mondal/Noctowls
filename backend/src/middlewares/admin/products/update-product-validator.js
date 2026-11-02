@@ -1,4 +1,25 @@
-const isUpdateProductFormValid = (req, res, next) => {
+import {
+  cleanupUploadedImages,
+  isValidImageKitAsset,
+} from "../../../utils/imageUtils.js";
+
+const parseJsonArray = (val) => {
+  if (Array.isArray(val)) return val;
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
+const isUpdateProductFormValid = async (req, res, next) => {
+  const newMainImages = parseJsonArray(req.body?.newMainImages);
+  const newHighlightImages = parseJsonArray(req.body?.newHighlightImages);
+
   try {
     const errors = {
       general: [],
@@ -20,21 +41,18 @@ const isUpdateProductFormValid = (req, res, next) => {
       existingHighlightImages,
     } = req.body;
 
-    const newMainImages = req.files?.["mainImages"] || [];
-    const newHighlightImages = req.files?.["highlightImages"] || [];
-    
-    // Normalize indices to arrays
+    // Support indices either embedded inside each newMainImages item (`item.index`) or passed via `mainImagesIndices`
     const mainImagesIndices = req.body.mainImagesIndices
-      ? Array.isArray(req.body.mainImagesIndices)
-        ? req.body.mainImagesIndices
-        : [req.body.mainImagesIndices]
-      : [];
-      
+      ? parseJsonArray(req.body.mainImagesIndices)
+      : newMainImages
+          .map((img) => img?.index)
+          .filter((idx) => idx !== undefined && idx !== null);
+
     const highlightImagesIndices = req.body.highlightImagesIndices
-      ? Array.isArray(req.body.highlightImagesIndices)
-        ? req.body.highlightImagesIndices
-        : [req.body.highlightImagesIndices]
-      : [];
+      ? parseJsonArray(req.body.highlightImagesIndices)
+      : newHighlightImages
+          .map((img) => img?.index)
+          .filter((idx) => idx !== undefined && idx !== null);
 
     // ==================== GENERAL VALIDATIONS ====================
     if (!name || typeof name !== "string") {
@@ -90,7 +108,7 @@ const isUpdateProductFormValid = (req, res, next) => {
     let parsedSizes;
     try {
       parsedSizes = typeof sizes === "string" ? JSON.parse(sizes) : sizes;
-    } catch (error) {
+    } catch {
       errors.general.push("Invalid sizes data format");
       parsedSizes = [];
     }
@@ -215,80 +233,83 @@ const isUpdateProductFormValid = (req, res, next) => {
       highlight: 3,
     };
 
-    let parsedExistingMainImages = [];
-    let parsedExistingHighlightImages = [];
-
-    try {
-      parsedExistingMainImages = existingMainImages ? JSON.parse(existingMainImages) : [];
-      parsedExistingHighlightImages = existingHighlightImages ? JSON.parse(existingHighlightImages) : [];
-    } catch (error) {
-      errors.general.push("Invalid existing images data");
-    }
+    const parsedExistingMainImages = parseJsonArray(existingMainImages);
+    const parsedExistingHighlightImages = parseJsonArray(existingHighlightImages);
 
     if (newMainImages.length !== mainImagesIndices.length) {
-      errors.images.push("Mismatch between uploaded main images and their target indices");
+      errors.images.push(
+        "Mismatch between uploaded main images and their target indices"
+      );
     }
     if (newHighlightImages.length !== highlightImagesIndices.length) {
-      errors.highlightImg.push("Mismatch between uploaded highlight images and their target indices");
+      errors.highlightImg.push(
+        "Mismatch between uploaded highlight images and their target indices"
+      );
     }
 
-    mainImagesIndices.forEach(idx => {
-      const parsedIdx = parseInt(idx);
-      if (isNaN(parsedIdx) || parsedIdx < 0 || parsedIdx >= expectedCounts.main) {
-        errors.images.push(`Invalid main image index: ${idx}. Must be between 0 and ${expectedCounts.main - 1}`);
+    mainImagesIndices.forEach((idx) => {
+      const parsedIdx = parseInt(idx, 10);
+      if (
+        isNaN(parsedIdx) ||
+        parsedIdx < 0 ||
+        parsedIdx >= expectedCounts.main
+      ) {
+        errors.images.push(
+          `Invalid main image index: ${idx}. Must be between 0 and ${expectedCounts.main - 1}`
+        );
       }
     });
 
-    highlightImagesIndices.forEach(idx => {
-      const parsedIdx = parseInt(idx);
-      if (isNaN(parsedIdx) || parsedIdx < 0 || parsedIdx >= expectedCounts.highlight) {
-        errors.highlightImg.push(`Invalid highlight image index: ${idx}. Must be between 0 and ${expectedCounts.highlight - 1}`);
+    highlightImagesIndices.forEach((idx) => {
+      const parsedIdx = parseInt(idx, 10);
+      if (
+        isNaN(parsedIdx) ||
+        parsedIdx < 0 ||
+        parsedIdx >= expectedCounts.highlight
+      ) {
+        errors.highlightImg.push(
+          `Invalid highlight image index: ${idx}. Must be between 0 and ${expectedCounts.highlight - 1}`
+        );
       }
     });
 
-    const totalMainImages = parsedExistingMainImages.length + newMainImages.length;
+    const totalMainImages =
+      parsedExistingMainImages.length + newMainImages.length;
     if (totalMainImages !== expectedCounts.main) {
       errors.images.push(
         `Total of ${expectedCounts.main} product images required (currently ${totalMainImages})`
       );
     }
 
-    const totalHighlightImages = parsedExistingHighlightImages.length + newHighlightImages.length;
+    const totalHighlightImages =
+      parsedExistingHighlightImages.length + newHighlightImages.length;
     if (totalHighlightImages !== expectedCounts.highlight) {
       errors.highlightImg.push(
         `Total of ${expectedCounts.highlight} highlight images required (currently ${totalHighlightImages})`
       );
     }
 
-    const allowedImageTypes = ["image/png", "image/webp", "image/jpeg"];
-    const maxFileSize = 10 * 1024 * 1024;
-
     newMainImages.forEach((image, index) => {
-      if (!allowedImageTypes.includes(image.mimetype)) {
-        errors.images.push(`New product image ${index + 1} must be PNG, WEBP, or JPEG format`);
-      }
-      if (image.size > maxFileSize) {
-        errors.images.push(`New product image ${index + 1} must be less than 10MB`);
-      }
-      if (!image.buffer || image.buffer.length === 0) {
-        errors.images.push(`New product image ${index + 1} is empty or corrupted`);
+      if (!isValidImageKitAsset(image)) {
+        errors.images.push(
+          `New product image ${index + 1} has invalid or missing ImageKit upload data`
+        );
       }
     });
 
     newHighlightImages.forEach((image, index) => {
-      if (!allowedImageTypes.includes(image.mimetype)) {
-        errors.highlightImg.push(`New highlight image ${index + 1} must be PNG, WEBP, or JPEG format`);
-      }
-      if (image.size > maxFileSize) {
-        errors.highlightImg.push(`New highlight image ${index + 1} must be less than 10MB`);
-      }
-      if (!image.buffer || image.buffer.length === 0) {
-        errors.highlightImg.push(`New highlight image ${index + 1} is empty or corrupted`);
+      if (!isValidImageKitAsset(image)) {
+        errors.highlightImg.push(
+          `New highlight image ${index + 1} has invalid or missing ImageKit upload data`
+        );
       }
     });
 
     // ==================== OTHER VALIDATIONS ====================
-    const validInventories = ["Sanmilan, Yuri Gagarin Path, Muchipara", "Shri Bhumi Park, Bidhannagar"];
+    const validInventories = [
+      "Sanmilan, Yuri Gagarin Path, Muchipara",
+      "Shri Bhumi Park, Bidhannagar",
+    ];
     if (
       !inventory ||
       typeof inventory !== "string" ||
@@ -308,6 +329,9 @@ const isUpdateProductFormValid = (req, res, next) => {
       errors.others.length > 0;
 
     if (hasErrors) {
+      // Clean up newly uploaded images on ImageKit if validation fails
+      await cleanupUploadedImages([...newMainImages, ...newHighlightImages]);
+
       return res.status(400).json({
         success: false,
         message: "Validation failed",
@@ -334,6 +358,8 @@ const isUpdateProductFormValid = (req, res, next) => {
     next();
   } catch (error) {
     console.error("Update validation error:", error);
+    await cleanupUploadedImages([...newMainImages, ...newHighlightImages]);
+
     return res.status(500).json({
       success: false,
       message: "Internal server error during validation",

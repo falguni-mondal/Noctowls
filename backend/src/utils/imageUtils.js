@@ -1,46 +1,44 @@
-import sharp from "sharp";
-import { uploadWithRetry, deleteWithRetry } from "../configs/imagekit.js";
+import { deleteWithRetry } from "../configs/imagekit.js";
 
-// Process and Upload a Single Image
-export const processAndUploadImage = async (file, folder) => {
-  try {
-    // 1. Optimize Image (Sharp runs in C++ threads, non-blocking)
-    const optimizedBuffer = await sharp(file.buffer)
-      .resize({
-        width: 2400,
-        withoutEnlargement: true,
-      })
-      .webp({
-        quality: 80,
-        effort: 4, // Reduced from 5 to 4 for speed trade-off (imperceptible quality diff)
-        smartSubsample: true,
-      })
-      .toBuffer();
-
-    // 2. Upload to ImageKit
-    const uploadRes = await uploadWithRetry({
-      file: optimizedBuffer,
-      fileName: file.originalname.replace(/\.\w+$/, ".webp"),
-      folder,
-    });
-
-    return {
-      success: true,
-      url: uploadRes.url,
-      imageId: uploadRes.fileId,
-      alt: file.originalname, // Temporary alt
-    };
-  } catch (error) {
-    console.error(`Error processing ${file.originalname}:`, error);
-    throw error; // Throw so Promise.all catches it
+/**
+ * Validates that an image metadata object sent from the frontend
+ * has a valid ImageKit URL and fileId (`imageId`).
+ */
+export const isValidImageKitAsset = (img) => {
+  if (!img || typeof img !== "object") return false;
+  const { url, imageId } = img;
+  if (!url || typeof url !== "string" || !imageId || typeof imageId !== "string") {
+    return false;
   }
+
+  const trimmedUrl = url.trim();
+  const endpoint = process.env.IMAGEKIT_ENDPOINT?.replace(/\/+$/, "");
+
+  const isAllowedDomain =
+    (endpoint && trimmedUrl.startsWith(endpoint)) ||
+    trimmedUrl.startsWith("https://ik.imagekit.io/");
+
+  return isAllowedDomain && imageId.trim().length > 0;
 };
 
-// Cleanup Helper: Deletes a list of uploaded images
+/**
+ * Cleanup Helper: Deletes a list of uploaded images from ImageKit.
+ * Accepts either `{ imageId }` objects or raw `imageId` strings.
+ */
 export const cleanupUploadedImages = async (images = []) => {
-  if (images.length === 0) return;
-  
-  console.log("Rolling back: Deleting orphaned images...");
-  const deletePromises = images.map((img) => deleteWithRetry(img.imageId));
+  if (!Array.isArray(images) || images.length === 0) return;
+
+  const fileIds = [
+    ...new Set(
+      images
+        .map((img) => (typeof img === "string" ? img : img?.imageId))
+        .filter((id) => typeof id === "string" && id.trim().length > 0)
+    ),
+  ];
+
+  if (fileIds.length === 0) return;
+
+  console.log(`Rolling back: Deleting ${fileIds.length} orphaned image(s) from ImageKit...`);
+  const deletePromises = fileIds.map((fileId) => deleteWithRetry(fileId));
   await Promise.allSettled(deletePromises);
 };

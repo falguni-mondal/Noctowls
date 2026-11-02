@@ -1,4 +1,26 @@
-const isAddProductFormValid = (req, res, next) => {
+import {
+  cleanupUploadedImages,
+  isValidImageKitAsset,
+} from "../../../utils/imageUtils.js";
+
+const parseJsonArray = (val) => {
+  if (Array.isArray(val)) return val;
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
+const isAddProductFormValid = async (req, res, next) => {
+  // Parse pre-uploaded ImageKit metadata arrays early so we can roll them back if validation fails
+  const mainImages = parseJsonArray(req.body?.mainImages);
+  const highlightImages = parseJsonArray(req.body?.highlightImages);
+
   try {
     const errors = {
       general: [],
@@ -8,14 +30,9 @@ const isAddProductFormValid = (req, res, next) => {
       others: [],
     };
 
-    // Extract data from request
     const { name, description, category, group, sizes, inventory } = req.body;
-    const mainImages = req.files?.["mainImages"] || [];
-    const highlightImages = req.files?.["highlightImages"] || [];
 
     // ==================== GENERAL VALIDATIONS ====================
-
-    // Validate product name
     if (!name || typeof name !== "string") {
       errors.general.push("Product title is required");
     } else if (name.trim().length < 5) {
@@ -24,7 +41,6 @@ const isAddProductFormValid = (req, res, next) => {
       errors.general.push("Product title cannot exceed 200 characters");
     }
 
-    // Validate description
     if (!description || typeof description !== "string") {
       errors.general.push("Product description is required");
     } else if (description.trim().length < 20) {
@@ -35,7 +51,6 @@ const isAddProductFormValid = (req, res, next) => {
       errors.general.push("Product description cannot exceed 2000 characters");
     }
 
-    // Validate category
     const validCategories = [
       "deskmat",
       "anime-keychain",
@@ -48,7 +63,6 @@ const isAddProductFormValid = (req, res, next) => {
       errors.general.push("Invalid product category");
     }
 
-    // Validate group
     if (!group || typeof group !== "string") {
       errors.general.push("Product group is required");
     } else if (group.trim().length < 5) {
@@ -58,21 +72,17 @@ const isAddProductFormValid = (req, res, next) => {
     }
 
     // ==================== SIZE VALIDATIONS ====================
-
-    // Parse sizes if it's a JSON string
     let parsedSizes;
     try {
       parsedSizes = typeof sizes === "string" ? JSON.parse(sizes) : sizes;
-    } catch (error) {
+    } catch {
       errors.general.push("Invalid sizes data format");
       parsedSizes = [];
     }
 
-    // Validate sizes array
     if (!Array.isArray(parsedSizes) || parsedSizes.length === 0) {
       errors.general.push("At least one size variant is required");
     } else {
-      // Define allowed sizes based on category
       const SIZE_VALUES_BY_PRODUCT = {
         deskmat: ["l", "xl", "xxl"],
         "anime-keychain": ["onesize"],
@@ -83,25 +93,21 @@ const isAddProductFormValid = (req, res, next) => {
       const allowedSizes = SIZE_VALUES_BY_PRODUCT[category] || [];
       const requiredSizeCount = allowedSizes.length;
 
-      // Check if all required sizes are present
       if (parsedSizes.length !== requiredSizeCount) {
         errors.general.push(
           `Product must have exactly ${requiredSizeCount} size variant(s) for ${category} category`
         );
       }
 
-      // Validate each size
       parsedSizes.forEach((size, index) => {
         const sizeErrors = [];
 
-        // Validate size value
         if (!size.value) {
           sizeErrors.push("Size value is required");
         } else if (!allowedSizes.includes(size.value)) {
           sizeErrors.push(`Invalid size value for ${category} category`);
         }
 
-        // Validate original price
         if (size.originalPrice === undefined || size.originalPrice === null) {
           sizeErrors.push("Original price is required");
         } else {
@@ -115,7 +121,6 @@ const isAddProductFormValid = (req, res, next) => {
           }
         }
 
-        // Validate discounted price (numPrice) instead of discount
         if (size.numPrice === undefined || size.numPrice === null) {
           sizeErrors.push("Discounted price is required");
         } else {
@@ -135,7 +140,6 @@ const isAddProductFormValid = (req, res, next) => {
           }
         }
 
-        // Validate stock
         if (size.stock === undefined || size.stock === null) {
           sizeErrors.push("Stock is required");
         } else {
@@ -151,7 +155,6 @@ const isAddProductFormValid = (req, res, next) => {
           }
         }
 
-        // Validate SKU code (remains same)
         if (!size.skuCode || typeof size.skuCode !== "string") {
           sizeErrors.push("SKU code is required");
         } else if (size.skuCode.trim().length === 0) {
@@ -171,7 +174,6 @@ const isAddProductFormValid = (req, res, next) => {
         }
       });
 
-      // Check for duplicate SKU codes
       const skuCodes = parsedSizes
         .map((s) => s.skuCode?.trim())
         .filter(Boolean);
@@ -186,8 +188,6 @@ const isAddProductFormValid = (req, res, next) => {
     }
 
     // ==================== IMAGE VALIDATIONS ====================
-
-    // Define expected image counts based on category
     const IMAGE_COUNTS_BY_CATEGORY = {
       deskmat: { main: 7, highlight: 6 },
       "anime-keychain": { main: 4, highlight: 3 },
@@ -199,10 +199,7 @@ const isAddProductFormValid = (req, res, next) => {
       main: 4,
       highlight: 3,
     };
-    const allowedImageTypes = ["image/png", "image/webp", "image/jpeg"];
-    const maxFileSize = 10 * 1024 * 1024; // 10MB
 
-    // Validate main images count
     if (mainImages.length === 0) {
       errors.images.push("At least one product image is required");
     } else if (mainImages.length < expectedCounts.main) {
@@ -215,32 +212,14 @@ const isAddProductFormValid = (req, res, next) => {
       );
     }
 
-    // Validate each main image
     mainImages.forEach((image, index) => {
-      // Check file type
-      if (!allowedImageTypes.includes(image.mimetype)) {
+      if (!isValidImageKitAsset(image)) {
         errors.images.push(
-          `Product image ${index + 1} must be PNG, WEBP, or JPEG format`
+          `Product image ${index + 1} has invalid or missing ImageKit upload data`
         );
-      }
-
-      // Check file size
-      if (image.size > maxFileSize) {
-        errors.images.push(`Product image ${index + 1} must be less than 10MB`);
-      }
-
-      // Check if file buffer exists
-      if (!image.buffer || image.buffer.length === 0) {
-        errors.images.push(`Product image ${index + 1} is empty or corrupted`);
-      }
-
-      // Check filename
-      if (!image.originalname || image.originalname.trim().length === 0) {
-        errors.images.push(`Product image ${index + 1} has invalid filename`);
       }
     });
 
-    // Validate highlight images count
     if (highlightImages.length === 0) {
       errors.highlightImg.push("At least one highlight image is required");
     } else if (highlightImages.length < expectedCounts.highlight) {
@@ -253,41 +232,19 @@ const isAddProductFormValid = (req, res, next) => {
       );
     }
 
-    // Validate each highlight image
     highlightImages.forEach((image, index) => {
-      // Check file type
-      if (!allowedImageTypes.includes(image.mimetype)) {
+      if (!isValidImageKitAsset(image)) {
         errors.highlightImg.push(
-          `Highlight image ${index + 1} must be PNG, WEBP, or JPEG format`
-        );
-      }
-
-      // Check file size
-      if (image.size > maxFileSize) {
-        errors.highlightImg.push(
-          `Highlight image ${index + 1} must be less than 10MB`
-        );
-      }
-
-      // Check if file buffer exists
-      if (!image.buffer || image.buffer.length === 0) {
-        errors.highlightImg.push(
-          `Highlight image ${index + 1} is empty or corrupted`
-        );
-      }
-
-      // Check filename
-      if (!image.originalname || image.originalname.trim().length === 0) {
-        errors.highlightImg.push(
-          `Highlight image ${index + 1} has invalid filename`
+          `Highlight image ${index + 1} has invalid or missing ImageKit upload data`
         );
       }
     });
 
     // ==================== OTHER VALIDATIONS ====================
-
-    // Validate inventory
-    const validInventories = ["Sanmilan, Yuri Gagarin Path, Muchipara", "Shri Bhumi Park, Bidhannagar"]; // Add more as needed
+    const validInventories = [
+      "Sanmilan, Yuri Gagarin Path, Muchipara",
+      "Shri Bhumi Park, Bidhannagar",
+    ];
     if (
       !inventory ||
       typeof inventory !== "string" ||
@@ -299,21 +256,17 @@ const isAddProductFormValid = (req, res, next) => {
     }
 
     // ==================== CHECK FOR ERRORS ====================
-
-    const hasGeneralErrors = errors.general.length > 0;
-    const hasSizeErrors = Object.keys(errors.size).length > 0;
-    const hasImageErrors = errors.images.length > 0;
-    const hasHighlightErrors = errors.highlightImg.length > 0;
-    const hasOtherErrors = errors.others.length > 0;
-
     const hasErrors =
-      hasGeneralErrors ||
-      hasSizeErrors ||
-      hasImageErrors ||
-      hasHighlightErrors ||
-      hasOtherErrors;
+      errors.general.length > 0 ||
+      Object.keys(errors.size).length > 0 ||
+      errors.images.length > 0 ||
+      errors.highlightImg.length > 0 ||
+      errors.others.length > 0;
 
     if (hasErrors) {
+      // Automatically clean up pre-uploaded ImageKit images when validation fails
+      await cleanupUploadedImages([...mainImages, ...highlightImages]);
+
       return res.status(400).json({
         success: false,
         message: "Validation failed",
@@ -321,22 +274,22 @@ const isAddProductFormValid = (req, res, next) => {
       });
     }
 
-    // Attach validated and parsed data to request for controller use
     req.product = {
       name: name.trim(),
       description: description.trim(),
       category,
-      group: group.trim(), // ✅ Correctly assigned for the controller
+      group: group.trim(),
       sizes: parsedSizes,
       inventory,
       mainImages,
       highlightImages,
     };
 
-    // All validations passed
     next();
   } catch (error) {
     console.error("Validation middleware error:", error);
+    await cleanupUploadedImages([...mainImages, ...highlightImages]);
+
     return res.status(500).json({
       success: false,
       message: "Internal server error during validation",

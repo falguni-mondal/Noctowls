@@ -1,3 +1,48 @@
+const formatFallbackPrice = (num) => {
+  if (num === undefined || num === null || isNaN(Number(num))) return "0";
+  return Number(num).toLocaleString("en-IN");
+};
+
+const normalizeImageObj = (img) => {
+  if (!img) return null;
+  if (typeof img === "string") {
+    return { url: img, imageId: "", alt: "" };
+  }
+  return img;
+};
+
+/**
+ * Deterministic product sorter:
+ * 1. Products with a numeric `displayOrder` come first, ordered ascending (0, 1, 2...).
+ * 2. Products without `displayOrder` (or with equal `displayOrder`) are ordered Latest First
+ *    (`createdAt` descending, then `_id` descending as a tie-breaker).
+ */
+export const sortProductsList = (products = []) => {
+  if (!Array.isArray(products)) return [];
+  return [...products].sort((a, b) => {
+    const aHasOrder =
+      typeof a?.displayOrder === "number" && !Number.isNaN(a.displayOrder);
+    const bHasOrder =
+      typeof b?.displayOrder === "number" && !Number.isNaN(b.displayOrder);
+
+    if (aHasOrder && bHasOrder && a.displayOrder !== b.displayOrder) {
+      return a.displayOrder - b.displayOrder;
+    }
+    if (aHasOrder && !bHasOrder) return -1;
+    if (!aHasOrder && bHasOrder) return 1;
+
+    const timeA = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const timeB = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+    if (timeA !== timeB) {
+      return timeB - timeA; // Latest first
+    }
+
+    const idA = String(a?._id || a?.id || "");
+    const idB = String(b?._id || b?.id || "");
+    return idB.localeCompare(idA); // Latest ObjectId first
+  });
+};
+
 export const trimReview = (review) => {
   return {
     id: review._id,
@@ -6,59 +51,87 @@ export const trimReview = (review) => {
     comment: review.comment,
     images: review.images || [],
     createdAt: review.createdAt,
-    
-    // Optional: Show if verified purchase (if you add this feature later)
-    // verifiedPurchase: review.verifiedPurchase || false,
   };
 };
 
-
-export const trimReviews = (reviews) => {
-  return reviews.map(trimReview);
+export const trimReviews = (reviews = []) => {
+  return Array.isArray(reviews) ? reviews.map(trimReview) : [];
 };
 
 export const productForAdminList = (product) => {
-  const hasMultipleSizes = product.sizes.length > 1;
+  const sizes = Array.isArray(product.sizes) ? product.sizes : [];
+  const primarySize = sizes[0] || {};
+  const images = Array.isArray(product.images) ? product.images : [];
+  const primaryImage = normalizeImageObj(images[0]);
+
+  const hasMultipleSizes = sizes.length > 1;
   const stocks = hasMultipleSizes
-    ? product.sizes.map((size) => ({
+    ? sizes.map((size) => ({
         size: size.value,
-        count: size.stock,
+        count: size.stock ?? 0,
       }))
     : undefined;
 
+  const origPriceNum = Number(primarySize.originalPrice) || 0;
+  const sellPriceNum =
+    primarySize.numPrice !== undefined
+      ? Number(primarySize.numPrice)
+      : origPriceNum;
+
+  const computedDiscount =
+    origPriceNum > 0 && sellPriceNum < origPriceNum
+      ? Math.floor(((origPriceNum - sellPriceNum) / origPriceNum) * 100)
+      : 0;
+
+  const computedTotalStock =
+    product.totalStock !== undefined
+      ? product.totalStock
+      : sizes.reduce((sum, s) => sum + (Number(s.stock) || 0), 0);
+
   return {
     id: product._id,
-    name: product.name,
+    name: product.name || "Untitled Product",
     slug: product.slug,
-    category: product.category,
-    group: product.group,
-    type: product.type,
+    category: product.category || "deskmat",
+    group: product.group || "General",
+    type: product.type || product.category || "deskmat",
+    status: product.status || "published",
+    displayOrder:
+      typeof product.displayOrder === "number" ? product.displayOrder : null,
+    createdAt: product.createdAt,
 
-    image: product.images[0] || null,
+    image: primaryImage,
+    images: images.map(normalizeImageObj).filter(Boolean),
 
     rating: {
       average: product.rating?.average || 0,
       count: product.rating?.count || 0,
     },
 
-    originalPrice: product.sizes[0].formattedOriginalPrice,
-    price: product.sizes[0].price,
-    discount: Math.floor(
-      ((product.sizes[0].originalPrice - product.sizes[0].numPrice) /
-        product.sizes[0].originalPrice) *
-        100
-    ),
+    originalPrice:
+      primarySize.formattedOriginalPrice || formatFallbackPrice(origPriceNum),
+    price: primarySize.price || formatFallbackPrice(sellPriceNum),
+    discount: primarySize.discount ?? computedDiscount,
 
-    inStock: product.totalStock > 0,
-    totalStock: product.totalStock,
+    inStock: computedTotalStock > 0,
+    totalStock: computedTotalStock,
+    stock: computedTotalStock,
 
     ...(stocks && { stocks }),
 
     sales: product.totalSales || 0,
   };
-}
+};
 
 export const productForAdminDetail = (product) => {
+  const sizes = Array.isArray(product.sizes) ? product.sizes : [];
+  const images = Array.isArray(product.images)
+    ? product.images.map(normalizeImageObj).filter(Boolean)
+    : [];
+  const highlightImages = Array.isArray(product.highlightImages)
+    ? product.highlightImages.map(normalizeImageObj).filter(Boolean)
+    : [];
+
   return {
     id: product._id,
     name: product.name,
@@ -69,52 +142,89 @@ export const productForAdminDetail = (product) => {
     type: product.type,
     status: product.status,
     inventory: product.inventory,
-    
-    // All images
-    images: product.images || [],
-    highlightImages: product.highlightImages || [],
+    displayOrder:
+      typeof product.displayOrder === "number" ? product.displayOrder : null,
+    createdAt: product.createdAt,
 
-    // All size variants with prices
-    sizes: product.sizes?.map((size) => ({
+    images,
+    highlightImages,
+
+    sizes: sizes.map((size) => ({
       value: size.value,
-      originalPrice: size.originalPrice,
-      numPrice: size.numPrice,
-      stock: size.stock,
-      skuCode: size.skuCode,
-    })) || [],
+      originalPrice: size.originalPrice ?? 0,
+      numPrice: size.numPrice ?? size.originalPrice ?? 0,
+      discount: size.discount ?? 0,
+      stock: size.stock ?? 0,
+      skuCode: size.skuCode || "",
+    })),
   };
 };
 
 export const productForList = (product) => {
+  const sizes = Array.isArray(product.sizes) ? product.sizes : [];
+  const primarySize = sizes[0] || {};
+  const images = Array.isArray(product.images)
+    ? product.images.map(normalizeImageObj).filter(Boolean)
+    : [];
+
+  const origPriceNum = Number(primarySize.originalPrice) || 0;
+  const sellPriceNum =
+    primarySize.numPrice !== undefined
+      ? Number(primarySize.numPrice)
+      : origPriceNum;
+
+  const computedDiscount =
+    origPriceNum > 0 && sellPriceNum < origPriceNum
+      ? Math.floor(((origPriceNum - sellPriceNum) / origPriceNum) * 100)
+      : 0;
+
+  const computedTotalStock =
+    product.totalStock !== undefined
+      ? product.totalStock
+      : sizes.reduce((sum, s) => sum + (Number(s.stock) || 0), 0);
+
   return {
     id: product._id,
     name: product.name,
     category: product.category,
     group: product.group,
     type: product.type,
+    displayOrder:
+      typeof product.displayOrder === "number" ? product.displayOrder : null,
+    createdAt: product.createdAt,
 
-    images: [product.images?.[0], product.images?.[1]],
+    images: [images[0], images[1]].filter(Boolean),
 
     rating: {
       average: product.rating?.average || 0,
       count: product.rating?.count || 0,
     },
 
-    originalPrice: product.sizes[0].formattedOriginalPrice,
-    price: product.sizes[0].price,
-    discount: Math.floor(
-      ((product.sizes[0].originalPrice - product.sizes[0].numPrice) /
-        product.sizes[0].originalPrice) *
-        100
-    ),
+    originalPrice:
+      primarySize.formattedOriginalPrice || formatFallbackPrice(origPriceNum),
+    price: primarySize.price || formatFallbackPrice(sellPriceNum),
+    discount: primarySize.discount ?? computedDiscount,
 
-    inStock: product.totalStock > 0,
+    inStock: computedTotalStock > 0,
 
     sales: product.totalSales || 0,
   };
 };
 
 export const productForDetail = (product) => {
+  const sizes = Array.isArray(product.sizes) ? product.sizes : [];
+  const images = Array.isArray(product.images)
+    ? product.images.map(normalizeImageObj).filter(Boolean)
+    : [];
+  const highlightImages = Array.isArray(product.highlightImages)
+    ? product.highlightImages.map(normalizeImageObj).filter(Boolean)
+    : [];
+
+  const computedTotalStock =
+    product.totalStock !== undefined
+      ? product.totalStock
+      : sizes.reduce((sum, s) => sum + (Number(s.stock) || 0), 0);
+
   return {
     id: product._id,
     name: product.name,
@@ -122,90 +232,35 @@ export const productForDetail = (product) => {
     category: product.category,
     group: product.group,
     type: product.type,
-    
-    // All images
-    images: product.images || [],
-    highlightImages: product.highlightImages || [],
-    
-    // Complete rating data
+
+    images,
+    highlightImages,
+
     rating: {
       average: product.rating?.average || 0,
       count: product.rating?.count || 0,
-    //   distribution: product.rating?.distribution || {
-    //     1: 0,
-    //     2: 0,
-    //     3: 0,
-    //     4: 0,
-    //     5: 0,
-    //   },
     },
-    
-    // All size variants with prices
-    sizes: product.sizes?.map((size) => ({
-      value: size.value,
-      label: size.label,
-      originalPrice: size.originalPrice,
-      formattedOriginalPrice: size.formattedOriginalPrice,
-      discount: size.discount,
-      price: size.price,
-      numPrice: size.numPrice,
-      stock: size.stock,
-      inStock: size.stock > 0,
-    })) || [],
-    
-    inStock: product.totalStock > 0,
+
+    sizes: sizes.map((size) => {
+      const origPriceNum = Number(size.originalPrice) || 0;
+      const sellPriceNum =
+        size.numPrice !== undefined ? Number(size.numPrice) : origPriceNum;
+      return {
+        value: size.value,
+        label: size.label,
+        originalPrice: origPriceNum,
+        formattedOriginalPrice:
+          size.formattedOriginalPrice || formatFallbackPrice(origPriceNum),
+        discount: size.discount ?? 0,
+        price: size.price || formatFallbackPrice(sellPriceNum),
+        numPrice: sellPriceNum,
+        stock: size.stock ?? 0,
+        inStock: (size.stock ?? 0) > 0,
+      };
+    }),
+
+    inStock: computedTotalStock > 0,
 
     salesCount: product.totalSales || 0,
   };
 };
-
-
-/**
- * Helper: Get lowest price from size variants
- * @param {Array} sizes - Array of size objects
- * @returns {Object} Price information
- */
-
-// const getLowestPrice = (sizes) => {
-//   if (!sizes || sizes.length === 0) {
-//     return {
-//       original: 0,
-//       current: 0,
-//       discount: 0,
-//       formatted: "0",
-//     };
-//   }
-
-  // Find size with lowest price
-//   const lowestPriceSize = sizes.reduce((lowest, size) => {
-//     return size.numPrice < lowest.numPrice ? size : lowest;
-//   }, sizes[0]);
-
-//   return {
-//     original: lowestPriceSize.originalPrice,
-//     current: lowestPriceSize.numPrice,
-//     discount: lowestPriceSize.discount,
-//     formatted: lowestPriceSize.price,
-//   };
-// };
-
-/**
- * Helper: Calculate price range (if multiple sizes have different prices)
- * @param {Array} sizes - Array of size objects
- * @returns {Object} Price range
- */
-// export const getPriceRange = (sizes) => {
-//   if (!sizes || sizes.length === 0) {
-//     return { min: 0, max: 0, hasRange: false };
-//   }
-
-//   const prices = sizes.map((s) => s.numPrice);
-//   const min = Math.min(...prices);
-//   const max = Math.max(...prices);
-
-//   return {
-//     min,
-//     max,
-//     hasRange: min !== max,
-//   };
-// };

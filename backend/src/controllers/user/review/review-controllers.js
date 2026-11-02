@@ -1,9 +1,25 @@
 import Review from "../../../models/review-model.js";
 // Uncomment the line below if you decide to re-enable purchase verification later
-// import Order from "../../../models/order-model.js"; 
-import { processAndUploadImage, cleanupUploadedImages } from "../../../utils/imageUtils.js";
+// import Order from "../../../models/order-model.js";
+import {
+  cleanupUploadedImages,
+  isValidImageKitAsset,
+} from "../../../utils/imageUtils.js";
 import { deleteWithRetry } from "../../../configs/imagekit.js";
 import { updateProductRating } from "../../../utils/helpers/rating-helper.js";
+
+const parseJsonArray = (val) => {
+  if (Array.isArray(val)) return val;
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
 
 export const checkReviewEligibility = async (req, res) => {
   try {
@@ -26,30 +42,6 @@ export const checkReviewEligibility = async (req, res) => {
       });
     }
 
-    /* 
-    // ==========================================
-    // VERIFIED PURCHASE CHECK (COMMENTED OUT)
-    // Uncomment this block to enforce that only users who bought the product can review
-    // ==========================================
-    const query = {
-      "items.product": productId,
-      orderStatus: "delivered",
-    };
-
-    if (userId) query.user = userId;
-    else query.deviceId = deviceId;
-
-    const hasPurchased = await Order.exists(query);
-
-    if (!hasPurchased) {
-      return res.status(200).json({
-        canReview: false,
-        message: "Verified purchase required.",
-      });
-    }
-    // ==========================================
-    */
-
     return res.status(200).json({
       canReview: true,
       hasReviewed: false,
@@ -62,48 +54,33 @@ export const checkReviewEligibility = async (req, res) => {
 };
 
 export const createReview = async (req, res) => {
-  // Track uploaded images for rollback in case of DB error
-  let uploadedImagesRecord = [];
+  const rawImages = parseJsonArray(req.body?.images);
 
   try {
     const { productId } = req.params;
     const { rating, comment, userName, userEmail } = req.body;
     const userId = req.user;
     const deviceId = req.cookies.device_id;
-    const files = req.files;
 
-    /*
-    // ==========================================
-    // VERIFIED PURCHASE CHECK (COMMENTED OUT)
-    // Uncomment this block to enforce that only users who bought the product can review
-    // ==========================================
-    const purchaseQuery = { "items.product": productId, orderStatus: "delivered" };
-    if (userId) purchaseQuery.user = userId;
-    else purchaseQuery.deviceId = deviceId;
-
-    const hasPurchased = await Order.exists(purchaseQuery);
-    if (!hasPurchased) {
-      return res.status(403).json({ success: false, message: "Purchase verification failed." });
+    if (rawImages.length > 5) {
+      await cleanupUploadedImages(rawImages);
+      return res
+        .status(400)
+        .json({ success: false, message: "Maximum 5 images allowed." });
     }
-    // ==========================================
-    */
 
-    let reviewImages = [];
-    if (files && files.length > 0) {
-      const filesToUpload = files.slice(0, 5);
-      
-      // Use Promise.all with processAndUploadImage
-      const uploadPromises = filesToUpload.map((file) =>
-        processAndUploadImage(file, `reviews/${productId}`)
-      );
-      
-      const results = await Promise.all(uploadPromises);
-      
-      // Track successes for potential rollback
-      uploadedImagesRecord = [...results];
-
-      reviewImages = results.map((res) => ({ url: res.url, imageId: res.imageId }));
+    const invalidImg = rawImages.some((img) => !isValidImageKitAsset(img));
+    if (invalidImg) {
+      await cleanupUploadedImages(rawImages);
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid image upload data." });
     }
+
+    const reviewImages = rawImages.map((img) => ({
+      url: img.url,
+      imageId: img.imageId,
+    }));
 
     const newReview = await Review.create({
       product: productId,
@@ -125,16 +102,20 @@ export const createReview = async (req, res) => {
       review: newReview,
     });
   } catch (error) {
-    // Rollback logic (Cleanup images if DB save fails)
-    if (uploadedImagesRecord.length > 0) {
-      await cleanupUploadedImages(uploadedImagesRecord);
+    // Rollback pre-uploaded images if DB save fails
+    if (rawImages.length > 0) {
+      await cleanupUploadedImages(rawImages);
     }
 
     if (error.code === 11000) {
-      return res.status(400).json({ success: false, message: "Review already exists." });
+      return res
+        .status(400)
+        .json({ success: false, message: "Review already exists." });
     }
     console.error("Create Review Error:", error);
-    return res.status(500).json({ success: false, message: "Failed to submit review." });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to submit review." });
   }
 };
 
@@ -146,17 +127,28 @@ export const getProductReviews = async (req, res) => {
 
     const query = { product: productId, status: "accepted" };
 
-    let sortOptions = { createdAt: -1 }; 
+    let sortOptions = { createdAt: -1 };
 
     switch (sortBy) {
-      case "Highest Ratings": sortOptions = { rating: -1, createdAt: -1 }; break;
-      case "Lowest Ratings": sortOptions = { rating: 1, createdAt: -1 }; break;
-      case "Newest": sortOptions = { createdAt: -1 }; break;
-      case "Oldest": sortOptions = { createdAt: 1 }; break;
-      case "Photo priority": case "Featured": default: sortOptions = { createdAt: -1 }; break;
+      case "Highest Ratings":
+        sortOptions = { rating: -1, createdAt: -1 };
+        break;
+      case "Lowest Ratings":
+        sortOptions = { rating: 1, createdAt: -1 };
+        break;
+      case "Newest":
+        sortOptions = { createdAt: -1 };
+        break;
+      case "Oldest":
+        sortOptions = { createdAt: 1 };
+        break;
+      case "Photo priority":
+      case "Featured":
+      default:
+        sortOptions = { createdAt: -1 };
+        break;
     }
 
-    // Return ALL reviews
     const reviews = await Review.find(query)
       .sort(sortOptions)
       .select("-userEmail -deviceId");
@@ -170,7 +162,9 @@ export const getProductReviews = async (req, res) => {
     });
   } catch (error) {
     console.error("Get All Reviews Error:", error);
-    return res.status(500).json({ success: false, message: "Failed to load reviews." });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to load reviews." });
   }
 };
 
@@ -178,23 +172,32 @@ export const getProductReviews = async (req, res) => {
 export const getRecentReviews = async (req, res) => {
   try {
     const { productId } = req.params;
-    const { sortBy } = req.query; 
+    const { sortBy } = req.query;
 
     const query = { product: productId, status: "accepted" };
 
-    let sortOptions = { createdAt: -1 }; 
-    // We allow sorting even on the recent list
+    let sortOptions = { createdAt: -1 };
     switch (sortBy) {
-        case "Highest Ratings": sortOptions = { rating: -1, createdAt: -1 }; break;
-        case "Lowest Ratings": sortOptions = { rating: 1, createdAt: -1 }; break;
-        case "Newest": sortOptions = { createdAt: -1 }; break;
-        case "Oldest": sortOptions = { createdAt: 1 }; break;
-        default: sortOptions = { createdAt: -1 }; break;
+      case "Highest Ratings":
+        sortOptions = { rating: -1, createdAt: -1 };
+        break;
+      case "Lowest Ratings":
+        sortOptions = { rating: 1, createdAt: -1 };
+        break;
+      case "Newest":
+        sortOptions = { createdAt: -1 };
+        break;
+      case "Oldest":
+        sortOptions = { createdAt: 1 };
+        break;
+      default:
+        sortOptions = { createdAt: -1 };
+        break;
     }
 
     const reviews = await Review.find(query)
       .sort(sortOptions)
-      .limit(5) // Strict Limit
+      .limit(5)
       .select("-userEmail -deviceId");
 
     const stats = await Review.getProductRatingStats(productId);
@@ -206,33 +209,37 @@ export const getRecentReviews = async (req, res) => {
     });
   } catch (error) {
     console.error("Get Recent Reviews Error:", error);
-    return res.status(500).json({ success: false, message: "Failed to load reviews." });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to load reviews." });
   }
-}
+};
 
 export const updateReview = async (req, res) => {
-  // Track newly uploaded images for rollback
-  let uploadedImagesRecord = [];
+  const rawNewImages = parseJsonArray(req.body?.newImages || req.body?.images);
 
   try {
     const { reviewId } = req.params;
     const { rating, comment } = req.body;
     const userId = req.user;
     const deviceId = req.cookies.device_id;
-    const rawExisting = req.body.existingImages;
 
-    let keptImages = [];
-    if (rawExisting) {
-      try {
-        const strData = Array.isArray(rawExisting) ? rawExisting[0] : rawExisting;
-        const parsed = JSON.parse(strData);
-        if (Array.isArray(parsed)) keptImages = parsed.filter((img) => img && img.url && img.imageId);
-      } catch (e) { keptImages = []; }
+    const keptImages = parseJsonArray(req.body?.existingImages).filter((img) =>
+      isValidImageKitAsset(img)
+    );
+
+    if (rawNewImages.some((img) => !isValidImageKitAsset(img))) {
+      await cleanupUploadedImages(rawNewImages);
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid new image upload data." });
     }
 
-    const newFiles = req.files || [];
-    if (keptImages.length + newFiles.length > 5) {
-      return res.status(400).json({ success: false, message: "Image limit exceeded." });
+    if (keptImages.length + rawNewImages.length > 5) {
+      await cleanupUploadedImages(rawNewImages);
+      return res
+        .status(400)
+        .json({ success: false, message: "Image limit exceeded." });
     }
 
     const query = { _id: reviewId };
@@ -240,37 +247,35 @@ export const updateReview = async (req, res) => {
     else query.deviceId = deviceId;
 
     const review = await Review.findOne(query);
-    if (!review) return res.status(404).json({ success: false, message: "Review not found." });
+    if (!review) {
+      await cleanupUploadedImages(rawNewImages);
+      return res
+        .status(404)
+        .json({ success: false, message: "Review not found." });
+    }
 
     const imagesToDelete = review.images.filter(
       (dbImg) => !keptImages.some((kept) => kept.imageId === dbImg.imageId)
     );
 
-    if (imagesToDelete.length > 0) {
-      Promise.allSettled(imagesToDelete.map((img) => deleteWithRetry(img.imageId)));
-    }
-
-    let newUploadedImages = [];
-    if (newFiles.length > 0) {
-      // Use Promise.all with processAndUploadImage
-      const uploadPromises = newFiles.map((file) => 
-        processAndUploadImage(file, `reviews/${review.product}`)
-      );
-      
-      const results = await Promise.all(uploadPromises);
-      
-      // Track for rollback
-      uploadedImagesRecord = [...results];
-      
-      newUploadedImages = results.map((res) => ({ url: res.url, imageId: res.imageId }));
-    }
+    const newUploadedImages = rawNewImages.map((img) => ({
+      url: img.url,
+      imageId: img.imageId,
+    }));
 
     if (rating) review.rating = Number(rating);
     if (comment) review.comment = comment;
     review.images = [...keptImages, ...newUploadedImages];
-    review.status = "pending"; 
+    review.status = "pending";
 
     await review.save();
+
+    if (imagesToDelete.length > 0) {
+      Promise.allSettled(
+        imagesToDelete.map((img) => deleteWithRetry(img.imageId))
+      );
+    }
+
     await updateProductRating(review.product);
 
     return res.status(200).json({
@@ -281,9 +286,8 @@ export const updateReview = async (req, res) => {
   } catch (error) {
     console.error("Update Review Error:", error);
 
-    // Rollback new images if update fails
-    if (uploadedImagesRecord.length > 0) {
-      await cleanupUploadedImages(uploadedImagesRecord);
+    if (rawNewImages.length > 0) {
+      await cleanupUploadedImages(rawNewImages);
     }
 
     return res.status(500).json({ success: false, message: error.message });

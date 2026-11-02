@@ -146,7 +146,7 @@ export const getDashboardStats = async (req, res) => {
     // =========================================================================
     const recentOrders = await Order.find()
       .populate("user", "name email image")
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .limit(6);
 
     return res.status(200).json({

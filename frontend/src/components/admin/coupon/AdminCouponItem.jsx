@@ -33,8 +33,8 @@ const AdminCouponItem = ({ coupon, status }) => {
     if (!coupon.isActive) {
       return {
         text: "Inactive",
-        color: "text-zinc-500",
-        bg: "bg-zinc-900/50",
+        color: "text-zinc-600",
+        bg: "bg-zinc-100 border border-zinc-200",
         icon: "mdi:cancel",
       };
     }
@@ -42,8 +42,8 @@ const AdminCouponItem = ({ coupon, status }) => {
     if (endDate <= now) {
       return {
         text: "Expired",
-        color: "text-orange-400",
-        bg: "bg-orange-900/30",
+        color: "text-orange-700",
+        bg: "bg-orange-50 border border-orange-200",
         icon: "mdi:alert-circle",
       };
     }
@@ -51,18 +51,18 @@ const AdminCouponItem = ({ coupon, status }) => {
     if (startDate > now) {
       return {
         text: "Upcoming",
-        color: "text-blue-400",
-        bg: "bg-blue-900/30",
+        color: "text-blue-700",
+        bg: "bg-blue-50 border border-blue-200",
         icon: "mdi:clock-outline",
       };
     }
 
-    if (coupon.usageLimitType === 'max-total' && coupon.maxTotalUsage) {
+    if (coupon.usageLimitType === "max-total" && coupon.maxTotalUsage) {
       if (coupon.totalUsedCount >= coupon.maxTotalUsage) {
         return {
           text: "Exhausted",
-          color: "text-purple-400",
-          bg: "bg-purple-900/30",
+          color: "text-purple-700",
+          bg: "bg-purple-50 border border-purple-200",
           icon: "mdi:counter",
         };
       }
@@ -70,35 +70,35 @@ const AdminCouponItem = ({ coupon, status }) => {
 
     return {
       text: "Active",
-      color: "text-green-400",
-      bg: "bg-green-900/30",
+      color: "text-emerald-700",
+      bg: "bg-emerald-50 border border-emerald-200",
       icon: "mdi:check-circle",
     };
   };
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (statusKey) => {
     const colors = {
-      active: "text-green-400",
-      upcoming: "text-blue-400",
-      exhausted: "text-purple-400",
-      expired: "text-orange-400",
-      inactive: "text-zinc-500",
+      active: "text-emerald-700",
+      upcoming: "text-blue-700",
+      exhausted: "text-purple-700",
+      expired: "text-orange-700",
+      inactive: "text-zinc-600",
     };
-    return colors[status] || "text-zinc-500";
+    return colors[statusKey] || "text-zinc-600";
   };
 
-  const getStatusBg = (status) => {
+  const getStatusBg = (statusKey) => {
     const backgrounds = {
-      active: "bg-green-900/30",
-      upcoming: "bg-blue-900/30",
-      exhausted: "bg-purple-900/30",
-      expired: "bg-orange-900/30",
-      inactive: "bg-zinc-900/50",
+      active: "bg-emerald-50 border border-emerald-200",
+      upcoming: "bg-blue-50 border border-blue-200",
+      exhausted: "bg-purple-50 border border-purple-200",
+      expired: "bg-orange-50 border border-orange-200",
+      inactive: "bg-zinc-100 border border-zinc-200",
     };
-    return backgrounds[status] || "bg-zinc-900/50";
+    return backgrounds[statusKey] || "bg-zinc-100 border border-zinc-200";
   };
 
-  const getStatusIcon = (status) => {
+  const getStatusIcon = (statusKey) => {
     const icons = {
       active: "mdi:check-circle",
       upcoming: "mdi:clock-outline",
@@ -106,47 +106,55 @@ const AdminCouponItem = ({ coupon, status }) => {
       expired: "mdi:alert-circle",
       inactive: "mdi:cancel",
     };
-    return icons[status] || "mdi:help-circle";
+    return icons[statusKey] || "mdi:help-circle";
   };
 
   const statusInfo = getCouponStatus();
 
   // Format discount display
-  const discountDisplay = coupon.discountType === "fixed"
-    ? `₹${coupon.discountValue}`
-    : `${coupon.discountValue}%`;
+  const discountDisplay =
+    coupon.discountType === "fixed"
+      ? `₹${coupon.discountValue}`
+      : `${coupon.discountValue}%`;
 
   // Get usage limit display
   const getUsageLimitDisplay = () => {
     switch (coupon.usageLimitType) {
-      case 'once-per-user':
+      case "once-per-user":
         return {
           icon: "mdi:account-check",
           text: "Once per user",
-          color: "text-blue-400",
+          color: "text-blue-700",
         };
-      case 'multiple-per-user':
+      case "multiple-per-user":
         return {
           icon: "mdi:account-multiple-check",
           text: `${coupon.perUserLimit}x per user`,
-          color: "text-green-400",
+          color: "text-emerald-700",
         };
-      case 'max-total':
+      case "max-total": {
         const remaining = coupon.maxTotalUsage - (coupon.totalUsedCount || 0);
-        const percentage = ((coupon.totalUsedCount || 0) / coupon.maxTotalUsage) * 100;
-        
+        const percentage =
+          ((coupon.totalUsedCount || 0) / coupon.maxTotalUsage) * 100;
+
         return {
           icon: "mdi:counter",
           text: `${coupon.totalUsedCount || 0}/${coupon.maxTotalUsage} used`,
           remaining: remaining,
           percentage: percentage.toFixed(0),
-          color: percentage >= 90 ? "text-red-400" : percentage >= 70 ? "text-orange-400" : "text-purple-400",
+          color:
+            percentage >= 90
+              ? "text-red-700"
+              : percentage >= 70
+              ? "text-orange-700"
+              : "text-purple-700",
         };
+      }
       default:
         return {
           icon: "mdi:infinity",
           text: "Unlimited",
-          color: "text-zinc-500",
+          color: "text-zinc-600",
         };
     }
   };
@@ -159,8 +167,12 @@ const AdminCouponItem = ({ coupon, status }) => {
       return null;
     }
 
-    const userCount = coupon.userUsageHistory.filter(entry => entry.user).length;
-    const guestCount = coupon.userUsageHistory.filter(entry => entry.deviceId).length;
+    const userCount = coupon.userUsageHistory.filter(
+      (entry) => entry.user
+    ).length;
+    const guestCount = coupon.userUsageHistory.filter(
+      (entry) => entry.deviceId
+    ).length;
 
     return {
       users: userCount,
@@ -171,20 +183,22 @@ const AdminCouponItem = ({ coupon, status }) => {
 
   const usageBreakdown = getUsageBreakdown();
 
-  // Format dates
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+  // Format dates strictly as dd/mm/yyyy
+  const formatDate = (dateVal) => {
+    if (!dateVal) return "N/A";
+    const d = new Date(dateVal);
+    if (Number.isNaN(d.getTime())) return "N/A";
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
   };
 
   // Calculate days until expiry
   const getDaysUntilExpiry = () => {
     const diff = endDate - now;
     const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    
+
     if (days < 0) return null;
     if (days === 0) return "Expires today";
     if (days === 1) return "Expires tomorrow";
@@ -205,7 +219,10 @@ const AdminCouponItem = ({ coupon, status }) => {
       );
       setShowActions(false);
     } catch (error) {
-      toast.error(error.message || "Failed to toggle coupon status", toastControls);
+      toast.error(
+        error.message || "Failed to toggle coupon status",
+        toastControls
+      );
       setShowActions(false);
     }
   };
@@ -213,9 +230,11 @@ const AdminCouponItem = ({ coupon, status }) => {
   const handleDelete = async () => {
     if (actionLoading) return;
     const confirmMessage = `Are you sure you want to delete coupon "${coupon.code}"?\n\n${
-      coupon.totalUsedCount > 0 
-        ? `⚠️ This coupon has been used ${coupon.totalUsedCount} time${coupon.totalUsedCount > 1 ? 's' : ''}.\n\n` 
-        : ''
+      coupon.totalUsedCount > 0
+        ? `⚠️ This coupon has been used ${coupon.totalUsedCount} time${
+            coupon.totalUsedCount > 1 ? "s" : ""
+          }.\n\n`
+        : ""
     }This action cannot be undone.`;
 
     if (window.confirm(confirmMessage)) {
@@ -233,11 +252,11 @@ const AdminCouponItem = ({ coupon, status }) => {
   };
 
   return (
-    <div className="admin-coupon-item bg-zinc-900 border border-zinc-800 rounded-lg p-4 relative hover:border-zinc-700 transition-colors">
+    <div className="admin-coupon-item bg-white rounded-lg p-4 relative transition-colors h-full">
       {/* Loading Overlay */}
       {actionLoading && (
-        <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center z-10">
-          <Icon icon="eos-icons:loading" className="text-3xl text-white" />
+        <div className="absolute inset-0 bg-white/70 rounded-lg flex items-center justify-center z-10">
+          <Icon icon="eos-icons:loading" className="text-3xl text-indigo-600" />
         </div>
       )}
 
@@ -246,15 +265,17 @@ const AdminCouponItem = ({ coupon, status }) => {
         <div className="flex-1 min-w-0">
           {/* Code & Status */}
           <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <h3 className="font-bold text-lg tracking-wide">{coupon.code}</h3>
+            <h3 className="font-bold text-lg tracking-wide text-zinc-900">
+              {coupon.code}
+            </h3>
             <span
-              className={`text-xs px-2 py-1 rounded ${statusInfo.bg} ${statusInfo.color} font-medium flex items-center gap-1`}
+              className={`text-xs px-2 py-0.5 rounded-full ${statusInfo.bg} ${statusInfo.color} font-semibold flex items-center gap-1`}
             >
               <Icon icon={statusInfo.icon} className="text-sm" />
               {statusInfo.text}
             </span>
             {expiryWarning && statusInfo.text === "Active" && (
-              <span className="text-xs px-2 py-1 rounded bg-orange-900/30 text-orange-400 font-medium flex items-center gap-1">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200 text-orange-700 font-semibold flex items-center gap-1">
                 <Icon icon="mdi:clock-alert-outline" className="text-sm" />
                 {expiryWarning}
               </span>
@@ -262,29 +283,32 @@ const AdminCouponItem = ({ coupon, status }) => {
           </div>
 
           {/* Description */}
-          <p className="text-sm text-zinc-400 mb-3 line-clamp-2">
+          <p className="text-sm text-zinc-600 mb-3 line-clamp-2">
             {coupon.description}
           </p>
 
           {/* Discount Info Grid */}
           <div className="grid grid-cols-2 gap-2 mb-3">
             {/* Discount Amount */}
-            <div className="flex items-center gap-2 bg-zinc-950/50 rounded p-2">
-              <Icon icon="mdi:tag" className="text-lg text-indigo-400" />
+            <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200 rounded-lg p-2">
+              <Icon icon="mdi:tag" className="text-lg text-indigo-600" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-zinc-500">Discount</p>
-                <p className="font-semibold text-indigo-400 truncate">
+                <p className="font-semibold text-indigo-700 truncate">
                   {discountDisplay} OFF
                 </p>
               </div>
             </div>
 
             {/* Apply Type */}
-            <div className="flex items-center gap-2 bg-zinc-950/50 rounded p-2">
-              <Icon icon="mdi:application-outline" className="text-lg text-cyan-400" />
+            <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200 rounded-lg p-2">
+              <Icon
+                icon="mdi:application-outline"
+                className="text-lg text-cyan-600"
+              />
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-zinc-500">Applies to</p>
-                <p className="font-semibold text-cyan-400 text-xs capitalize truncate">
+                <p className="font-semibold text-cyan-700 text-xs capitalize truncate">
                   {coupon.applyType.replace("-", " ")}
                 </p>
               </div>
@@ -292,24 +316,27 @@ const AdminCouponItem = ({ coupon, status }) => {
           </div>
 
           {/* Usage Limit Info */}
-          <div className="flex items-center gap-2 bg-zinc-950/50 rounded p-2 mb-3">
-            <Icon icon={usageLimitInfo.icon} className={`text-lg ${usageLimitInfo.color}`} />
+          <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200 rounded-lg p-2 mb-3">
+            <Icon
+              icon={usageLimitInfo.icon}
+              className={`text-lg ${usageLimitInfo.color}`}
+            />
             <div className="flex-1 min-w-0">
               <p className="text-xs text-zinc-500">Usage Limit</p>
               <div className="flex items-center gap-2">
                 <p className={`font-semibold ${usageLimitInfo.color} text-sm`}>
                   {usageLimitInfo.text}
                 </p>
-                {coupon.usageLimitType === 'max-total' && (
+                {coupon.usageLimitType === "max-total" && (
                   <div className="flex-1 min-w-0">
-                    <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-zinc-200 rounded-full overflow-hidden">
                       <div
                         className={`h-full transition-all ${
                           parseFloat(usageLimitInfo.percentage) >= 90
-                            ? 'bg-red-500'
+                            ? "bg-red-500"
                             : parseFloat(usageLimitInfo.percentage) >= 70
-                            ? 'bg-orange-500'
-                            : 'bg-purple-500'
+                            ? "bg-orange-500"
+                            : "bg-purple-500"
                         }`}
                         style={{ width: `${usageLimitInfo.percentage}%` }}
                       />
@@ -317,11 +344,13 @@ const AdminCouponItem = ({ coupon, status }) => {
                   </div>
                 )}
               </div>
-              {coupon.usageLimitType === 'max-total' && usageLimitInfo.remaining !== undefined && (
-                <p className="text-xs text-zinc-600 mt-0.5">
-                  {usageLimitInfo.remaining} {usageLimitInfo.remaining === 1 ? 'use' : 'uses'} remaining
-                </p>
-              )}
+              {coupon.usageLimitType === "max-total" &&
+                usageLimitInfo.remaining !== undefined && (
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    {usageLimitInfo.remaining}{" "}
+                    {usageLimitInfo.remaining === 1 ? "use" : "uses"} remaining
+                  </p>
+                )}
             </div>
           </div>
 
@@ -330,12 +359,18 @@ const AdminCouponItem = ({ coupon, status }) => {
             <div className="flex items-center gap-2 mb-3 text-xs">
               <Icon icon="mdi:account-group" className="text-sm text-zinc-500" />
               <div className="flex items-center gap-3">
-                <span className="text-zinc-400">
-                  <span className="font-medium text-blue-400">{usageBreakdown.users}</span> users
+                <span className="text-zinc-600">
+                  <span className="font-semibold text-blue-700">
+                    {usageBreakdown.users}
+                  </span>{" "}
+                  users
                 </span>
-                <span className="text-zinc-600">•</span>
-                <span className="text-zinc-400">
-                  <span className="font-medium text-purple-400">{usageBreakdown.guests}</span> guests
+                <span className="text-zinc-400">•</span>
+                <span className="text-zinc-600">
+                  <span className="font-semibold text-purple-700">
+                    {usageBreakdown.guests}
+                  </span>{" "}
+                  guests
                 </span>
               </div>
             </div>
@@ -353,13 +388,13 @@ const AdminCouponItem = ({ coupon, status }) => {
           {(coupon.minPurchaseAmount > 0 || coupon.minItemsRequired > 0) && (
             <div className="flex flex-wrap items-center gap-2 text-xs">
               {coupon.minPurchaseAmount > 0 && (
-                <div className="flex items-center gap-1 text-amber-400 bg-amber-900/20 px-2 py-1 rounded">
+                <div className="flex items-center gap-1 text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded font-medium">
                   <Icon icon="mdi:currency-inr" />
                   <span>Min: ₹{coupon.minPurchaseAmount}</span>
                 </div>
               )}
               {coupon.minItemsRequired > 0 && (
-                <div className="flex items-center gap-1 text-sky-400 bg-sky-900/20 px-2 py-1 rounded">
+                <div className="flex items-center gap-1 text-sky-700 bg-sky-50 border border-sky-200 px-2 py-1 rounded font-medium">
                   <Icon icon="mdi:shopping-outline" />
                   <span>Min: {coupon.minItemsRequired} items</span>
                 </div>
@@ -368,75 +403,82 @@ const AdminCouponItem = ({ coupon, status }) => {
           )}
         </div>
 
-        {/* Actions Menu (Interaction Fixed) */}
+        {/* Actions Menu */}
         <div className="relative shrink-0">
           <div className="relative w-8 h-8 group/menu">
-            <div className={`w-full h-full flex items-center justify-center rounded transition-colors pointer-events-none ${showActions ? 'bg-zinc-800' : 'group-hover/menu:bg-zinc-800'}`}>
-                <Icon icon="mdi:dots-vertical" className="text-xl" />
+            <div
+              className={`w-full h-full flex items-center justify-center rounded transition-colors pointer-events-none text-zinc-600 ${
+                showActions
+                  ? "bg-zinc-100 text-zinc-900"
+                  : "group-hover/menu:bg-zinc-100 group-hover/menu:text-zinc-900"
+              }`}
+            >
+              <Icon icon="mdi:dots-vertical" className="text-xl" />
             </div>
-            {/* Menu Trigger Overlay */}
-            <span 
-                onClick={() => !actionLoading && setShowActions(!showActions)} 
-                className={`absolute inset-0 z-10 cursor-pointer rounded ${actionLoading ? 'cursor-not-allowed' : ''}`} 
+            <span
+              onClick={() => !actionLoading && setShowActions(!showActions)}
+              className={`absolute inset-0 z-10 cursor-pointer rounded ${
+                actionLoading ? "cursor-not-allowed" : ""
+              }`}
             />
           </div>
 
           {showActions && (
             <>
-              {/* Backdrop */}
               <div
                 className="fixed inset-0 z-10"
                 onClick={() => setShowActions(false)}
                 aria-hidden="true"
               />
 
-              {/* Menu */}
-              <div className="absolute right-0 top-full mt-1 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl z-20 min-w-[180px] overflow-hidden">
-                
+              <div className="absolute right-0 top-full mt-1 bg-white border border-zinc-200 rounded-lg shadow-xl z-20 min-w-[180px] overflow-hidden text-zinc-800">
                 {/* Edit Item */}
                 <div className="relative group/item">
-                    <div className="flex items-center gap-3 px-4 py-2.5 text-sm group-hover/item:bg-zinc-800 transition pointer-events-none">
-                        <Icon icon="mdi:pencil" className="text-lg text-blue-400" />
-                        <span>Edit Coupon</span>
-                    </div>
-                    <Link 
-                        to={`/admin/coupons/update/${coupon._id}`} 
-                        className="absolute inset-0 z-20"
-                        onClick={() => setShowActions(false)}
-                    />
+                  <div className="flex items-center gap-3 px-4 py-2.5 text-sm group-hover/item:bg-zinc-50 transition pointer-events-none">
+                    <Icon icon="mdi:pencil" className="text-lg text-blue-600" />
+                    <span>Edit Coupon</span>
+                  </div>
+                  <Link
+                    to={`/admin/coupons/update/${coupon._id}`}
+                    className="absolute inset-0 z-20"
+                    onClick={() => setShowActions(false)}
+                  />
                 </div>
 
                 {/* Toggle Status Item */}
-                <div className="relative group/item border-t border-zinc-800">
-                    <div className="flex items-center gap-3 px-4 py-2.5 text-sm group-hover/item:bg-zinc-800 transition pointer-events-none">
-                        <Icon
-                            icon={coupon.isActive ? "mdi:pause-circle" : "mdi:play-circle"}
-                            className={`text-lg ${coupon.isActive ? 'text-orange-400' : 'text-green-400'}`}
-                        />
-                        <span>{coupon.isActive ? "Deactivate" : "Activate"}</span>
-                    </div>
-                    {!actionLoading && (
-                        <span 
-                            onClick={handleToggleStatus} 
-                            className="absolute inset-0 z-20 cursor-pointer" 
-                        />
-                    )}
+                <div className="relative group/item border-t border-zinc-100">
+                  <div className="flex items-center gap-3 px-4 py-2.5 text-sm group-hover/item:bg-zinc-50 transition pointer-events-none">
+                    <Icon
+                      icon={
+                        coupon.isActive ? "mdi:pause-circle" : "mdi:play-circle"
+                      }
+                      className={`text-lg ${
+                        coupon.isActive ? "text-orange-600" : "text-emerald-600"
+                      }`}
+                    />
+                    <span>{coupon.isActive ? "Deactivate" : "Activate"}</span>
+                  </div>
+                  {!actionLoading && (
+                    <span
+                      onClick={handleToggleStatus}
+                      className="absolute inset-0 z-20 cursor-pointer"
+                    />
+                  )}
                 </div>
 
                 {/* Delete Item */}
-                <div className="relative group/item border-t border-zinc-800">
-                    <div className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 group-hover/item:bg-red-900/20 transition pointer-events-none">
-                        <Icon icon="mdi:delete" className="text-lg" />
-                        <span>Delete Coupon</span>
-                    </div>
-                    {!actionLoading && (
-                        <span 
-                            onClick={handleDelete} 
-                            className="absolute inset-0 z-20 cursor-pointer" 
-                        />
-                    )}
+                <div className="relative group/item border-t border-zinc-100">
+                  <div className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 group-hover/item:bg-red-50 transition pointer-events-none">
+                    <Icon icon="mdi:delete" className="text-lg" />
+                    <span>Delete Coupon</span>
+                  </div>
+                  {!actionLoading && (
+                    <span
+                      onClick={handleDelete}
+                      className="absolute inset-0 z-20 cursor-pointer"
+                    />
+                  )}
                 </div>
-
               </div>
             </>
           )}

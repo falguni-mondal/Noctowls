@@ -49,7 +49,7 @@ wishlistSchema.methods.hasProduct = function (productId) {
  */
 wishlistSchema.methods.addProduct = function (productId) {
   if (!this.hasProduct(productId)) {
-    this.items.push({
+    this.items.unshift({
       product: productId,
       addedAt: new Date(),
     });
@@ -104,12 +104,20 @@ wishlistSchema.statics.findOrCreate = async function (userId) {
  * Get wishlist with populated products
  */
 wishlistSchema.statics.getWithProducts = async function (userId) {
-  return await this.findOne({ user: userId })
+  const wishlist = await this.findOne({ user: userId })
     .populate({
       path: "items.product",
       select: "name description images price sizes inStock category rating",
     })
     .lean();
+
+  if (wishlist && Array.isArray(wishlist.items)) {
+    wishlist.items.sort(
+      (a, b) => new Date(b.addedAt || 0).getTime() - new Date(a.addedAt || 0).getTime()
+    );
+  }
+
+  return wishlist;
 };
 
 /**

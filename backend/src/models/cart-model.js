@@ -443,8 +443,18 @@ cartSchema.pre("save", function () {
   this.freeGifts = freeGiftsData;
 
   // ✅ FIX: Auto-update free gift items in cart
-  // Remove all old free gift items
-  this.items = this.items.filter((item) => !item.isFreeGift);
+  // Remove all old free gift items and keep regular items sorted latest-first
+  this.items = this.items
+    .filter((item) => !item.isFreeGift)
+    .sort((a, b) => {
+      const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (tA !== tB) return tB - tA;
+      const idA = String(a._id || "");
+      const idB = String(b._id || "");
+      if (idA && idB && idA !== idB) return idB.localeCompare(idA);
+      return 0;
+    });
 
   // Add new free gift items
   if (freeGiftsData.eligible && freeGiftsData.gifts.length > 0) {
@@ -510,8 +520,8 @@ cartSchema.methods.addItem = async function (itemData) {
     // Update quantity of existing item
     this.items[existingItemIndex].quantity += quantity;
   } else {
-    // Add new item
-    this.items.push({
+    // Add new item at the beginning so the 1st item is the latest added
+    this.items.unshift({
       product,
       name,
       image,

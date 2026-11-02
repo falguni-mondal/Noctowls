@@ -49,7 +49,7 @@ export const getAllWishlists = async (req, res) => {
         path: "items.product",
         select: "name images price category slug inStock"
       })
-      .sort({ updatedAt: -1 })
+      .sort({ updatedAt: -1, createdAt: -1, _id: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
 
@@ -61,7 +61,10 @@ export const getAllWishlists = async (req, res) => {
       let totalValue = 0;
       let validItemsCount = 0;
 
-      if (listObj.items) {
+      if (Array.isArray(listObj.items)) {
+        listObj.items.sort(
+          (a, b) => new Date(b.addedAt || 0).getTime() - new Date(a.addedAt || 0).getTime()
+        );
         listObj.items.forEach(item => {
           if (item.product) {
             totalValue += (item.product.price || 0);

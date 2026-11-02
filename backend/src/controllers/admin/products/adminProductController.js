@@ -6,9 +6,9 @@ import reviewModel from "../../../models/review-model.js";
 import {
   productForAdminDetail,
   productForAdminList,
+  sortProductsList,
 } from "../../../utils/helpers/product-data-trimmer.js";
-// import { uploadImageInWorker } from "../../../utils/imageWorker.js";
-import { cleanupUploadedImages, processAndUploadImage } from "../../../utils/imageUtils.js";
+import { cleanupUploadedImages } from "../../../utils/imageUtils.js";
 
 /**
  * Helper: Delete images from ImageKit with retry logic
@@ -17,10 +17,6 @@ const deleteImagesFromImageKit = async (fileIds) => {
   try {
     const deletePromises = fileIds.map((fileId) => deleteWithRetry(fileId));
     const results = await Promise.all(deletePromises);
-
-    const successful = results.filter((r) => r.success).length;
-    const failed = fileIds.length - successful;
-
     return results;
   } catch (error) {
     console.error("Error deleting images from ImageKit:", error.message);
@@ -34,78 +30,57 @@ const sanitizeFolderName = (name) => {
   return name
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9-_]/g, "-") // Replace invalid chars with hyphens
-    .replace(/-+/g, "-") // Remove duplicate hyphens
-    .replace(/^-|-$/g, ""); // Remove leading/trailing hyphens
+    .replace(/[^a-z0-9-_]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
 };
 
 const productAdder = async (req, res) => {
-  // Track all successful uploads for rollback
-  let uploadedImagesRecord = [];
+  const {
+    name,
+    description,
+    category,
+    group,
+    sizes,
+    inventory,
+    mainImages = [],
+    highlightImages = [],
+  } = req.product;
 
   try {
-    const { name, description, category, group, sizes, inventory } = req.product;
-
-    const mainImages = req.files.mainImages || [];
-    const highlightImages = req.files.highlightImages || [];
     const folderName = sanitizeFolderName(name);
+    const normalizedCategory = String(category || "").toLowerCase().trim();
 
-    // -----------------------------
-    // 1. UPLOAD MAIN IMAGES
-    // -----------------------------
-    const mainImagePromises = mainImages.map((file) =>
-      processAndUploadImage(
-        file,
-        `/products/${category}/${folderName}/main`
-      )
-    );
-
-    const uploadedMainImages = await Promise.all(mainImagePromises);
-    
-    // Add to record immediately
-    uploadedImagesRecord = [...uploadedImagesRecord, ...uploadedMainImages];
-
-    // Format for Mongoose Schema
-    const formattedMainImages = uploadedMainImages.map((img) => ({
+    const formattedMainImages = mainImages.map((img) => ({
       url: img.url,
       imageId: img.imageId,
-      alt: folderName, 
+      alt: img.alt || folderName,
     }));
 
-    // -----------------------------
-    // 2. UPLOAD HIGHLIGHT IMAGES
-    // -----------------------------
-    const highlightImagePromises = highlightImages.map((file) =>
-      processAndUploadImage(
-        file,
-        `/products/${category}/${folderName}/highlight`
-      )
-    );
-
-    const uploadedHighlightImages = await Promise.all(highlightImagePromises);
-    
-    // Add to record
-    uploadedImagesRecord = [...uploadedImagesRecord, ...uploadedHighlightImages];
-
-    const formattedHighlightImages = uploadedHighlightImages.map((img) => ({
+    const formattedHighlightImages = highlightImages.map((img) => ({
       url: img.url,
       imageId: img.imageId,
-      alt: folderName,
+      alt: img.alt || folderName,
     }));
 
-    // -----------------------------
-    // 3. CREATE PRODUCT IN DATABASE
-    // -----------------------------
+    // Shift any existing custom-ordered products in this category down by 1
+    // so the newly added product always appears as the 1st item (displayOrder: 0)
+    await productModel.updateMany(
+      { category: normalizedCategory, displayOrder: { $ne: null } },
+      { $inc: { displayOrder: 1 } }
+    );
+
     const newProduct = await productModel.create({
       name,
       description,
-      category,
+      category: normalizedCategory,
       group,
       sizes,
       inventory,
       images: formattedMainImages,
       highlightImages: formattedHighlightImages,
       status: "published",
+      displayOrder: 0,
     });
 
     return res.status(201).json({
@@ -113,13 +88,11 @@ const productAdder = async (req, res) => {
       message: "Product added successfully",
       product: newProduct,
     });
-
   } catch (error) {
     console.error("PRODUCT ADD ERROR:", error);
 
-    if (uploadedImagesRecord.length > 0) {
-      await cleanupUploadedImages(uploadedImagesRecord);
-    }
+    // Rollback pre-uploaded images from ImageKit if MongoDB creation fails
+    await cleanupUploadedImages([...mainImages, ...highlightImages]);
 
     return res.status(500).json({
       success: false,
@@ -130,32 +103,30 @@ const productAdder = async (req, res) => {
 };
 
 const productUpdater = async (req, res) => {
-  // Track ONLY newly uploaded images for rollback
-  let uploadedImagesRecord = [];
+  const { productId } = req.params;
+  const {
+    name,
+    description,
+    category,
+    group,
+    sizes,
+    inventory,
+    status,
+    newMainImages = [],
+    newHighlightImages = [],
+    mainImagesIndices = [],
+    highlightImagesIndices = [],
+    existingMainImages = [],
+    existingHighlightImages = [],
+  } = req.product;
 
   try {
-    const { productId } = req.params;
-    const {
-      name,
-      description,
-      category,
-      group,
-      sizes,
-      inventory,
-      status,
-      newMainImages = [],
-      newHighlightImages = [],
-      mainImagesIndices = [],
-      highlightImagesIndices = [],
-      existingMainImages = [],
-      existingHighlightImages = [],
-    } = req.product;
-
     const folderName = sanitizeFolderName(name);
 
     // ==================== FIND EXISTING PRODUCT ====================
     const product = await productModel.findById(productId);
     if (!product) {
+      await cleanupUploadedImages([...newMainImages, ...newHighlightImages]);
       return res.status(404).json({
         success: false,
         message: "Product not found",
@@ -164,43 +135,24 @@ const productUpdater = async (req, res) => {
 
     // STORE ORIGINAL IMAGES (Snapshot for comparison & cleanup)
     const originalMainImages = product.images ? [...product.images] : [];
-    const originalHighlightImages = product.highlightImages ? [...product.highlightImages] : [];
+    const originalHighlightImages = product.highlightImages
+      ? [...product.highlightImages]
+      : [];
 
-    // ==================== 1. PROCESS NEW MAIN IMAGES (If Any) ====================
-    let formattedNewMainImages = [];
-    if (newMainImages && newMainImages.length > 0) {
-      const processedMainPromises = newMainImages.map((file) =>
-        processAndUploadImage(file, `/products/${category}/${folderName}/main`)
-      );
+    // ==================== 1. FORMAT NEW MAIN & HIGHLIGHT IMAGES ====================
+    const formattedNewMainImages = newMainImages.map((img) => ({
+      url: img.url,
+      imageId: img.imageId,
+      alt: img.alt || folderName,
+    }));
 
-      const processedMainImages = await Promise.all(processedMainPromises);
-      uploadedImagesRecord = [...uploadedImagesRecord, ...processedMainImages];
+    const formattedNewHighlightImages = newHighlightImages.map((img) => ({
+      url: img.url,
+      imageId: img.imageId,
+      alt: img.alt || folderName,
+    }));
 
-      formattedNewMainImages = processedMainImages.map((img) => ({
-        url: img.url,
-        imageId: img.imageId,
-        alt: folderName,
-      }));
-    }
-
-    // ==================== 2. PROCESS NEW HIGHLIGHT IMAGES (If Any) ====================
-    let formattedNewHighlightImages = [];
-    if (newHighlightImages && newHighlightImages.length > 0) {
-      const processedHighlightPromises = newHighlightImages.map((file) =>
-        processAndUploadImage(file, `/products/${category}/${folderName}/highlight`)
-      );
-
-      const processedHighlightImages = await Promise.all(processedHighlightPromises);
-      uploadedImagesRecord = [...uploadedImagesRecord, ...processedHighlightImages];
-
-      formattedNewHighlightImages = processedHighlightImages.map((img) => ({
-        url: img.url,
-        imageId: img.imageId,
-        alt: folderName,
-      }));
-    }
-
-    // ==================== 3. MERGE EXISTING AND NEW IMAGES ====================
+    // ==================== 2. MERGE EXISTING AND NEW IMAGES ====================
     const IMAGE_COUNTS = {
       deskmat: { main: 7, highlight: 6 },
       "anime-keychain": { main: 4, highlight: 3 },
@@ -213,7 +165,7 @@ const productUpdater = async (req, res) => {
     const finalMainImages = new Array(counts.main);
     const finalHighlightImages = new Array(counts.highlight);
 
-    // Place existing images back in their original slots
+    // Place existing images in their target slots
     existingMainImages.forEach((img) => {
       if (img && img.index !== undefined) {
         finalMainImages[img.index] = {
@@ -236,72 +188,77 @@ const productUpdater = async (req, res) => {
 
     // Place newly uploaded images in their target slots
     formattedNewMainImages.forEach((img, idx) => {
-      const targetIndex = parseInt(mainImagesIndices[idx]);
+      const rawIdx =
+        newMainImages[idx]?.index !== undefined
+          ? newMainImages[idx].index
+          : mainImagesIndices[idx];
+      const targetIndex = parseInt(rawIdx, 10);
       if (!isNaN(targetIndex)) {
         finalMainImages[targetIndex] = img;
       }
     });
 
     formattedNewHighlightImages.forEach((img, idx) => {
-      const targetIndex = parseInt(highlightImagesIndices[idx]);
+      const rawIdx =
+        newHighlightImages[idx]?.index !== undefined
+          ? newHighlightImages[idx].index
+          : highlightImagesIndices[idx];
+      const targetIndex = parseInt(rawIdx, 10);
       if (!isNaN(targetIndex)) {
         finalHighlightImages[targetIndex] = img;
       }
     });
 
-    // ==================== 4. IDENTIFY IMAGES TO DELETE FROM IMAGEKIT ====================
+    // ==================== 3. UPDATE PRODUCT IN DB ====================
+    product.name = name;
+    product.description = description;
+    product.category = category;
+    product.group = group;
+    product.sizes = sizes;
+    product.inventory = inventory;
+    product.status = status;
+
+    product.images = finalMainImages.filter(Boolean);
+    product.highlightImages = finalHighlightImages.filter(Boolean);
+
+    await product.save();
+
+    // ==================== 4. DELETE REPLACED IMAGES FROM IMAGEKIT AFTER DB SAVE ====================
     const imagesToDelete = [];
 
-    // If an original image ID is NO LONGER in the existingMainImages array from the frontend, 
-    // it means the user either replaced it or deleted it. We must clear it from ImageKit.
     originalMainImages.forEach((origImg) => {
       if (origImg && origImg.imageId) {
-        const isKept = existingMainImages.some(keptImg => keptImg.imageId === origImg.imageId);
+        const isKept = existingMainImages.some(
+          (keptImg) => keptImg.imageId === origImg.imageId
+        );
         if (!isKept) imagesToDelete.push(origImg.imageId);
       }
     });
 
     originalHighlightImages.forEach((origImg) => {
       if (origImg && origImg.imageId) {
-        const isKept = existingHighlightImages.some(keptImg => keptImg.imageId === origImg.imageId);
+        const isKept = existingHighlightImages.some(
+          (keptImg) => keptImg.imageId === origImg.imageId
+        );
         if (!isKept) imagesToDelete.push(origImg.imageId);
       }
     });
 
-    // Fire & forget ImageKit deletion (doesn't block the API response time)
     if (imagesToDelete.length > 0) {
       console.log(`Deleting ${imagesToDelete.length} replaced/removed images...`);
       Promise.allSettled(imagesToDelete.map((id) => deleteWithRetry(id)));
     }
-
-    // ==================== 5. UPDATE PRODUCT IN DB ====================
-    product.name = name;
-    product.description = description;
-    product.category = category;
-    product.group = group; // ✅ SAVE UPDATED GROUP TO DATABASE
-    product.sizes = sizes;
-    product.inventory = inventory;
-    product.status = status;
-    
-    // Filter out nulls/undefined in case there are empty slots in the array
-    product.images = finalMainImages.filter(Boolean);
-    product.highlightImages = finalHighlightImages.filter(Boolean);
-
-    await product.save();
 
     return res.status(200).json({
       success: true,
       message: "Product updated successfully",
       product,
     });
-
   } catch (error) {
     console.error("PRODUCT UPDATE ERROR:", error);
 
     // ROLLBACK: Delete newly uploaded images if MongoDB update fails
-    if (uploadedImagesRecord.length > 0) {
-      await cleanupUploadedImages(uploadedImagesRecord);
-    }
+    await cleanupUploadedImages([...newMainImages, ...newHighlightImages]);
 
     return res.status(500).json({
       success: false,
@@ -315,7 +272,6 @@ const productDeleter = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // 1. Validate product ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
@@ -323,7 +279,6 @@ const productDeleter = async (req, res) => {
       });
     }
 
-    // Find product
     const product = await productModel.findById(id);
 
     if (!product) {
@@ -333,7 +288,6 @@ const productDeleter = async (req, res) => {
       });
     }
 
-    // Check if product has been ordered (optional safety check)
     const hasOrders = await orderModel.exists({ "items.product": id });
 
     if (hasOrders) {
@@ -345,7 +299,6 @@ const productDeleter = async (req, res) => {
       });
     }
 
-    // Collect all ImageKit file IDs
     const fileIdsToDelete = [];
 
     if (product.images && product.images.length > 0) {
@@ -364,23 +317,17 @@ const productDeleter = async (req, res) => {
       });
     }
 
-    // Get reviews count
     const reviewsCount = await reviewModel.countDocuments({ product: id });
 
-    // Delete product
     await productModel.findByIdAndDelete(id);
-
-    // Delete reviews
     await reviewModel.deleteMany({ product: id });
 
-    // Delete images from ImageKit (async)
     if (fileIdsToDelete.length > 0) {
       deleteImagesFromImageKit(fileIdsToDelete).catch((err) => {
         console.error("Failed to delete images from ImageKit:", err.message);
       });
     }
 
-    // Success response
     return res.status(200).json({
       success: true,
       message: "Product deleted successfully",
@@ -406,23 +353,30 @@ const productDeleter = async (req, res) => {
 
 const getAllAdminProducts = async (req, res) => {
   try {
-    const products = await productModel.find().select("-__v").lean();
+    // Fetch latest first so categories & un-reordered products are strictly newest first
+    const products = await productModel
+      .find()
+      .sort({ createdAt: -1, _id: -1 })
+      .select("-__v")
+      .lean();
 
+    // Return 200 OK with empty array instead of 404 so Axios/Redux does not reject
     if (!products || products.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "No products found",
+      return res.status(200).json({
+        success: true,
+        totalProducts: 0,
+        productGroups: [],
       });
     }
 
-    const uniqueCategories = [...new Set(products.map((p) => p.category))];
+    const uniqueCategories = [
+      ...new Set(products.map((p) => p.category).filter(Boolean)),
+    ];
 
-    // Group products by category
     const groupedByCategory = uniqueCategories.map((category) => {
-      // Filter products for this category
-      const categoryProducts = products.filter((p) => p.category === category);
-
-      // Trim each product
+      const categoryProducts = sortProductsList(
+        products.filter((p) => p.category === category)
+      );
       const trimmedProducts = categoryProducts.map((product) =>
         productForAdminList(product)
       );
@@ -434,7 +388,6 @@ const getAllAdminProducts = async (req, res) => {
       };
     });
 
-    // Calculate total count
     const totalCount = groupedByCategory.reduce(
       (sum, cat) => sum + cat.count,
       0
@@ -455,11 +408,74 @@ const getAllAdminProducts = async (req, res) => {
   }
 };
 
+/**
+ * Reorder products via Admin Drag-and-Drop (or reset category to Latest First)
+ */
+const reorderAdminProducts = async (req, res) => {
+  try {
+    const { category, orderedProductIds, resetToLatest = false } = req.body || {};
+
+    if (resetToLatest && category) {
+      const normalizedCategory = String(category).toLowerCase().trim();
+      await productModel.updateMany(
+        { category: normalizedCategory },
+        { $set: { displayOrder: null } }
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: `Reset ${normalizedCategory} products to latest-first order`,
+        category: normalizedCategory,
+      });
+    }
+
+    if (!Array.isArray(orderedProductIds) || orderedProductIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "orderedProductIds must be a non-empty array of product IDs",
+      });
+    }
+
+    const validIds = orderedProductIds.filter((id) =>
+      mongoose.Types.ObjectId.isValid(id)
+    );
+
+    if (validIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid product IDs provided",
+      });
+    }
+
+    const bulkOps = validIds.map((id, index) => ({
+      updateOne: {
+        filter: { _id: new mongoose.Types.ObjectId(id) },
+        update: { $set: { displayOrder: index } },
+      },
+    }));
+
+    await productModel.bulkWrite(bulkOps);
+
+    return res.status(200).json({
+      success: true,
+      message: "Product sequence updated successfully",
+      category: category || null,
+      orderedProductIds: validIds,
+    });
+  } catch (err) {
+    console.error("Reorder admin products error:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update product sequence",
+      error: process.env.NODE_ENV === "development" ? err.message : undefined,
+    });
+  }
+};
+
 const getOneAdminProduct = async (req, res) => {
   try {
     const { productId } = req.params;
 
-    // Validate MongoDB ObjectId
     if (!mongoose.Types.ObjectId.isValid(productId)) {
       return res.status(400).json({
         success: false,
@@ -467,13 +483,11 @@ const getOneAdminProduct = async (req, res) => {
       });
     }
 
-    // Get product
     const product = await productModel
       .findById(productId)
       .select("-__v")
       .lean();
 
-    // Check if product exists
     if (!product) {
       return res.status(404).json({
         success: false,
@@ -497,44 +511,44 @@ const getOneAdminProduct = async (req, res) => {
 
 const inventoryExporter = async (req, res) => {
   try {
-    // Fetch all products, lean() makes it a plain JS object for faster processing
-    const products = await productModel.find().lean();
+    const rawProducts = await productModel
+      .find()
+      .sort({ createdAt: -1, _id: -1 })
+      .lean();
 
-    if (!products || products.length === 0) {
+    if (!rawProducts || rawProducts.length === 0) {
       return res.status(404).json({
         success: false,
         message: "No products found to export",
       });
     }
 
+    const products = sortProductsList(rawProducts);
     const exportedData = {};
 
     products.forEach((product) => {
-      const category = product.category;
+      const category = product.category || "uncategorized";
 
-      // Initialize the category array if it doesn't exist yet
       if (!exportedData[category]) {
         exportedData[category] = [];
       }
 
-      // Flatten the product by creating a separate row for each size variant
       if (product.sizes && Array.isArray(product.sizes)) {
         product.sizes.forEach((size) => {
           exportedData[category].push({
             "Product ID": product._id.toString(),
             "Product Name": product.name,
-            "Category": product.category.toUpperCase(),
-            "Status": product.status.toUpperCase(),
-            "Size Variant": size.label || size.value.toUpperCase(),
-            "SKU Code": size.skuCode.toUpperCase(),
-            "Stock Quantity": size.stock,
-            "Original Price (₹)": size.originalPrice,
-            "Selling Price (₹)": size.numPrice,
+            Category: category.toUpperCase(),
+            Status: (product.status || "published").toUpperCase(),
+            "Size Variant": size.label || (size.value || "").toUpperCase(),
+            "SKU Code": (size.skuCode || "").toUpperCase(),
+            "Stock Quantity": size.stock ?? 0,
+            "Original Price (₹)": size.originalPrice ?? 0,
+            "Selling Price (₹)": size.numPrice ?? 0,
             "Discount (%)": size.discount || 0,
-            "HSN Code": product.hsnCode.toUpperCase(),
-            "GST Rate (%)": product.gstRate,
+            "HSN Code": (product.hsnCode || "").toUpperCase(),
+            "GST Rate (%)": product.gstRate ?? 18,
             "Units Sold": size.salesCount || 0,
-            // "Warehouse Location": product.inventory
           });
         });
       }
@@ -545,7 +559,6 @@ const inventoryExporter = async (req, res) => {
       message: "Inventory data successfully formatted for export",
       data: exportedData,
     });
-
   } catch (err) {
     console.error("Inventory Export Error:", err.message);
     return res.status(500).json({
@@ -561,6 +574,7 @@ export {
   productUpdater,
   productDeleter,
   getAllAdminProducts,
+  reorderAdminProducts,
   getOneAdminProduct,
   inventoryExporter,
 };

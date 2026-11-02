@@ -107,13 +107,13 @@ export const getUserDetails = async (req, res) => {
         const [orders, cart, addresses, stats] = await Promise.all([
             // A. Fetch Order History
             Order.find({ user: userId })
-                .sort({ createdAt: -1 }),
+                .sort({ createdAt: -1, _id: -1 }),
 
             // B. Fetch Current Cart
             Cart.findOne({ user: userId }).populate("items.product", "name images price stock"),
 
-            // C. Fetch Saved Addresses
-            Address.find({ user: userId }),
+            // C. Fetch Saved Addresses (Default & Latest first)
+            Address.find({ user: userId }).sort({ isDefault: -1, createdAt: -1, _id: -1 }),
 
             // D. Aggregate Total Spend & Order Count
             Order.aggregate([
@@ -137,7 +137,15 @@ export const getUserDetails = async (req, res) => {
                 addressesCount: addresses.length,
             },
             addresses,
-            cart: cart ? cart.items : [],
+            cart: cart && Array.isArray(cart.items)
+                ? [...cart.items].sort((a, b) => {
+                    if (a.isFreeGift !== b.isFreeGift) return a.isFreeGift ? 1 : -1;
+                    const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                    const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                    if (tA !== tB) return tB - tA;
+                    return String(b._id || "").localeCompare(String(a._id || ""));
+                  })
+                : [],
             wishlist: user.wishlist || [],
             orders: orders, // Provide full list, frontend can slice/paginate if needed
         };

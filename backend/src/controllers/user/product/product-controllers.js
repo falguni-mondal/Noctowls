@@ -4,33 +4,38 @@ import Review from "../../../models/review-model.js";
 import {
   productForDetail,
   productForList,
+  sortProductsList,
 } from "../../../utils/helpers/product-data-trimmer.js";
 
 export const getAllProducts = async (req, res) => {
   try {
-    const products = await Product.find({ 
+    // Sort by createdAt: -1, _id: -1 so the 1st item is the latest by default
+    const products = await Product.find({
       status: "published",
-      group: { $ne: "phase-00" } // Hides phase-00 products from the general store
+      group: { $ne: "phase-00" }, // Hides phase-00 products from the general store
     })
+      .sort({ createdAt: -1, _id: -1 })
       .select("-__v")
       .lean();
 
-    // Check if products exist
+    // Return 200 OK with empty array instead of 404 when no products exist
     if (!products || products.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "No products found",
+      return res.status(200).json({
+        success: true,
+        totalProducts: 0,
+        productGroups: [],
       });
     }
 
-    const uniqueCategories = [...new Set(products.map((p) => p.category))];
+    const uniqueCategories = [
+      ...new Set(products.map((p) => p.category).filter(Boolean)),
+    ];
 
-    // Group products by category
     const groupedByCategory = uniqueCategories.map((category) => {
-      // Filter products for this category
-      const categoryProducts = products.filter((p) => p.category === category);
-
-      // Trim each product
+      // Respect custom admin drag-and-drop sequence (displayOrder) and fallback to latest-first (createdAt: -1)
+      const categoryProducts = sortProductsList(
+        products.filter((p) => p.category === category)
+      );
       const trimmedProducts = categoryProducts.map((product) =>
         productForList(product)
       );
@@ -42,7 +47,6 @@ export const getAllProducts = async (req, res) => {
       };
     });
 
-    // Calculate total count
     const totalCount = groupedByCategory.reduce(
       (sum, cat) => sum + cat.count,
       0
@@ -67,7 +71,6 @@ export const getOneProduct = async (req, res) => {
   try {
     const { productId } = req.params;
 
-    // Validate MongoDB ObjectId
     if (!mongoose.Types.ObjectId.isValid(productId)) {
       return res.status(400).json({
         success: false,
@@ -75,10 +78,8 @@ export const getOneProduct = async (req, res) => {
       });
     }
 
-    // Get product
     const product = await Product.findById(productId).select("-__v").lean();
 
-    // Check if product exists
     if (!product) {
       return res.status(404).json({
         success: false,
@@ -86,7 +87,6 @@ export const getOneProduct = async (req, res) => {
       });
     }
 
-    // Check if product is published
     if (product.status !== "published") {
       return res.status(404).json({
         success: false,
@@ -98,7 +98,7 @@ export const getOneProduct = async (req, res) => {
       product: productId,
       status: "accepted",
     })
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .select("-__v")
       .lean();
 
@@ -122,7 +122,6 @@ export const validateStock = async (req, res) => {
     const { productId } = req.params;
     const { size, requestedQuantity } = req.body;
 
-    // Validation
     if (!size || !requestedQuantity) {
       return res.status(400).json({
         success: false,
@@ -137,7 +136,6 @@ export const validateStock = async (req, res) => {
       });
     }
 
-    // Find product
     const product = await Product.findById(productId);
 
     if (!product) {
@@ -147,7 +145,6 @@ export const validateStock = async (req, res) => {
       });
     }
 
-    // Find the specific size
     const sizeData = product.sizes.find((s) => s.value === size.toLowerCase());
 
     if (!sizeData) {
@@ -157,7 +154,6 @@ export const validateStock = async (req, res) => {
       });
     }
 
-    // Check stock availability
     const availableStock = sizeData.stock;
     const isAvailable = requestedQuantity <= availableStock;
 
@@ -188,38 +184,35 @@ export const getBestSellingProducts = async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 5;
 
-    // 1. Fetch real best sellers (salesCount > 0)
+    // 1. Fetch real best sellers (totalSales > 0), tie-broken by latest createdAt
     let products = await Product.find({
       status: "published",
-      salesCount: { $gt: 0 },
-      group: { $ne: "phase-00" } 
+      totalSales: { $gt: 0 },
+      group: { $ne: "phase-00" },
     })
-      .sort({ salesCount: -1 })
+      .sort({ totalSales: -1, createdAt: -1, _id: -1 })
       .limit(limit)
       .select("-__v")
       .lean();
 
-    // 2. Fallback: If not enough best sellers, fill with random published products
+    // 2. Fallback: If not enough best sellers, fill with latest published products
     if (products.length < limit) {
       const existingIds = products.map((p) => p._id);
       const needed = limit - products.length;
 
-      const randomProducts = await Product.aggregate([
-        {
-          $match: {
-            status: "published",
-            group: { $ne: "phase-00" },
-            _id: { $nin: existingIds },
-          },
-        },
-        { $sample: { size: needed } }, // Random selection
-      ]);
+      const latestFallbackProducts = await Product.find({
+        status: "published",
+        group: { $ne: "phase-00" },
+        _id: { $nin: existingIds },
+      })
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(needed)
+        .select("-__v")
+        .lean();
 
-      // Combine lists
-      products = [...products, ...randomProducts];
+      products = [...products, ...latestFallbackProducts];
     }
 
-    // 3. Trim data for frontend
     const formattedProducts = products.map((product) =>
       productForList(product)
     );
@@ -250,12 +243,10 @@ export const searchProducts = async (req, res) => {
       });
     }
 
-    // Create a case-insensitive regex
     const searchRegex = new RegExp(q, "i");
 
-    // Exclude phase-00 from public search results
     const products = await Product.find({
-      status: "published", 
+      status: "published",
       $or: [
         { name: searchRegex },
         { category: searchRegex },
@@ -264,11 +255,12 @@ export const searchProducts = async (req, res) => {
         { description: searchRegex },
       ],
     })
+      .sort({ createdAt: -1, _id: -1 })
       .select("-__v")
       .lean();
 
-    // Format the results using the helper
-    const formattedProducts = products.map((product) =>
+    const sortedProducts = sortProductsList(products);
+    const formattedProducts = sortedProducts.map((product) =>
       productForList(product)
     );
 
@@ -289,7 +281,6 @@ export const searchProducts = async (req, res) => {
 
 export const getProductsByGroupAndCategory = async (req, res) => {
   try {
-    // Extract group and category from search params, defaulting category to "deskmat"
     const { group, category } = req.query;
 
     if (!group || group.trim() === "" || !category || category.trim() === "") {
@@ -299,16 +290,17 @@ export const getProductsByGroupAndCategory = async (req, res) => {
       });
     }
 
-    // Case-insensitive exact match using regex boundaries
     const query = {
       status: "published",
       group: new RegExp(`^${group.trim()}$`, "i"),
       category: new RegExp(`^${category.trim()}$`, "i"),
     };
 
-    const products = await Product.find(query).select("-__v").lean();
+    const products = await Product.find(query)
+      .sort({ createdAt: -1, _id: -1 })
+      .select("-__v")
+      .lean();
 
-    // Return empty array if none found (best practice for filters)
     if (!products || products.length === 0) {
       return res.status(200).json({
         success: true,
@@ -318,8 +310,8 @@ export const getProductsByGroupAndCategory = async (req, res) => {
       });
     }
 
-    // Format the results
-    const formattedProducts = products.map((product) =>
+    const sortedProducts = sortProductsList(products);
+    const formattedProducts = sortedProducts.map((product) =>
       productForList(product)
     );
 

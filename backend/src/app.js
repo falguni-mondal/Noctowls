@@ -18,6 +18,8 @@ import orderRouter from "./routes/user/order/order-routes.js";
 import gokwikRouter from "./routes/user/payment/gokwik-routes.js";
 import reviewRouter from "./routes/user/review/review-routes.js";
 import contactRoutes from "./routes/user/contact/contact-routes.js";
+import imagekitRouter from "./routes/user/imagekit/imagekit-routes.js";
+import metaRouter from "./routes/user/meta/meta-routes.js";
 
 import adminAuthRouter from "./routes/admin/auth/admin-auth-routes.js";
 import adminDashboardRouter from "./routes/admin/dashboard/admin-dashboard-routes.js";
@@ -35,7 +37,7 @@ const app = express();
 const globalLimiter = new LeakyLimiter(50);
 
 // Initialize User Limiter (40 requests per 10 seconds)
-const userLimiter = new UserLimiter(40, 10000); 
+const userLimiter = new UserLimiter(40, 10000);
 
 // Optional: Cleanup stale IPs every 60 seconds to save memory
 setInterval(() => userLimiter.cleanup(), 60000);
@@ -43,6 +45,7 @@ setInterval(() => userLimiter.cleanup(), 60000);
 app.set("trust proxy", true);
 app.use(
   express.json({
+    limit: "2mb",
     verify: (req, res, buf) => {
       // We store the raw buffer to check the signature later
       req.rawBody = buf;
@@ -58,8 +61,13 @@ connectToDB();
 // CORS Initialization..............................................
 app.use(
   cors({
-    origin: ["https://test.noctowls.com", "https://noctowls.com", "https://www.noctowls.com"],
-    // origin: true,
+    origin: [
+      "https://test.noctowls.com",
+      "https://noctowls.com",
+      "https://www.noctowls.com",
+      // "http://localhost:5173",
+      // "http://localhost:3000",
+    ],
     credentials: true,
   })
 );
@@ -68,21 +76,19 @@ app.use(
 app.use(noCache);
 
 // APPLY USER LIMITER (The Guard)
-// This runs FIRST. If a specific user is spamming, we reject them immediately.
 app.use((req, res, next) => {
-  const userIp = req.ip; // Identify by IP address
-  
+  const userIp = req.ip;
+
   if (!userLimiter.check(userIp)) {
     return res.status(429).json({
       success: false,
-      message: "Too many requests! Please wait a moment."
+      message: "Too many requests! Please wait a moment.",
     });
   }
   next();
 });
 
 // APPLY GLOBAL LEAKY LIMITER (The Traffic Cop)
-// This runs SECOND. It delays valid requests to ensure the server isn't overwhelmed by a burst.
 app.use(async (req, res, next) => {
   await globalLimiter.wait();
   next();
@@ -91,7 +97,7 @@ app.use(async (req, res, next) => {
 // FOR TESTING //////////////////////////////////////////////////////////
 app.get("/", (req, res) => {
   res.status(200).json({ success: true });
-})
+});
 
 // ROUTE INITIALIZATIONS.............................................
 app.use("/api/auth", authRouter);
@@ -103,6 +109,8 @@ app.use("/api/order", orderRouter);
 app.use("/api/gokwik", gokwikRouter);
 app.use("/api/reviews", reviewRouter);
 app.use("/api/contact", contactRoutes);
+app.use("/api/imagekit", imagekitRouter);
+app.use("/api/meta", metaRouter);
 
 app.use("/api/admin/auth", adminAuthRouter);
 app.use("/api/admin/dashboard", adminDashboardRouter);

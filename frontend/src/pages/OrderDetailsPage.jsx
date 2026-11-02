@@ -18,6 +18,7 @@ import {
 } from "../store/features/user/orderSlice";
 
 import Loader from "../utils/loader/Loader";
+import { optimizeImage } from "../utils/helpers/imageOptimizer";
 
 const OrderDetailsPage = () => {
   const { orderId } = useParams();
@@ -306,7 +307,9 @@ const OrderDetailsPage = () => {
               >
                 <div className="relative w-20 h-20 bg-zinc-100 rounded-lg overflow-hidden shrink-0 border border-zinc-200">
                   <img
-                    src={item.productImage}
+                    src={optimizeImage(item.productImage, { width: 160, quality: 75 })}
+                    loading="lazy"
+                    decoding="async"
                     alt={item.productName}
                     className="w-full h-full object-cover"
                   />
@@ -340,7 +343,9 @@ const OrderDetailsPage = () => {
                 {order.freeGifts.gifts.map((gift, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <img
-                      src={gift.image}
+                      src={optimizeImage(gift.image, { width: 100, quality: 75 })}
+                      loading="lazy"
+                      decoding="async"
                       className="w-10 h-10 rounded bg-white border border-green-200 object-cover shadow-sm"
                     />
                     <div>

@@ -8,6 +8,7 @@ import Coupon from "../../../models/coupon-model.js";
 import Address from "../../../models/address-model.js";
 import User from "../../../models/user-model.js";
 import { sendEmail } from "../../../configs/nodemailer.js";
+import { sendMetaCapiEvent } from "../../../utils/metaCapi.js";
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
@@ -74,6 +75,40 @@ async function generateUniqueOrderNumber(session) {
   const orderNumber = `ORD-${dateStr}-${sequence.toString().padStart(5, "0")}`;
   return orderNumber;
 }
+
+// HELPER: Trigger Server-Side Meta CAPI Purchase Event (Deduplicated via purchase_<orderId>)
+const triggerOrderPurchaseCapi = (order, customerEmail, req = null) => {
+  setImmediate(() => {
+    sendMetaCapiEvent({
+      eventName: "Purchase",
+      eventId: `purchase_${order._id}`,
+      eventSourceUrl: `https://noctowls.com/orders/${order._id}`,
+      customData: {
+        value: Number(order.pricing?.finalTotal || order.grandTotal || 0),
+        currency: "INR",
+        content_type: "product",
+        content_ids: (order.items || []).map((item) => String(item.product)),
+        num_items: (order.items || []).reduce((sum, item) => sum + (item.quantity || 1), 0),
+        order_id: String(order._id),
+      },
+      userData: {
+        email: customerEmail || order.guestInfo?.email,
+        phone: order.shippingAddress?.phone || order.guestInfo?.phone,
+        fullName: order.shippingAddress?.fullName || order.guestInfo?.name,
+        city: order.shippingAddress?.city,
+        state: order.shippingAddress?.state,
+        pincode: order.shippingAddress?.pincode,
+        country: "in",
+        externalId: order.user ? String(order.user) : order.deviceId,
+        ipAddress: order.ipAddress,
+        userAgent: order.userAgent,
+      },
+      req,
+    }).catch((err) => {
+      console.warn("[Meta CAPI] Order Purchase helper error:", err.message);
+    });
+  });
+};
 
 // ==================== NEW: CHECK FLASH SALE STATUS ====================
 export const checkFlashSaleStatus = async (req, res) => {
@@ -206,6 +241,8 @@ export const handleDelhiveryWebhook = (req, res) => {
           ["confirmed", "processing", "packed"].includes(order.orderStatus)
         ) {
           order.orderStatus = "shipped";
+          if (!order.statusTimestamps) order.statusTimestamps = {};
+          if (!order.statusTimestamps.shipped) order.statusTimestamps.shipped = new Date();
         }
 
         // Mark out-for-delivery
@@ -926,6 +963,7 @@ export const handleRazorpayWebhook = async (req, res) => {
       }
       // ===============================================================
 
+      triggerOrderPurchaseCapi(order, customerEmail);
       console.log(`Webhook verified payment for Order: ${order.orderNumber}`);
       return res.status(200).json({ status: "ok" });
     }
@@ -1093,6 +1131,8 @@ export const verifyPayment = async (req, res) => {
     }
     // ======================================================================
 
+    triggerOrderPurchaseCapi(order, order.guestInfo?.email, req);
+
     return res.status(200).json({
       success: true,
       message: "Payment verified successfully",
@@ -1144,7 +1184,7 @@ export const getOrders = async (req, res) => {
     }
 
     const orders = await Order.find(query)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .limit(parseInt(limit))
       .skip((parseInt(page) - 1) * parseInt(limit));
 

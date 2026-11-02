@@ -240,6 +240,9 @@ const productSchema = new mongoose.Schema(
     totalStock: { type: Number, default: 0 },
     totalSales: { type: Number, default: 0 },
 
+    // Custom sequence position controlled via Admin Drag-and-Drop (lower = shown first)
+    displayOrder: { type: Number, default: null, index: true },
+
     slug: { type: String, unique: true, lowercase: true, sparse: true },
 
     // ---------- RATINGS (Cached/Denormalized) ----------
@@ -264,6 +267,8 @@ productSchema.index({ slug: 1 });
 productSchema.index({ category: 1, status: 1 });
 productSchema.index({ "rating.average": -1, "rating.count": -1 });
 productSchema.index({ status: 1, "rating.average": -1 });
+productSchema.index({ category: 1, displayOrder: 1, createdAt: -1 });
+productSchema.index({ createdAt: -1 });
 
 // ---------- Virtual: Populate Reviews (Optional) ----------
 productSchema.virtual("reviews", {

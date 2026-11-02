@@ -33,13 +33,9 @@ export const getOneAdminProduct = createAsyncThunk(
 
 export const addProduct = createAsyncThunk(
   "adminProducts/addProduct",
-  async (formData, { rejectWithValue }) => {
+  async (productData, { rejectWithValue }) => {
     try {
-      const res = await adminApi.post("/products/add", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      const res = await adminApi.post("/products/add", productData);
       return res.data;
     } catch (error) {
       const err = error?.response?.data;
@@ -55,16 +51,11 @@ export const addProduct = createAsyncThunk(
 
 export const updateProduct = createAsyncThunk(
   "adminProducts/updateProduct",
-  async ({ productId, formData }, { rejectWithValue }) => {
+  async ({ productId, productData }, { rejectWithValue }) => {
     try {
       const res = await adminApi.put(
         `/products/update/${productId}`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
+        productData
       );
       return res.data;
     } catch (error) {
@@ -74,6 +65,28 @@ export const updateProduct = createAsyncThunk(
         errors: err?.errors || null,
         success: err?.success || false,
       });
+    }
+  }
+);
+
+// Async Thunk for Reordering Products via Drag-and-Drop
+export const reorderAdminProducts = createAsyncThunk(
+  "adminProducts/reorderAdminProducts",
+  async (
+    { category, orderedProductIds, resetToLatest = false },
+    { rejectWithValue }
+  ) => {
+    try {
+      const response = await adminApi.put("/products/reorder", {
+        category,
+        orderedProductIds,
+        resetToLatest,
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to update product sequence"
+      );
     }
   }
 );
@@ -127,6 +140,13 @@ const adminProductSlice = createSlice({
       error: null,
     },
 
+    // Reorder Products (Drag-and-Drop Sequence)
+    reorder: {
+      loading: false,
+      savingCategory: null,
+      error: null,
+    },
+
     // EXPORT INVENTORY State
     export: {
       loading: false,
@@ -136,44 +156,56 @@ const adminProductSlice = createSlice({
   },
 
   reducers: {
-    // Clear current product
     clearAdminProduct: (state) => {
       state.adminProduct = null;
       state.adminProductReviews = [];
       state.adminProductError = null;
     },
 
-    // Clear all products
     clearAdminProducts: (state) => {
       state.adminProducts = [];
       state.adminProductsError = null;
     },
 
-    // Clear all errors
     clearErrors: (state) => {
       state.adminProductsError = null;
       state.adminProductError = null;
     },
 
-    // Clear Add Product State
     resetAddProductState: (state) => {
       state.add.loading = false;
       state.add.success = null;
       state.add.error = null;
     },
 
-    // Clear Update Product State
     resetUpdateProductState: (state) => {
       state.update.loading = false;
       state.update.success = null;
       state.update.error = null;
     },
 
-    // Clear Export Inventory State
     resetExportState: (state) => {
       state.export.loading = false;
       state.export.data = null;
       state.export.error = null;
+    },
+
+    // Optimistic in-place reorder for instant drag-and-drop UI feedback
+    optimisticReorderCategoryProducts: (state, action) => {
+      const { category, reorderedProducts } = action.payload || {};
+      if (!category || !Array.isArray(reorderedProducts)) return;
+
+      const groupIndex = state.adminProducts.findIndex(
+        (grp) => grp.category === category
+      );
+      if (groupIndex !== -1) {
+        state.adminProducts[groupIndex].products = reorderedProducts.map(
+          (prod, idx) => ({
+            ...prod,
+            displayOrder: idx,
+          })
+        );
+      }
     },
   },
 
@@ -186,8 +218,8 @@ const adminProductSlice = createSlice({
       })
       .addCase(getAllAdminProducts.fulfilled, (state, action) => {
         state.adminProductsLoading = false;
-        state.adminProducts = action.payload.productGroups;
-        state.totalAdminProducts = action.payload.totalProducts;
+        state.adminProducts = action.payload.productGroups || [];
+        state.totalAdminProducts = action.payload.totalProducts || 0;
         state.adminProductsError = null;
       })
       .addCase(getAllAdminProducts.rejected, (state, action) => {
@@ -248,17 +280,15 @@ const adminProductSlice = createSlice({
         state.update.success = action.payload;
         state.update.error = null;
 
-        // Update the product in adminProducts array if it exists
-        const index = state.adminProducts.findIndex(
-          (p) => p._id === action.payload.product._id
-        );
-        if (index !== -1) {
-          state.adminProducts[index] = action.payload.product;
-        }
-
-        // Update current product if viewing it
-        if (state.adminProduct?._id === action.payload.product._id) {
-          state.adminProduct = action.payload.product;
+        const updatedProd = action.payload?.product;
+        if (updatedProd) {
+          const targetId = String(updatedProd._id || updatedProd.id);
+          if (
+            state.adminProduct &&
+            String(state.adminProduct._id || state.adminProduct.id) === targetId
+          ) {
+            state.adminProduct = updatedProd;
+          }
         }
       })
       .addCase(updateProduct.rejected, (state, action) => {
@@ -270,6 +300,25 @@ const adminProductSlice = createSlice({
         };
       });
 
+    // ===== REORDER PRODUCTS (DRAG & DROP) =====
+    builder
+      .addCase(reorderAdminProducts.pending, (state, action) => {
+        state.reorder.loading = true;
+        state.reorder.savingCategory = action.meta?.arg?.category || null;
+        state.reorder.error = null;
+      })
+      .addCase(reorderAdminProducts.fulfilled, (state) => {
+        state.reorder.loading = false;
+        state.reorder.savingCategory = null;
+        state.reorder.error = null;
+      })
+      .addCase(reorderAdminProducts.rejected, (state, action) => {
+        state.reorder.loading = false;
+        state.reorder.savingCategory = null;
+        state.reorder.error =
+          action.payload || "Failed to update product sequence";
+      });
+
     // EXPORT INVENTORY
     builder
       .addCase(exportInventory.pending, (state) => {
@@ -279,7 +328,6 @@ const adminProductSlice = createSlice({
       })
       .addCase(exportInventory.fulfilled, (state, action) => {
         state.export.loading = false;
-        // The backend sends { success: true, message: "...", data: exportedData }
         state.export.data = action.payload.data;
         state.export.error = null;
       })
@@ -291,17 +339,14 @@ const adminProductSlice = createSlice({
   },
 });
 
-// ==================== EXPORTS ====================
-
-// Actions
 export const {
   clearAdminProduct,
   clearAdminProducts,
   clearErrors,
   resetAddProductState,
   resetUpdateProductState,
-  resetExportState, // ✅ Export the new reset action
+  resetExportState,
+  optimisticReorderCategoryProducts,
 } = adminProductSlice.actions;
 
-// Reducer
 export default adminProductSlice.reducer;
