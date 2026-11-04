@@ -414,12 +414,10 @@ const orderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
       default: null,
-      index: true,
     },
     deviceId: {
       type: String,
       default: null,
-      index: true,
     },
     guestInfo: {
       email: { type: String, default: null },
@@ -560,7 +558,6 @@ const orderSchema = new mongoose.Schema(
         "returned",
       ],
       default: "pending",
-      index: true,
     },
     statusTimestamps: {
       pending: { type: Date, default: Date.now },

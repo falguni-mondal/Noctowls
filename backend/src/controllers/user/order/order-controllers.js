@@ -78,35 +78,52 @@ async function generateUniqueOrderNumber(session) {
 
 // HELPER: Trigger Server-Side Meta CAPI Purchase Event (Deduplicated via purchase_<orderId>)
 const triggerOrderPurchaseCapi = (order, customerEmail, req = null) => {
-  setImmediate(() => {
-    sendMetaCapiEvent({
-      eventName: "Purchase",
-      eventId: `purchase_${order._id}`,
-      eventSourceUrl: `https://noctowls.com/orders/${order._id}`,
-      customData: {
-        value: Number(order.pricing?.finalTotal || order.grandTotal || 0),
-        currency: "INR",
-        content_type: "product",
-        content_ids: (order.items || []).map((item) => String(item.product)),
-        num_items: (order.items || []).reduce((sum, item) => sum + (item.quantity || 1), 0),
-        order_id: String(order._id),
-      },
-      userData: {
-        email: customerEmail || order.guestInfo?.email,
-        phone: order.shippingAddress?.phone || order.guestInfo?.phone,
-        fullName: order.shippingAddress?.fullName || order.guestInfo?.name,
-        city: order.shippingAddress?.city,
-        state: order.shippingAddress?.state,
-        pincode: order.shippingAddress?.pincode,
-        country: "in",
-        externalId: order.user ? String(order.user) : order.deviceId,
-        ipAddress: order.ipAddress,
-        userAgent: order.userAgent,
-      },
-      req,
-    }).catch((err) => {
+  setImmediate(async () => {
+    try {
+      let resolvedEmail = customerEmail || order.guestInfo?.email;
+      if (!resolvedEmail && order.user) {
+        try {
+          const userDoc = await User.findById(order.user).select("email").lean();
+          if (userDoc?.email) resolvedEmail = userDoc.email;
+        } catch {
+          // Ignore lookup error
+        }
+      }
+
+      await sendMetaCapiEvent({
+        eventName: "Purchase",
+        eventId: `purchase_${order._id}`,
+        eventSourceUrl: `https://noctowls.com/orders/${order._id}`,
+        customData: {
+          content_name: `Order #${order.orderNumber}`,
+          value: Number(order.pricing?.finalTotal || order.grandTotal || 0),
+          currency: "INR",
+          content_type: "product",
+          content_ids: (order.items || []).map((item) => String(item.product)),
+          contents: (order.items || []).map((item) => ({
+            id: String(item.product),
+            quantity: Number(item.quantity || 1),
+            item_price: Number(item.priceWithGST ? item.priceWithGST / (item.quantity || 1) : item.price || 0),
+          })),
+          order_id: String(order._id),
+        },
+        userData: {
+          email: resolvedEmail,
+          phone: order.shippingAddress?.phone || order.guestInfo?.phone,
+          fullName: order.shippingAddress?.fullName || order.guestInfo?.name,
+          city: order.shippingAddress?.city,
+          state: order.shippingAddress?.state,
+          pincode: order.shippingAddress?.pincode,
+          country: "in",
+          externalId: order.user ? String(order.user) : order.deviceId,
+          ipAddress: order.ipAddress,
+          userAgent: order.userAgent,
+        },
+        req,
+      });
+    } catch (err) {
       console.warn("[Meta CAPI] Order Purchase helper error:", err.message);
-    });
+    }
   });
 };
 
@@ -894,8 +911,8 @@ export const handleRazorpayWebhook = async (req, res) => {
       }
 
       // ==================== SEND EMAILS (WEBHOOK) ====================
+      let customerEmail = order.guestInfo?.email;
       try {
-        let customerEmail = order.guestInfo?.email;
         if (!customerEmail && order.user) {
           const userDoc = await User.findById(order.user);
           if (userDoc) customerEmail = userDoc.email;
@@ -1062,8 +1079,8 @@ export const verifyPayment = async (req, res) => {
     }
 
     // ==================== SEND EMAILS (VERIFY PAYMENT) ====================
+    let customerEmail = order.guestInfo?.email;
     try {
-      let customerEmail = order.guestInfo?.email;
       if (!customerEmail && order.user) {
         const userDoc = await User.findById(order.user);
         if (userDoc) customerEmail = userDoc.email;
@@ -1131,7 +1148,7 @@ export const verifyPayment = async (req, res) => {
     }
     // ======================================================================
 
-    triggerOrderPurchaseCapi(order, order.guestInfo?.email, req);
+    triggerOrderPurchaseCapi(order, customerEmail, req);
 
     return res.status(200).json({
       success: true,

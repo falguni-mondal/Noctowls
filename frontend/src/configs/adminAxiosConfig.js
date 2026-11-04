@@ -3,7 +3,7 @@ import { backendTestApi } from "../utils/global/keys";
 import { backendApi } from "../utils/global/keys";
 
 const adminApi = axios.create({
-  baseURL: `${backendApi}/api/admin`,
+  baseURL: `${backendTestApi}/api/admin`,
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",

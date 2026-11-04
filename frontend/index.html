@@ -54,6 +54,34 @@
     gtag('config', '%VITE_GOOGLE_AW_ID%');
   </script>
 
+  <!-- Meta Pixel Base Code with Manual Advanced Matching -->
+  <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+
+    (function() {
+      var pixelId = '%VITE_META_PIXEL_ID%';
+      if (!pixelId || pixelId.indexOf('VITE_META_PIXEL_ID') !== -1) return;
+      var advancedMatching = { country: 'in' };
+      try {
+        var cached = localStorage.getItem('_meta_am_user');
+        if (cached) {
+          var parsed = JSON.parse(cached);
+          if (parsed && typeof parsed === 'object') {
+            advancedMatching = Object.assign({ country: 'in' }, parsed);
+          }
+        }
+      } catch (e) {}
+      window.fbq('init', pixelId, advancedMatching);
+    })();
+  </script>
+
   <!-- FONT -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -62,6 +90,10 @@
 </head>
 
 <body>
+  <noscript>
+    <img height="1" width="1" style="display:none"
+      src="https://www.facebook.com/tr?id=%VITE_META_PIXEL_ID%&ev=PageView&noscript=1" />
+  </noscript>
   <div class="flex justify-center" id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
   <script type="application/ld+json">
@@ -93,15 +125,15 @@
               "@type": "Answer",
               "text": "Noctowls deskmats use high-density rubber, premium stitching, ultra-smooth fabric, and custom designs crafted in India."
             }
-          }
-          {
+          },
+          <!-- {
             "@type": "Question",
             "name": "Who developed Noctowls website?",
             "acceptedAnswer": {
               "@type": "Answer",
               "text": "Falguni Mondal, an Indian Creative MERN developer."
             }
-          }
+          } -->
         ]
       }
     </script>

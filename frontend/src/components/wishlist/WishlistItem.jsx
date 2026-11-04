@@ -11,6 +11,7 @@ import { useState } from "react";
 import { toast } from "react-toastify";
 import toastControls from "../../utils/global/toastControls";
 import { optimizeImage } from "../../utils/helpers/imageOptimizer";
+import { trackEvent } from "../../utils/pixel/pixel";
 
 const WishlistItem = ({ item }) => {
   const dispatch = useDispatch();
@@ -59,6 +60,28 @@ const WishlistItem = ({ item }) => {
           quantity: 1,
         })
       ).unwrap();
+
+      const matchedSize = availableSizes.find(
+        (s) => s.value?.toLowerCase() === selectedSize?.toLowerCase()
+      );
+      const itemPrice = Number(
+        matchedSize?.price || product?.sizes?.[0]?.price || 0
+      );
+
+      trackEvent("AddToCart", {
+        content_name: product.name,
+        content_ids: [product._id],
+        content_type: "product",
+        value: itemPrice,
+        currency: "INR",
+        contents: [
+          {
+            id: product._id,
+            quantity: 1,
+            item_price: itemPrice,
+          },
+        ],
+      });
 
       toast.success(
         result.message || "Moved to cart successfully!",

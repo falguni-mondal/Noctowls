@@ -5,6 +5,7 @@ import MiniLoading from "../../utils/loader/MiniLoading";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toastControls from "../../utils/global/toastControls";
+import { trackEvent, syncPixelUser } from "../../utils/pixel/pixel";
 
 const Verify = () => {
     const dispatch = useDispatch();
@@ -58,6 +59,22 @@ const Verify = () => {
         const res = await dispatch(otpVerifier({ code: otp }));
 
         if (res?.meta?.requestStatus === "fulfilled") {
+            const verifiedUser = res.payload || {};
+            syncPixelUser(verifiedUser);
+            trackEvent(
+                "CompleteRegistration",
+                {
+                    content_name: "OTP Email Verification",
+                    status: true,
+                },
+                undefined,
+                {
+                    email: verifiedUser.email,
+                    fullName: verifiedUser.name,
+                    phone: verifiedUser.phone,
+                    externalId: verifiedUser._id || verifiedUser.id,
+                }
+            );
             toast.success("Logged In!", toastControls);
             navigate("/");
         } else {

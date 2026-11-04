@@ -1,17 +1,28 @@
 import { Icon } from "@iconify/react/dist/iconify.js";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   updateCartItemQuantity,
   removeCartItem,
   selectActionLoading,
 } from "../../store/features/user/cartSlice";
+import {
+  toggleWishlist,
+  selectWishlistActionLoading,
+} from "../../store/features/user/wishlistSlice";
 import { useState } from "react";
+import { toast } from "react-toastify";
+import toastControls from "../../utils/global/toastControls";
 import { optimizeImage } from "../../utils/helpers/imageOptimizer";
+import { trackEvent } from "../../utils/pixel/pixel";
 
 const BagItem = ({ item }) => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const actionLoading = useSelector(selectActionLoading);
+  const wishlistLoading = useSelector(selectWishlistActionLoading);
+  const user = useSelector((state) => state.auth.user);
+  const admin = useSelector((state) => state.adminAuth.admin);
   const [isUpdating, setIsUpdating] = useState(false);
 
   const handleQuantityChange = async (action) => {
@@ -37,10 +48,65 @@ const BagItem = ({ item }) => {
           quantity: newQuantity,
         })
       ).unwrap();
+
+      if (action === "increment" && item.product?._id) {
+        const unitPrice = Number(item.price || 0);
+        trackEvent("AddToCart", {
+          content_name: item.name,
+          content_ids: [item.product._id],
+          content_type: "product",
+          value: unitPrice,
+          currency: "INR",
+          contents: [
+            {
+              id: item.product._id,
+              quantity: 1,
+              item_price: unitPrice,
+            },
+          ],
+        });
+      }
     } catch (error) {
       console.error("Failed to update quantity:", error);
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleWishlistToggle = async () => {
+    if (!user || admin) {
+      toast.info(
+        admin
+          ? "Please logout from admin account!"
+          : "Please login to add items to your wishlist!",
+        toastControls
+      );
+      if (!admin) {
+        navigate("/account/signin", { state: { from: "/bag" } });
+      }
+      return;
+    }
+
+    if (isUpdating || wishlistLoading || !item.product?._id) return;
+
+    try {
+      const result = await dispatch(toggleWishlist(item.product._id)).unwrap();
+      if (result.isInWishlist) {
+        trackEvent("AddToWishlist", {
+          content_name: item.name,
+          content_ids: [item.product._id],
+          content_type: "product",
+          value: Number(item.price || 0),
+          currency: "INR",
+        });
+      }
+      toast.success(
+        result.message ||
+          (result.isInWishlist ? "Added to wishlist!" : "Removed from wishlist"),
+        toastControls
+      );
+    } catch (error) {
+      toast.error(error || "Failed to update wishlist", toastControls);
     }
   };
 
@@ -147,9 +213,15 @@ const BagItem = ({ item }) => {
           </button>
         </div>
 
-        <div className="add-to-wishlist-btn w-10 aspect-square rounded-full border border-zinc-200 bg-white shadow-sm flex justify-center items-center text-xl text-zinc-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition cursor-pointer">
+        <button
+          type="button"
+          onClick={handleWishlistToggle}
+          disabled={isUpdating || wishlistLoading}
+          title="Add to wishlist"
+          className="add-to-wishlist-btn w-10 aspect-square rounded-full border border-zinc-200 bg-white shadow-sm flex justify-center items-center text-xl text-zinc-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition cursor-pointer disabled:opacity-50"
+        >
           <Icon icon="material-symbols-light:favorite-outline" />
-        </div>
+        </button>
 
         <button
           onClick={handleRemove}

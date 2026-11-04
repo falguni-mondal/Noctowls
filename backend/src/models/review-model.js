@@ -16,7 +16,6 @@ const reviewSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "product",
       required: true,
-      index: true,
     },
 
     // Optional: Only present if user is logged in
@@ -24,14 +23,12 @@ const reviewSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
       required: false, 
-      index: true,
     },
 
     // Optional: Only present if user is a guest
     deviceId: {
       type: String,
       required: false,
-      index: true,
     },
 
     // Display Name (from User Profile or Guest Input)

@@ -7,7 +7,6 @@ const wishlistSchema = new mongoose.Schema(
       ref: "user",
       required: true,
       unique: true,
-      index: true,
     },
     items: [
       {

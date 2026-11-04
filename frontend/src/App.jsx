@@ -14,10 +14,11 @@ import { useDispatch, useSelector } from 'react-redux';
 import { checkAuth, selectUser } from './store/features/user/authSlice';
 import { checkAdmin } from './store/features/admin/adminAuthSlice';
 import { getCart } from './store/features/user/cartSlice';
+import { getDefaultAddress, selectDefaultAddress } from './store/features/user/addressSlice';
 import SocialLinks from './components/footer/footer-dets/SocialLinks';
 
 // IMPORT META PIXEL UTILS
-import { initPixel, trackEvent } from './utils/pixel/pixel';
+import { initPixel, syncPixelUser, trackEvent } from './utils/pixel/pixel';
 
 // IMPORT SEARCH ACTIONS AND SELECTORS
 import {
@@ -33,6 +34,7 @@ const App = () => {
   const [showNav, setShowNav] = useState(false);
   const dispatch = useDispatch();
   const user = useSelector(selectUser);
+  const defaultAddress = useSelector(selectDefaultAddress);
   const admin = useSelector(state => state.adminAuth.admin);
 
   // --- LIFTED SEARCH STATE ---
@@ -43,13 +45,28 @@ const App = () => {
 
   // META PIXEL INITIALIZATION
   useEffect(() => {
-    initPixel();
+    initPixel(user || {});
   }, []);
+
+  // SYNC MANUAL ADVANCED MATCHING WHEN USER OR DEFAULT ADDRESS LOADS
+  useEffect(() => {
+    if (user) {
+      syncPixelUser({
+        _id: user._id || user.id,
+        email: user.email,
+        fullName: user.name || defaultAddress?.fullName,
+        phone: user.phone || defaultAddress?.phone,
+        city: defaultAddress?.city,
+        state: defaultAddress?.state,
+        pincode: defaultAddress?.pincode,
+      });
+    }
+  }, [user, defaultAddress]);
 
   // TRACK PAGE VIEWS ON ROUTE CHANGE
   useEffect(() => {
     trackEvent('PageView');
-  }, [location]);
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     dispatch(checkAuth());
@@ -58,6 +75,9 @@ const App = () => {
 
   useEffect(() => {
     dispatch(getCart());
+    if (user) {
+      dispatch(getDefaultAddress());
+    }
   }, [user, dispatch]);
 
   useEffect(() => {
@@ -69,13 +89,11 @@ const App = () => {
     const delayDebounceFn = setTimeout(() => {
       if (query.trim()) {
         dispatch(searchProducts(query));
-        
-        // [!code ++] TRACK SEARCH EVENT
-        // Tracks what users are searching for (after they stop typing)
-        trackEvent('Search', { 
-            search_string: query 
-        });
 
+        // TRACK SEARCH EVENT
+        trackEvent('Search', { 
+          search_string: query.trim()
+        });
       } else {
         dispatch(clearSearchResults());
       }
@@ -96,11 +114,11 @@ const App = () => {
     dispatch(clearSearchResults());
   };
 
-  // [!code ++] TRACK WHATSAPP CLICK
+  // TRACK WHATSAPP CLICK
   const handleWhatsAppClick = () => {
     trackEvent('Contact', { 
-        content_name: 'WhatsApp Button',
-        type: 'chat'
+      content_name: 'WhatsApp Button',
+      content_category: 'chat'
     });
   };
 
@@ -113,7 +131,6 @@ const App = () => {
           <a 
             href="https://wa.me/+918348341112" 
             target='_blank' 
-            // [!code ++] Add click handler here
             onClick={handleWhatsAppClick}
             className='block text-green-700 backdrop-blur-lg rounded-lg bg-black/25 overflow-hidden'
           >

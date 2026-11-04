@@ -7,7 +7,8 @@ import {
     selectContactLoading, 
     selectContactSuccess, 
     selectContactError 
-} from "../store/features/user/contactSlice"; // Adjust path to your store
+} from "../store/features/user/contactSlice";
+import { trackEvent, syncPixelUser } from "../utils/pixel/pixel";
 
 // Import your image (Make sure to move the file to your assets folder)
 import bgImage from "../assets/images/contact_page_bg.jpg"; 
@@ -31,7 +32,7 @@ const Contact = () => {
     };
 
     // Handle Submit
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         
         // Prepare payload for backend
@@ -43,7 +44,28 @@ const Contact = () => {
             message: formData.message
         };
 
-        dispatch(submitContactForm(payload));
+        try {
+            await dispatch(submitContactForm(payload)).unwrap();
+
+            const contactUserData = {
+                fullName: formData.name,
+                email: formData.email,
+                phone: formData.phone,
+            };
+
+            syncPixelUser(contactUserData);
+            trackEvent(
+                "Lead",
+                {
+                    content_name: "Contact Form Inquiry",
+                    content_category: "Contact",
+                },
+                undefined,
+                contactUserData
+            );
+        } catch {
+            // Error handled by Redux state
+        }
     };
 
     // Reset form on success
