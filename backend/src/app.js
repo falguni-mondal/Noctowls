@@ -65,8 +65,8 @@ app.use(
       "https://test.noctowls.com",
       "https://noctowls.com",
       "https://www.noctowls.com",
-      "http://localhost:5173",
-      "http://localhost:3000",
+      // "http://localhost:5173",
+      // "http://localhost:3000",
     ],
     credentials: true,
   })
