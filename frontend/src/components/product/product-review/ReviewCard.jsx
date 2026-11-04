@@ -69,7 +69,12 @@ const ReviewCard = ({ review, isOwner = false, onEdit }) => {
                   loading="lazy"
                   decoding="async"
                   className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
-                  onClick={() => window.open(img.url, "_blank")}
+                  onClick={() =>
+                    window.open(
+                      optimizeImage(img.url, { width: 1200, quality: 80 }),
+                      "_blank"
+                    )
+                  }
                 />
               </div>
             ))}

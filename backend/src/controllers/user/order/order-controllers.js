@@ -76,6 +76,21 @@ async function generateUniqueOrderNumber(session) {
   return orderNumber;
 }
 
+// HELPER: Optimize ImageKit URLs for 50x50px Order Confirmation Email Thumbnails (~8KB instead of ~300KB)
+const getEmailImageThumb = (url) => {
+  if (!url || typeof url !== "string") return "";
+  if (!url.includes("ik.imagekit.io")) return url;
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.set("tr", "w-100,q-75,f-auto");
+    return parsed.toString();
+  } catch {
+    const clean = url.replace(/([?&])tr=[^&]*(&|$)/, "$1").replace(/[?&]$/, "");
+    const sep = clean.includes("?") ? "&" : "?";
+    return `${clean}${sep}tr=w-100,q-75,f-auto`;
+  }
+};
+
 // HELPER: Trigger Server-Side Meta CAPI Purchase Event (Deduplicated via purchase_<orderId>)
 const triggerOrderPurchaseCapi = (order, customerEmail, req = null) => {
   setImmediate(async () => {
@@ -920,7 +935,7 @@ export const handleRazorpayWebhook = async (req, res) => {
 
         const itemsHtml = order.items.map(item => `
           <div style="border-bottom: 1px solid #eee; padding: 10px 0; display: flex; align-items: center;">
-            <img src="${item.productImage}" alt="${item.productName}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin-right: 15px;">
+            <img src="${getEmailImageThumb(item.productImage)}" alt="${item.productName}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin-right: 15px;">
             <div>
               <p style="margin: 0; font-size: 14px; font-weight: bold; color: #333;">${item.productName}</p>
               <p style="margin: 2px 0 0; font-size: 12px; color: #666;">
@@ -1088,7 +1103,7 @@ export const verifyPayment = async (req, res) => {
 
       const itemsHtml = order.items.map(item => `
         <div style="border-bottom: 1px solid #eee; padding: 10px 0; display: flex; align-items: center;">
-          <img src="${item.productImage}" alt="${item.productName}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin-right: 15px;">
+          <img src="${getEmailImageThumb(item.productImage)}" alt="${item.productName}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin-right: 15px;">
           <div>
             <p style="margin: 0; font-size: 14px; font-weight: bold; color: #333;">${item.productName}</p>
             <p style="margin: 2px 0 0; font-size: 12px; color: #666;">
