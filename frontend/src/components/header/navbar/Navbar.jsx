@@ -163,7 +163,7 @@ const Navbar = ({
           ))}
           <li className="relative group">
             <a
-              href="https://wa.me/+918348341112"
+              href="https://wa.me/+918348341116"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 group-hover:text-[#0f0f0f] transition-colors capitalize whitespace-nowrap"
@@ -261,7 +261,7 @@ const Navbar = ({
                                   width: 120,
                                   quality: 75,
                                 })}
-                                alt={product.name}
+                                alt={`${product.name} Extended Gaming Deskmat 900x400mm`}
                                 loading="lazy"
                                 decoding="async"
                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"

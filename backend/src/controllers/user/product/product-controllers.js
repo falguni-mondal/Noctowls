@@ -7,14 +7,26 @@ import {
   sortProductsList,
 } from "../../../utils/helpers/product-data-trimmer.js";
 
+/**
+ * Enforces P0 Inventory Query Sorting Rule on trimmed product lists:
+ * Never render out-of-stock items at the top; sort in-stock items by salesVelocity descending.
+ */
+const enforceInventorySort = (products = []) => {
+  return products.sort((a, b) => {
+    if (a.inStock && !b.inStock) return -1;
+    if (!a.inStock && b.inStock) return 1;
+    return b.salesVelocity - a.salesVelocity;
+  });
+};
+
 export const getAllProducts = async (req, res) => {
   try {
-    // Sort by createdAt: -1, _id: -1 so the 1st item is the latest by default
+    // Query level sort: prioritize stocked & top-selling items, then latest
     const products = await Product.find({
       status: "published",
       group: { $ne: "phase-00" }, // Hides phase-00 products from the general store
     })
-      .sort({ createdAt: -1, _id: -1 })
+      .sort({ totalStock: -1, totalSales: -1, createdAt: -1, _id: -1 })
       .select("-__v")
       .lean();
 
@@ -32,12 +44,11 @@ export const getAllProducts = async (req, res) => {
     ];
 
     const groupedByCategory = uniqueCategories.map((category) => {
-      // Respect custom admin drag-and-drop sequence (displayOrder) and fallback to latest-first (createdAt: -1)
       const categoryProducts = sortProductsList(
         products.filter((p) => p.category === category)
       );
-      const trimmedProducts = categoryProducts.map((product) =>
-        productForList(product)
+      const trimmedProducts = enforceInventorySort(
+        categoryProducts.map((product) => productForList(product))
       );
 
       return {
@@ -184,9 +195,10 @@ export const getBestSellingProducts = async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 5;
 
-    // 1. Fetch real best sellers (totalSales > 0), tie-broken by latest createdAt
+    // 1. Fetch in-stock best sellers first (totalStock > 0, totalSales > 0)
     let products = await Product.find({
       status: "published",
+      totalStock: { $gt: 0 },
       totalSales: { $gt: 0 },
       group: { $ne: "phase-00" },
     })
@@ -195,26 +207,46 @@ export const getBestSellingProducts = async (req, res) => {
       .select("-__v")
       .lean();
 
-    // 2. Fallback: If not enough best sellers, fill with latest published products
+    // 2. Fallback: Fill remaining slots with in-stock published products
     if (products.length < limit) {
       const existingIds = products.map((p) => p._id);
       const needed = limit - products.length;
 
-      const latestFallbackProducts = await Product.find({
+      const inStockFallbackProducts = await Product.find({
         status: "published",
+        totalStock: { $gt: 0 },
         group: { $ne: "phase-00" },
         _id: { $nin: existingIds },
       })
-        .sort({ createdAt: -1, _id: -1 })
+        .sort({ totalSales: -1, createdAt: -1, _id: -1 })
         .limit(needed)
         .select("-__v")
         .lean();
 
-      products = [...products, ...latestFallbackProducts];
+      products = [...products, ...inStockFallbackProducts];
     }
 
-    const formattedProducts = products.map((product) =>
-      productForList(product)
+    // 3. Final fallback: If still fewer than limit, fill with any remaining published products
+    if (products.length < limit) {
+      const existingIds = products.map((p) => p._id);
+      const needed = limit - products.length;
+
+      const anyFallbackProducts = await Product.find({
+        status: "published",
+        group: { $ne: "phase-00" },
+        _id: { $nin: existingIds },
+      })
+        .sort({ totalSales: -1, createdAt: -1, _id: -1 })
+        .limit(needed)
+        .select("-__v")
+        .lean();
+
+      products = [...products, ...anyFallbackProducts];
+    }
+
+    const sortedProducts = sortProductsList(products);
+    const formattedProducts = enforceInventorySort(
+      sortedProducts.map((product) => productForList(product))
     );
 
     return res.status(200).json({
@@ -255,13 +287,13 @@ export const searchProducts = async (req, res) => {
         { description: searchRegex },
       ],
     })
-      .sort({ createdAt: -1, _id: -1 })
+      .sort({ totalStock: -1, totalSales: -1, createdAt: -1, _id: -1 })
       .select("-__v")
       .lean();
 
     const sortedProducts = sortProductsList(products);
-    const formattedProducts = sortedProducts.map((product) =>
-      productForList(product)
+    const formattedProducts = enforceInventorySort(
+      sortedProducts.map((product) => productForList(product))
     );
 
     return res.status(200).json({
@@ -297,7 +329,7 @@ export const getProductsByGroupAndCategory = async (req, res) => {
     };
 
     const products = await Product.find(query)
-      .sort({ createdAt: -1, _id: -1 })
+      .sort({ totalStock: -1, totalSales: -1, createdAt: -1, _id: -1 })
       .select("-__v")
       .lean();
 
@@ -311,8 +343,8 @@ export const getProductsByGroupAndCategory = async (req, res) => {
     }
 
     const sortedProducts = sortProductsList(products);
-    const formattedProducts = sortedProducts.map((product) =>
-      productForList(product)
+    const formattedProducts = enforceInventorySort(
+      sortedProducts.map((product) => productForList(product))
     );
 
     return res.status(200).json({

@@ -1,11 +1,54 @@
 import React, { useState } from "react";
 import { Icon } from "@iconify/react";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  addToCart,
+  selectCart,
+} from "../../store/features/user/cartSlice";
 import { optimizeImage } from "../../utils/helpers/imageOptimizer";
+import { trackEvent } from "../../utils/pixel/pixel";
+import { renderUnlockLineWithGreenFree } from "../bag/CartDrawer";
+
+const SIZE_CHIP_MAP = {
+  l: "600x300mm | 3mm Heavy Density",
+  xl: "800x330mm | 3mm Heavy Density",
+  xxl: "900x400mm | 3mm Heavy Density",
+};
 
 const GlassProductCard = ({ product }) => {
-  const { name, images, rating, originalPrice, price } = product;
+  const {
+    id,
+    name,
+    images,
+    rating,
+    originalPrice,
+    price,
+    numPrice,
+    inStock,
+    primarySize = "l",
+    defaultSize = "l",
+  } = product;
+
+  const dispatch = useDispatch();
+  const isAdmin = useSelector((state) => state.adminAuth.admin);
+  const cart = useSelector(selectCart);
+
   const [hasHovered, setHasHovered] = useState(false);
   const [hoverLoaded, setHoverLoaded] = useState(false);
+  const [adding, setAdding] = useState(false);
+
+  const purchasedItems =
+    cart?.items?.filter((item) => !item.isFreeGift) || [];
+  const totalCartQuantity =
+    cart?.summary?.totalQuantity ??
+    purchasedItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+
+  const isAddedToCart = purchasedItems.some((item) => {
+    const itemProdId = String(
+      item.product?._id || item.product?.id || item.product || ""
+    );
+    return itemProdId === String(id);
+  });
 
   const rawMainUrl = images?.[0]?.url || "";
   const rawHoverUrl = images?.[1]?.url || "";
@@ -18,6 +61,11 @@ const GlassProductCard = ({ product }) => {
 
   const avgRating = rating?.average || 0;
   const reviewCount = rating?.count || 0;
+  const isOutOfStock = inStock === false;
+  const seoAltText = `${name} Extended Gaming Deskmat 900x400mm`;
+  const specChipLabel =
+    SIZE_CHIP_MAP[String(primarySize || "l").toLowerCase()] ||
+    SIZE_CHIP_MAP.l;
 
   const handleMouseEnter = () => {
     if (
@@ -27,6 +75,40 @@ const GlassProductCard = ({ product }) => {
       window.matchMedia("(hover: hover)").matches
     ) {
       setHasHovered(true);
+    }
+  };
+
+  const handleQuickAddToCart = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (adding || isOutOfStock || isAdmin) return;
+    setAdding(true);
+
+    try {
+      await dispatch(
+        addToCart({
+          productId: id,
+          sizeValue: defaultSize || primarySize || "l",
+          quantity: 1,
+        })
+      ).unwrap();
+
+      const numericVal =
+        numPrice ?? (Number(String(price || "0").replace(/,/g, "")) || 0);
+
+      trackEvent("AddToCart", {
+        content_name: name,
+        content_ids: [id],
+        content_type: "product",
+        value: numericVal,
+        currency: "INR",
+        contents: [{ id, quantity: 1 }],
+      });
+    } catch (err) {
+      console.error("Quick add to cart error:", err);
+    } finally {
+      setAdding(false);
     }
   };
 
@@ -71,7 +153,7 @@ const GlassProductCard = ({ product }) => {
         <div className="w-full h-full transition-transform duration-700 group-hover:scale-[105%] will-change-transform">
           <img
             src={mainImage}
-            alt={name}
+            alt={seoAltText}
             loading="lazy"
             decoding="async"
             className={`w-full h-full object-cover absolute inset-0 z-10 transition-opacity duration-500 ${
@@ -81,7 +163,7 @@ const GlassProductCard = ({ product }) => {
           {hasHovered && hoverImage && (
             <img
               src={hoverImage}
-              alt={`${name} alternate view`}
+              alt={seoAltText}
               decoding="async"
               onLoad={() => setHoverLoaded(true)}
               className="w-full h-full object-cover absolute inset-0 z-0"
@@ -94,6 +176,13 @@ const GlassProductCard = ({ product }) => {
           <div className="bg-gradient-to-r from-red-600 to-red-800 text-white text-[8px] sm:text-[9px] md:text-[10px] font-bold uppercase px-2 sm:px-3 py-1 rounded-br-lg shadow-lg">
             Exclusive Drop
           </div>
+        </div>
+
+        {/* Persistent Hardware Spec Pill (Size L default dimensions) */}
+        <div className="absolute bottom-2 left-2 right-2 z-20 flex justify-start pointer-events-none">
+          <span className="inline-flex items-center bg-black/75 backdrop-blur-md text-white border border-white/15 text-[8.5px] sm:text-[9.5px] md:text-[10px] font-semibold tracking-tight px-2 py-0.5 rounded-full shadow-sm truncate">
+            {specChipLabel}
+          </span>
         </div>
       </div>
 
@@ -110,30 +199,79 @@ const GlassProductCard = ({ product }) => {
           </h3>
         </div>
 
-        <div className="mt-2.5 sm:mt-3 md:mt-4 flex flex-wrap items-end justify-between gap-1.5 sm:gap-2">
-          <div className="flex flex-col">
-            {originalPrice && originalPrice !== price && (
-              <span className="text-zinc-400 text-[10px] sm:text-[11px] md:text-[12px] font-medium line-through">
-                Rs. {originalPrice}
+        <div className="mt-2.5 space-y-1.5">
+          <div className="flex flex-wrap items-end justify-between gap-1.5 sm:gap-2">
+            <div className="flex flex-col">
+              {originalPrice && originalPrice !== price && (
+                <span className="text-zinc-400 text-[10px] sm:text-[11px] md:text-[12px] font-medium line-through">
+                  Rs. {originalPrice}
+                </span>
+              )}
+              <span className="phase-txt text-zinc-100 text-sm sm:text-base md:text-lg tracking-tight">
+                Rs. {price}
               </span>
-            )}
-            <span className="phase-txt text-zinc-100 text-sm sm:text-base md:text-lg tracking-tight">
-              Rs. {price}
-            </span>
-          </div>
-
-          <div className="flex flex-col items-end gap-0.5 sm:gap-1 mb-0.5">
-            <div className="flex items-center gap-1 sm:gap-1.5">
-              <span className="text-[10px] md:text-sm font-semibold text-zinc-100 leading-none">
-                {avgRating}
-              </span>
-              <div className="flex items-center">{renderStars(avgRating)}</div>
             </div>
 
-            <span className="text-[8.5px] sm:text-[10px] md:text-xs lg:text-sm text-zinc-300 font-medium whitespace-nowrap">
-              ({reviewCount} {reviewCount === 1 ? "Review" : "Reviews"})
-            </span>
+            {/* Hide empty star components when reviewCount === 0 */}
+            {reviewCount > 0 && (
+              <div className="flex flex-col items-end gap-0.5 sm:gap-1 mb-0.5">
+                <div className="flex items-center gap-1 sm:gap-1.5">
+                  <span className="text-[10px] md:text-sm font-semibold text-zinc-100 leading-none">
+                    {avgRating}
+                  </span>
+                  <div className="flex items-center">
+                    {renderStars(avgRating)}
+                  </div>
+                </div>
+
+                <span className="text-[8.5px] sm:text-[10px] md:text-xs lg:text-sm text-zinc-300 font-medium whitespace-nowrap">
+                  ({reviewCount} {reviewCount === 1 ? "Review" : "Reviews"})
+                </span>
+              </div>
+            )}
           </div>
+
+          {/* 1-Line Dynamic Unlock Message directly ON TOP of the Add to Cart button */}
+          {isAddedToCart && totalCartQuantity > 0 && (
+            <div className="w-full text-[9.5px] sm:text-[10.5px] font-semibold text-zinc-100 bg-zinc-900/90 border border-zinc-700 rounded px-2 py-1 text-center leading-tight animate-in slide-in-from-bottom-1 fade-in duration-200 truncate">
+              {renderUnlockLineWithGreenFree(totalCartQuantity)}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleQuickAddToCart}
+            disabled={isOutOfStock || adding || isAdmin}
+            className={`w-full py-2 px-3 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+              isOutOfStock
+                ? "bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed"
+                : isAddedToCart
+                ? "bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer shadow-sm"
+                : "bg-red-600 text-white hover:bg-red-700 cursor-pointer shadow-sm"
+            }`}
+          >
+            {adding ? (
+              <>
+                <Icon icon="eos-icons:loading" className="text-sm" />
+                <span>Adding...</span>
+              </>
+            ) : isOutOfStock ? (
+              <span>Out of Stock</span>
+            ) : isAddedToCart ? (
+              <>
+                <Icon icon="mdi:check-circle" className="text-sm" />
+                <span>Added</span>
+              </>
+            ) : (
+              <>
+                <Icon
+                  icon="material-symbols:shopping-bag-outline"
+                  className="text-sm"
+                />
+                <span>Add to Cart</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

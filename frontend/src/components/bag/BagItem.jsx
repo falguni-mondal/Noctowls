@@ -25,6 +25,8 @@ const BagItem = ({ item }) => {
   const admin = useSelector((state) => state.adminAuth.admin);
   const [isUpdating, setIsUpdating] = useState(false);
 
+  const productId = item.product?._id || item.product?.id || item.product;
+
   const handleQuantityChange = async (action) => {
     if (isUpdating || actionLoading) return;
 
@@ -49,17 +51,17 @@ const BagItem = ({ item }) => {
         })
       ).unwrap();
 
-      if (action === "increment" && item.product?._id) {
+      if (action === "increment" && productId) {
         const unitPrice = Number(item.price || 0);
         trackEvent("AddToCart", {
           content_name: item.name,
-          content_ids: [item.product._id],
+          content_ids: [productId],
           content_type: "product",
           value: unitPrice,
           currency: "INR",
           contents: [
             {
-              id: item.product._id,
+              id: productId,
               quantity: 1,
               item_price: unitPrice,
             },
@@ -68,6 +70,7 @@ const BagItem = ({ item }) => {
       }
     } catch (error) {
       console.error("Failed to update quantity:", error);
+      toast.error(error || "Failed to update quantity", toastControls);
     } finally {
       setIsUpdating(false);
     }
@@ -87,14 +90,14 @@ const BagItem = ({ item }) => {
       return;
     }
 
-    if (isUpdating || wishlistLoading || !item.product?._id) return;
+    if (isUpdating || wishlistLoading || !productId) return;
 
     try {
-      const result = await dispatch(toggleWishlist(item.product._id)).unwrap();
+      const result = await dispatch(toggleWishlist(productId)).unwrap();
       if (result.isInWishlist) {
         trackEvent("AddToWishlist", {
           content_name: item.name,
-          content_ids: [item.product._id],
+          content_ids: [productId],
           content_type: "product",
           value: Number(item.price || 0),
           currency: "INR",
@@ -133,7 +136,7 @@ const BagItem = ({ item }) => {
 
       <div className="cart-product-main-dets w-full">
         <Link
-          to={`/products/${item.product._id}`}
+          to={`/products/${productId}`}
           className="w-full flex justify-between"
         >
           <div className="cart-product-img aspect-square rounded bg-zinc-100 border border-zinc-200 shadow-sm overflow-hidden w-[33%] shrink-0">
@@ -143,7 +146,7 @@ const BagItem = ({ item }) => {
                 optimizeImage(item.image, { width: 240, quality: 75 }) ||
                 "/placeholder-image.jpg"
               }
-              alt={item.name}
+              alt={`${item.name} Extended Gaming Deskmat 900x400mm`}
               loading="lazy"
               decoding="async"
               onError={(e) => {
@@ -199,7 +202,7 @@ const BagItem = ({ item }) => {
           <button
             onClick={() => handleQuantityChange("decrement")}
             disabled={isUpdating || actionLoading}
-            className="w-10 aspect-square rounded-full font-medium text-lg text-zinc-500 hover:text-[#0f0f0f] flex justify-center items-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-zinc-100 transition"
+            className="w-10 aspect-square rounded-full font-medium text-lg text-zinc-500 hover:text-[#0f0f0f] flex justify-center items-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-zinc-100 transition cursor-pointer"
           >
             <Icon icon="ic:baseline-minus" />
           </button>
@@ -207,7 +210,7 @@ const BagItem = ({ item }) => {
           <button
             onClick={() => handleQuantityChange("increment")}
             disabled={isUpdating || actionLoading}
-            className="w-10 aspect-square rounded-full font-medium text-lg text-zinc-500 hover:text-[#0f0f0f] flex justify-center items-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-zinc-100 transition"
+            className="w-10 aspect-square rounded-full font-medium text-lg text-zinc-500 hover:text-[#0f0f0f] flex justify-center items-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-zinc-100 transition cursor-pointer"
           >
             <Icon icon="material-symbols:add" />
           </button>
@@ -226,7 +229,7 @@ const BagItem = ({ item }) => {
         <button
           onClick={handleRemove}
           disabled={isUpdating || actionLoading}
-          className="ml-auto text-red-500 hover:text-red-700 font-medium text-sm flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="ml-auto text-red-500 hover:text-red-700 font-medium text-sm flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
           title="Remove item"
         >
           <Icon

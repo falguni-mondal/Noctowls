@@ -1,24 +1,20 @@
 import { Icon } from "@iconify/react/dist/iconify.js";
-import { useEffect } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import toastControls from "../../../utils/global/toastControls";
 
 const MainDets = ({ selectedSize, setselectedSize, dets }) => {
-  const { name, description, category, group, sizes, reviewCount } = dets; // 🔥 NEW: Destructured group
+  const { name, category, sizes, reviewCount } = dets;
   const [price, setPrice] = useState({
     original: "",
     discounted: "",
   });
 
-  // 🔥 NEW: Check if product is Phase-00
-  const isPhase00 = group === "phase-00";
-
   useEffect(() => {
     if (sizes && sizes.length > 0) {
       const selectedSizeData = sizes.find(
-        (size) => size.value === selectedSize,
+        (size) => size.value === selectedSize
       );
 
       if (selectedSizeData) {
@@ -62,78 +58,88 @@ const MainDets = ({ selectedSize, setselectedSize, dets }) => {
   };
 
   return (
-    <div className="product-main-dets mt-5 md:mt-0 px-3 md:px-0">
-      {/* SHARE & BRAND */}
-      <div className="flex justify-between items-center mb-1">
-        <div className="flex flex-col gap-4">
-          <div
-            onClick={handleShare}
-            className="share-icon text-zinc-500 hover:text-[#0f0f0f] cursor-pointer transition-colors hidden lg:flex items-center gap-1 text-xs tracking-wide"
-          >
-            <Icon icon="ic:baseline-share" />
-            <span>Share</span>
-          </div>
-          <p className="brand-name uppercase text-sm font-bold tracking-wide text-red-600">
+    <div className="product-main-dets mt-2 md:mt-0 px-3 md:px-0">
+      {/* COMPACT TOP ROW: BRAND, RATING (IF > 0), & SHARE */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-3">
+          <p className="brand-name uppercase text-xs font-bold tracking-widest text-red-600">
             Noctowls
           </p>
+
+          {reviewCount > 0 && (
+            <div className="product-rating-container flex items-center gap-1.5">
+              <div className="rating-stars flex text-amber-400 text-xs">
+                {["1", "2", "3", "4", "5"].map((_, index) => (
+                  <Icon key={index} icon="material-symbols:star-rounded" />
+                ))}
+              </div>
+              <span className="reviews-count text-[11px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-2">
+                ({reviewCount} {reviewCount === 1 ? "review" : "reviews"})
+              </span>
+            </div>
+          )}
         </div>
+
+        <button
+          type="button"
+          onClick={handleShare}
+          className="share-icon text-zinc-500 hover:text-[#0f0f0f] cursor-pointer transition-colors hidden lg:flex items-center gap-1 text-xs tracking-wide"
+        >
+          <Icon icon="ic:baseline-share" />
+          <span>Share</span>
+        </button>
       </div>
 
       {/* PRODUCT NAME */}
-      <h1 className="product-name text-2xl md:text-4xl uppercase font-bold tracking-wide leading-tight text-[#0f0f0f] mt-1">
+      <h1 className="product-name text-lg sm:text-xl md:text-2xl lg:text-3xl uppercase font-bold tracking-wide leading-snug text-[#0f0f0f] mt-0.5">
         {name}
       </h1>
 
-      {/* REVIEWS */}
-      <div className="product-rating-container flex items-center text-lg gap-2 mt-2">
-        <div className="rating-stars flex text-amber-400 text-sm">
-          {["1", "2", "3", "4", "5"].map((item, index) => (
-            <Icon key={`${index}`} icon="material-symbols:star-rounded" />
-          ))}
-        </div>
-        <div className="reviews-count text-xs font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-2">
-          {`${reviewCount}`} reviews
-        </div>
-      </div>
-
-      {/* PRICE SECTION */}
-      <div className="price-container flex flex-col mt-6 border-b border-zinc-200 pb-6">
-        {/* ORIGINAL PRICE BLOCK */}
-
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-zinc-500 line-through">
-            Rs. {price.original}.00
-          </span>
-          {/* <span className="sale-badge text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-red-600 text-white rounded-xs">
-            Sale
-          </span> */}
-        </div>
-        <div className="price-val mt-1">
-          <span className="text-3xl md:text-4xl font-bold text-[#0f0f0f]">
+      {/* COMPACT INLINE PRICE SECTION */}
+      <div className="price-container flex flex-wrap items-baseline justify-between gap-2 mt-2 border-b border-zinc-200 pb-2.5">
+        <div className="flex items-baseline gap-2.5">
+          <span className="text-xl sm:text-2xl md:text-3xl font-bold text-[#0f0f0f]">
             Rs. {price.discounted}.00
           </span>
+          {price.original && price.original !== price.discounted && (
+            <span className="text-xs sm:text-sm text-zinc-500 line-through">
+              Rs. {price.original}.00
+            </span>
+          )}
         </div>
-        <div className="tax-text-container text-[10px] text-zinc-500 mt-1 uppercase tracking-wide">
-          Tax included.{" "}
+
+        <div className="tax-text-container text-[10px] text-zinc-500 uppercase tracking-wide">
+          Tax included •{" "}
           <Link
             to="/policies/shipping-policy"
-            className="underline hover:text-[#0f0f0f]"
+            className="underline hover:text-[#0f0f0f] font-semibold text-green-700"
           >
             Free shipping
-          </Link>{" "}
-          available.
+          </Link>
         </div>
       </div>
 
-      {/* SIZE SELECTOR */}
-      <div className="size-switcher mt-6">
-        <div className="flex justify-between items-end mb-3">
+      {/* COMPACT SIZE SELECTOR WITH DYNAMIC DIMENSIONS INLINE */}
+      <div className="size-switcher mt-2.5">
+        <div className="flex justify-between items-center mb-1.5">
           <h3 className="size-selection-heading text-xs font-bold text-[#0f0f0f] uppercase tracking-widest">
             Size
           </h3>
+
+          {/* Dynamic Size Dimensions (L: 600x300mm, XL: 800x330mm, XXL: 900x400mm) */}
+          {category?.toLowerCase() === "deskmat" && (
+            <div className="size-details-container text-[11px] text-zinc-600 font-semibold tracking-wide bg-zinc-200/70 px-2.5 py-0.5 rounded-full">
+              {selectedSize?.toLowerCase() === "l" &&
+                "600mm × 300mm (60cm × 30cm) | 3mm"}
+              {selectedSize?.toLowerCase() === "xl" &&
+                "800mm × 330mm (80cm × 33cm) | 3mm"}
+              {selectedSize?.toLowerCase() === "xxl" &&
+                "900mm × 400mm (90cm × 40cm) | 3mm"}
+            </div>
+          )}
         </div>
 
-        <div className="product-sizes flex flex-wrap gap-3">
+        <div className="product-sizes flex flex-wrap gap-2">
           {sizes?.map((sizeObj) => {
             const isInStock = sizeObj.stock > 0;
             const isSelected = selectedSize === sizeObj.value;
@@ -143,14 +149,15 @@ const MainDets = ({ selectedSize, setselectedSize, dets }) => {
                 onClick={() => handleSizeClick(sizeObj.value)}
                 key={`${sizeObj.value}-size-key`}
                 disabled={!isInStock}
-                className={`
-                            px-6 py-2 rounded-full text-xs font-bold uppercase tracking-wider border transition-all duration-200 min-w-[60px]
-                            ${
-                              isInStock
-                                ? `cursor-pointer ${isSelected ? "bg-[#0f0f0f] text-white border-[#0f0f0f]" : "bg-white border-zinc-300 text-[#0f0f0f] hover:border-[#0f0f0f]"}`
-                                : "bg-zinc-100 border-zinc-200 text-zinc-400 cursor-not-allowed line-through"
-                            }
-                        `}
+                className={`px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border transition-all duration-200 min-w-[56px] ${
+                  isInStock
+                    ? `cursor-pointer ${
+                        isSelected
+                          ? "bg-[#0f0f0f] text-white border-[#0f0f0f]"
+                          : "bg-white border-zinc-300 text-[#0f0f0f] hover:border-[#0f0f0f]"
+                      }`
+                    : "bg-zinc-100 border-zinc-200 text-zinc-400 cursor-not-allowed line-through"
+                }`}
               >
                 {sizeObj.label || sizeObj.value}
               </button>
@@ -158,17 +165,8 @@ const MainDets = ({ selectedSize, setselectedSize, dets }) => {
           })}
         </div>
 
-        {/* --- SIZE DETAILS CONTAINER --- */}
-        {category?.toLowerCase() === "deskmat" && (
-          <div className="size-details-container mt-3 text-xs text-zinc-500 font-medium tracking-wide">
-            {selectedSize?.toLowerCase() === "l" && "60cm x 30cm"}
-            {selectedSize?.toLowerCase() === "xl" && "80cm x 33cm"}
-            {selectedSize?.toLowerCase() === "xxl" && "90cm x 40cm"}
-          </div>
-        )}
-
         {!isSizeInStock(selectedSize) && (
-          <p className="text-red-600 text-xs mt-3 font-bold uppercase tracking-wide flex items-center gap-1">
+          <p className="text-red-600 text-xs mt-1.5 font-bold uppercase tracking-wide flex items-center gap-1">
             <Icon icon="mdi:close-circle" /> Out of stock
           </p>
         )}

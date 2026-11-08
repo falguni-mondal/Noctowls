@@ -13,6 +13,7 @@ import ReviewModal from "../components/product/product-review/ReviewModal";
 import ProductSpecs from "../components/product/product-specs/ProductSpecs";
 import BestSelling from "../components/product/best-selling/BestSelling";
 import RecentlyViewed from "../components/product/recently-viewed/RecentlyViewed";
+import CartDrawer from "../components/bag/CartDrawer";
 import { addToRecentlyViewed } from "../utils/helpers/recentlyViewedHelper";
 import { optimizeImage } from "../utils/helpers/imageOptimizer";
 
@@ -47,6 +48,20 @@ import toastControls from "../utils/global/toastControls";
 
 // IMPORT PIXEL TRACKING
 import { trackEvent } from "../utils/pixel/pixel";
+
+const GLOBAL_DEFAULT_TITLE =
+  "Buy Premium Gaming Deskmats & Mousepads India | Noctowls";
+
+const upsertMetaTag = (attrName, attrValue, content) => {
+  if (typeof document === "undefined" || !content) return;
+  let element = document.head.querySelector(`meta[${attrName}="${attrValue}"]`);
+  if (!element) {
+    element = document.createElement("meta");
+    element.setAttribute(attrName, attrValue);
+    document.head.appendChild(element);
+  }
+  element.setAttribute("content", content);
+};
 
 const Productpage = () => {
   const [selectedSize, setselectedSize] = useState("l");
@@ -236,6 +251,108 @@ const Productpage = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const currentSizeData = product?.sizes?.find((s) => s.value === selectedSize);
+  const isSizeInStock = Boolean(currentSizeData && currentSizeData.stock > 0);
+
+  // Dynamic SEO Title, OpenGraph Meta Tags & Product JSON-LD Schema
+  const productJsonLd = useMemo(() => {
+    if (!product) return null;
+    const activeSize = currentSizeData || product.sizes?.[0] || {};
+    const numericPrice =
+      activeSize.numPrice ??
+      (Number(String(activeSize.price || "0").replace(/,/g, "")) || 0);
+    const inStockState =
+      activeSize.stock !== undefined
+        ? activeSize.stock > 0
+        : Boolean(product.inStock);
+
+    const schema = {
+      "@context": "https://schema.org/",
+      "@type": "Product",
+      name: product.name,
+      image: Array.isArray(product.images)
+        ? product.images.map((img) => img.url).filter(Boolean)
+        : [],
+      description:
+        product.description ||
+        `${product.name} Extended Gaming Deskmat 900x400mm | 3mm Heavy Density by Noctowls.`,
+      sku: activeSize.skuCode || String(product.id || productId),
+      brand: {
+        "@type": "Brand",
+        name: "Noctowls",
+      },
+      offers: {
+        "@type": "Offer",
+        url:
+          typeof window !== "undefined"
+            ? window.location.href
+            : `https://noctowls.com/products/${product.id || productId}`,
+        priceCurrency: "INR",
+        price: String(numericPrice),
+        availability: inStockState
+          ? "https://schema.org/InStock"
+          : "https://schema.org/OutOfStock",
+        itemCondition: "https://schema.org/NewCondition",
+      },
+    };
+
+    if (product.rating?.count > 0) {
+      schema.aggregateRating = {
+        "@type": "AggregateRating",
+        ratingValue: String(product.rating.average || 5),
+        reviewCount: String(product.rating.count),
+      };
+    }
+
+    return schema;
+  }, [product, currentSizeData, productId]);
+
+  useEffect(() => {
+    if (!product) return;
+    const activeSize = currentSizeData || product.sizes?.[0] || {};
+    const numericPrice = activeSize.numPrice ?? 0;
+    const inStockState =
+      activeSize.stock !== undefined
+        ? activeSize.stock > 0
+        : Boolean(product.inStock);
+
+    const pageTitle = `${product.name} | ${GLOBAL_DEFAULT_TITLE}`;
+    document.title = pageTitle;
+
+    const primaryImageUrl =
+      product.images?.[0]?.url || "https://noctowls.com/seo/noctowls-banner.png";
+    const pageUrl =
+      typeof window !== "undefined"
+        ? window.location.href
+        : `https://noctowls.com/products/${product.id || productId}`;
+
+    upsertMetaTag("property", "og:title", pageTitle);
+    upsertMetaTag(
+      "property",
+      "og:description",
+      product.description ||
+        `${product.name} Extended Gaming Deskmat 900x400mm | 3mm Heavy Density.`
+    );
+    upsertMetaTag("property", "og:image", primaryImageUrl);
+    upsertMetaTag("property", "og:url", pageUrl);
+    upsertMetaTag("property", "og:type", "product");
+    upsertMetaTag("property", "product:price:amount", String(numericPrice));
+    upsertMetaTag("property", "product:price:currency", "INR");
+    upsertMetaTag(
+      "property",
+      "product:availability",
+      inStockState ? "in stock" : "out of stock"
+    );
+    upsertMetaTag("name", "twitter:title", pageTitle);
+    upsertMetaTag("name", "twitter:image", primaryImageUrl);
+
+    return () => {
+      document.title = GLOBAL_DEFAULT_TITLE;
+      upsertMetaTag("property", "og:title", GLOBAL_DEFAULT_TITLE);
+      upsertMetaTag("property", "og:type", "website");
+    };
+  }, [product, currentSizeData, productId]);
+
   const validateStock = useCallback(
     (newQuantity, size) => {
       if (validationTimerRef.current) {
@@ -284,19 +401,19 @@ const Productpage = () => {
       return false;
     }
     return cart.items.some((item) => {
-      const itemProductId = item.product?._id || item.product;
-      const currentId = product?.id || productId;
+      if (item.isFreeGift) return false;
+      const itemProductId = String(
+        item.product?._id || item.product?.id || item.product || ""
+      );
+      const currentId = String(product?.id || productId);
       return (
         itemProductId === currentId &&
-        item.size?.value.toLowerCase() === selectedSize?.toLowerCase()
+        item.size?.value?.toLowerCase() === selectedSize?.toLowerCase()
       );
     });
   }, [cart, productId, selectedSize, product]);
 
   const isInCart = isProductInCart();
-
-  const currentSizeData = product?.sizes?.find((s) => s.value === selectedSize);
-  const isSizeInStock = currentSizeData && currentSizeData.stock > 0;
 
   const canPurchase =
     isSizeInStock &&
@@ -305,10 +422,6 @@ const Productpage = () => {
     !isAdmin;
 
   const addToCartHandler = async () => {
-    if (isInCart) {
-      toast.info("This item is already in your cart!", toastControls);
-      return;
-    }
     if (!canPurchase || cartActionLoading) return;
 
     try {
@@ -330,8 +443,6 @@ const Productpage = () => {
         currency: "INR",
         contents: [{ id: product.id, quantity: quantity }],
       });
-
-      toast.success("Added to cart!", toastControls);
     } catch (error) {
       toast.error(error || "Failed to add!", toastControls);
     }
@@ -435,6 +546,7 @@ const Productpage = () => {
   } = product;
 
   const isPhase00 = group === "phase-00";
+  const seoAltText = `${name} Extended Gaming Deskmat 900x400mm`;
 
   const handleShare = async () => {
     const url = window.location.href;
@@ -456,6 +568,14 @@ const Productpage = () => {
 
   return (
     <div className="product-page-wrapper pb-10 bg-[#f4f4f4] min-h-screen text-[#0f0f0f] font-sans">
+      {/* Inject Product JSON-LD Schema with price, in-stock state, and INR currency */}
+      {productJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+        />
+      )}
+
       {isReviewModalOpen && (
         <ReviewModal
           productId={product?.id || productId}
@@ -482,23 +602,23 @@ const Productpage = () => {
         </div>
       )}
 
-      {/* MAIN CONTENT SECTION */}
-      <div className="lg:flex lg:gap-10 xl:gap-14 relative max-w-[1600px] mx-auto md:px-8 lg:px-12 xl:px-16 md:py-10">
+      {/* MAIN CONTENT SECTION (Optimized padding so Add to Cart & Buy Now sit above the fold) */}
+      <div className="lg:flex lg:gap-8 xl:gap-12 relative max-w-[1600px] mx-auto md:px-8 lg:px-12 xl:px-16 md:py-5">
         {/* LEFT: IMAGES (Conditionally mounted so mobile & desktop trees never double-download) */}
-        <div className="product-left-col w-full lg:w-[60%]">
+        <div className="product-left-col w-full lg:w-[58%]">
           {!isDesktop ? (
             <div className="relative">
-              <ImageSlider images={images} />
+              <ImageSlider images={images} productName={name} />
               <div
                 onClick={handleShare}
-                className="product-link-share-btn absolute top-4 right-4 z-20 w-10 aspect-square rounded-full bg-white/80 backdrop-blur-md shadow-sm border border-zinc-200 flex justify-center items-center text-[#0f0f0f] text-lg cursor-pointer"
+                className="product-link-share-btn absolute top-3 right-3 z-20 w-9 aspect-square rounded-full bg-white/80 backdrop-blur-md shadow-sm border border-zinc-200 flex justify-center items-center text-[#0f0f0f] text-base cursor-pointer"
               >
                 <Icon icon="ic:baseline-share" />
               </div>
 
               <div
                 onClick={handleWishlistToggle}
-                className={`absolute top-4 left-4 z-20 w-10 aspect-square rounded-full flex justify-center items-center text-lg shadow-sm cursor-pointer border border-zinc-200 backdrop-blur-md ${
+                className={`absolute top-3 left-3 z-20 w-9 aspect-square rounded-full flex justify-center items-center text-base shadow-sm cursor-pointer border border-zinc-200 backdrop-blur-md ${
                   isInWishlist
                     ? "bg-red-600 text-white border-red-600"
                     : "bg-white/80 text-[#0f0f0f]"
@@ -526,16 +646,16 @@ const Productpage = () => {
                           width: 1000,
                           quality: 82,
                         })}
-                        alt={`${name}-${idx}`}
+                        alt={seoAltText}
                         fetchPriority="high"
                         decoding="async"
-                        className="w-full h-auto object-cover"
+                        className="w-full h-auto max-h-[68vh] object-cover"
                       />
 
                       <div
                         onClick={handleWishlistToggle}
                         onMouseMove={(e) => e.stopPropagation()}
-                        className={`absolute top-6 left-6 z-20 w-12 aspect-square rounded-full flex justify-center items-center text-2xl cursor-pointer shadow-sm transition border border-zinc-200 backdrop-blur-md ${
+                        className={`absolute top-5 left-5 z-20 w-11 aspect-square rounded-full flex justify-center items-center text-xl cursor-pointer shadow-sm transition border border-zinc-200 backdrop-blur-md ${
                           isInWishlist
                             ? "bg-red-600 text-white border-red-600"
                             : "bg-white/80 text-[#0f0f0f] hover:bg-white"
@@ -563,7 +683,7 @@ const Productpage = () => {
                   >
                     <img
                       src={optimizeImage(img.url, { width: 600, quality: 80 })}
-                      alt={`detail-${idx}`}
+                      alt={seoAltText}
                       loading="lazy"
                       decoding="async"
                       className="w-full h-full object-cover"
@@ -575,12 +695,12 @@ const Productpage = () => {
           )}
         </div>
 
-        {/* RIGHT: DETAILS */}
+        {/* RIGHT: DETAILS (Compact above-the-fold layout so Add to Cart & Buy Now are visible immediately) */}
         <div
           ref={rightColRef}
-          className="product-right-col w-full lg:w-[40%] md:pt-0 relative"
+          className="product-right-col w-full lg:w-[42%] md:pt-0 relative"
         >
-          <div className="sticky top-24 h-fit pb-10">
+          <div className="sticky top-20 h-fit pb-6">
             <div className="product-dets-container">
               <MainDets
                 selectedSize={selectedSize}
@@ -602,49 +722,55 @@ const Productpage = () => {
                 isValidating={stockValidation.loading}
               />
 
-              <div className="product-page-btns px-3 md:px-0 mt-6 space-y-3">
-                <button
-                  onClick={addToCartHandler}
-                  disabled={!canPurchase || cartActionLoading || isInCart}
-                  className={`product-add-to-cart-btn w-full py-4 text-center rounded-sm uppercase text-sm font-bold tracking-widest transition-all relative ${
-                    isInCart
-                      ? "bg-white text-[#0f0f0f] border border-zinc-300 cursor-pointer"
-                      : canPurchase && !cartActionLoading
-                      ? "bg-[#0f0f0f] text-white hover:bg-zinc-800 shadow-lg shadow-black/10"
-                      : "bg-zinc-200 text-zinc-500 cursor-not-allowed"
-                  }`}
-                >
-                  {cartActionLoading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <Icon icon="eos-icons:loading" className="text-lg" />{" "}
-                      Adding...
-                    </span>
-                  ) : isInCart ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <Icon icon="mdi:check-circle" className="text-lg" /> Added
-                      to Cart
-                    </span>
-                  ) : (
-                    "Add to Cart"
-                  )}
-                </button>
+              {/* ACTION BUTTONS CONTAINER WITH NON-BLOCKING SLIDE-UP OFFER BAR ON TOP */}
+              <div className="product-page-btns px-3 md:px-0 mt-3 space-y-2.5">
+                {/* Inline Slide-Up Offer Bar directly on top of Action Buttons */}
+                <CartDrawer />
 
-                <button
-                  onClick={buyNowHandler}
-                  disabled={!canPurchase || cartActionLoading}
-                  className={`product-buy-btn w-full py-4 text-center rounded-sm uppercase text-sm font-bold tracking-widest transition-all ${
-                    canPurchase && !cartActionLoading
-                      ? "bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-600/20 cursor-pointer"
-                      : "bg-zinc-200 text-zinc-500 cursor-not-allowed"
-                  }`}
-                >
-                  {cartActionLoading ? "Processing..." : "Buy Now"}
-                </button>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    onClick={addToCartHandler}
+                    disabled={!canPurchase || cartActionLoading}
+                    className={`product-add-to-cart-btn w-full py-3.5 px-3 text-center rounded-md uppercase text-xs sm:text-sm font-bold tracking-wider transition-all relative ${
+                      isInCart
+                        ? "bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer shadow-md"
+                        : canPurchase && !cartActionLoading
+                        ? "bg-[#0f0f0f] text-white hover:bg-zinc-800 shadow-md shadow-black/10 cursor-pointer"
+                        : "bg-zinc-200 text-zinc-500 cursor-not-allowed"
+                    }`}
+                  >
+                    {cartActionLoading ? (
+                      <span className="flex items-center justify-center gap-1.5">
+                        <Icon icon="eos-icons:loading" className="text-base" />
+                        Adding...
+                      </span>
+                    ) : isInCart ? (
+                      <span className="flex items-center justify-center gap-1.5">
+                        <Icon icon="mdi:check-circle" className="text-base" />
+                        Added
+                      </span>
+                    ) : (
+                      "Add to Cart"
+                    )}
+                  </button>
+
+                  <button
+                    onClick={buyNowHandler}
+                    disabled={!canPurchase || cartActionLoading}
+                    className={`product-buy-btn w-full py-3.5 px-3 text-center rounded-md uppercase text-xs sm:text-sm font-bold tracking-wider transition-all ${
+                      canPurchase && !cartActionLoading
+                        ? "bg-red-600 text-white hover:bg-red-700 shadow-md shadow-red-600/20 cursor-pointer"
+                        : "bg-zinc-200 text-zinc-500 cursor-not-allowed"
+                    }`}
+                  >
+                    {cartActionLoading ? "Processing..." : "Buy Now"}
+                  </button>
+                </div>
 
                 <button
                   onClick={handleWishlistToggle}
                   disabled={wishlistActionLoading || !isLoggedInUser}
-                  className={`w-full py-4 text-center rounded-[3px] uppercase text-sm font-semibold transition-all border ${
+                  className={`w-full py-2.5 text-center rounded-md uppercase text-xs font-semibold transition-all border ${
                     isInWishlist
                       ? "bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-200"
                       : "bg-white border-purple-200 text-purple-600 hover:bg-purple-50"
@@ -656,7 +782,7 @@ const Productpage = () => {
                 >
                   {wishlistActionLoading ? (
                     <>
-                      <Icon icon="eos-icons:loading" className="text-lg" />{" "}
+                      <Icon icon="eos-icons:loading" className="text-base" />{" "}
                       {isInWishlist ? "Removing..." : "Adding..."}
                     </>
                   ) : (
@@ -665,7 +791,7 @@ const Productpage = () => {
                         icon={
                           isInWishlist ? "mdi:heart" : "mdi:heart-outline"
                         }
-                        className="text-lg"
+                        className="text-base"
                       />{" "}
                       {isInWishlist
                         ? "Remove from Wishlist"
@@ -675,7 +801,7 @@ const Productpage = () => {
                 </button>
 
                 {!isLoggedInUser && (
-                  <p className="text-xs text-center text-zinc-500 mt-2">
+                  <p className="text-[11px] text-center text-zinc-500">
                     <Link
                       to="/account/signin"
                       className="text-[#0f0f0f] hover:text-red-600 underline font-medium"
@@ -687,18 +813,18 @@ const Productpage = () => {
                 )}
               </div>
 
-              <div className="product-extra-dets md:mt-8">
+              <div className="product-extra-dets mt-5">
                 <DeliveryTimeline />
-                <div className="offer-banner px-3 md:px-0 mt-6">
+                <div className="offer-banner px-3 md:px-0 mt-5">
                   <img
                     className="w-full aspect-auto rounded-md"
                     src={offerImg}
-                    alt="Offers.png"
+                    alt="Noctowls Free Gift Offers"
                     loading="lazy"
                     decoding="async"
                   />
                 </div>
-                <div className="size-warning-banner mt-5 mx-3 md:mx-0 p-4 bg-amber-400 rounded-md text-black text-sm font-bold leading-snug shadow-md border border-amber-500">
+                <div className="size-warning-banner mt-4 mx-3 md:mx-0 p-3.5 bg-amber-400 rounded-md text-black text-xs sm:text-sm font-bold leading-snug shadow-md border border-amber-500">
                   please choose the size carefully as our return policy does{" "}
                   <Link
                     to="/return-policy"
@@ -728,19 +854,21 @@ const Productpage = () => {
               <span className="text-6xl font-bold text-[#0f0f0f] tracking-tighter">
                 {rating?.average?.toFixed(1) || "0.0"}
               </span>
-              <div className="flex text-red-600 text-lg my-1">
-                {[...Array(5)].map((_, i) => (
-                  <Icon
-                    key={i}
-                    icon="material-symbols:star-rounded"
-                    className={
-                      i >= Math.round(rating?.average || 0)
-                        ? "text-zinc-300"
-                        : ""
-                    }
-                  />
-                ))}
-              </div>
+              {(rating?.count || 0) > 0 && (
+                <div className="flex text-red-600 text-lg my-1">
+                  {[...Array(5)].map((_, i) => (
+                    <Icon
+                      key={i}
+                      icon="material-symbols:star-rounded"
+                      className={
+                        i >= Math.round(rating?.average || 0)
+                          ? "text-zinc-300"
+                          : ""
+                      }
+                    />
+                  ))}
+                </div>
+              )}
               <span className="text-sm font-bold text-zinc-500">
                 {rating?.count || 0} reviews
               </span>
@@ -897,7 +1025,7 @@ const Productpage = () => {
                       width: idx === 0 ? 1000 : 600,
                       quality: 80,
                     })}
-                    alt="Highlight"
+                    alt={seoAltText}
                     loading="lazy"
                     decoding="async"
                   />

@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { getCart, selectCart, selectCartLoading, selectCartError } from '../store/features/user/cartSlice';
 import BagItem from '../components/bag/BagItem';
 import BagGiftItem from '../components/bag/BagGiftItem';
+import { getGamifiedThresholdState } from '../components/bag/CartDrawer';
 import Loader from '../utils/loader/Loader';
 import { Link, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react/dist/iconify.js';
@@ -58,6 +59,10 @@ const Bagpage = () => {
 
   // Filter purchased items
   const purchasedItems = cart?.items?.filter(item => !item.isFreeGift) || [];
+  const totalQuantity =
+    cart?.summary?.totalQuantity ??
+    purchasedItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  const thresholdState = getGamifiedThresholdState(totalQuantity);
 
   // Convert freeGifts.gifts array to items format
   const freeGiftItems = cart?.freeGifts?.eligible && cart?.freeGifts?.gifts?.length > 0
@@ -159,7 +164,40 @@ const Bagpage = () => {
             
             {/* --- LEFT COLUMN: ITEMS --- */}
             <div className="w-full lg:w-2/3 space-y-8">
-              
+              {/* Gamified Tiered Progress Bar */}
+              <div className="bg-zinc-950 text-white rounded-xl p-5 border border-zinc-800 shadow-md">
+                <div className="flex items-center justify-between gap-3 mb-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <Icon icon="solar:gift-bold" className="text-red-500 text-xl shrink-0" />
+                    <p className="text-sm md:text-base font-bold text-zinc-100">
+                      {thresholdState.message}
+                    </p>
+                  </div>
+                  <span className="text-xs font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded bg-red-600/20 text-red-400 border border-red-500/30 shrink-0">
+                    {thresholdState.progress}%
+                  </span>
+                </div>
+
+                <div className="w-full h-3 bg-zinc-800 rounded-full overflow-hidden p-0.5 border border-zinc-700">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-red-600 via-amber-500 to-green-500 transition-all duration-500 ease-out"
+                    style={{ width: `${thresholdState.progress}%` }}
+                  />
+                </div>
+
+                <div className="flex justify-between items-center text-[11px] font-semibold text-zinc-400 mt-2">
+                  <span className={totalQuantity >= 1 ? "text-green-400 font-bold" : ""}>
+                    1 Mat: Keychain
+                  </span>
+                  <span className={totalQuantity >= 2 ? "text-green-400 font-bold" : ""}>
+                    2 Mats: ₹300 Anime Figure (50%)
+                  </span>
+                  <span className={totalQuantity >= 3 ? "text-green-400 font-bold" : ""}>
+                    3 Mats: ₹600 Metal Katana (100%)
+                  </span>
+                </div>
+              </div>
+
               {/* Purchased Items */}
               <section id="bag-items-collection-container">
                 <ul className="bag-items-collection space-y-6">
@@ -191,40 +229,6 @@ const Bagpage = () => {
                     ))}
                   </ul>
                 </section>
-              )}
-
-              {/* Next Tier Info - Light theme pastel box */}
-              {cart?.freeGifts?.eligible && cart?.nextTierInfo && cart.nextTierInfo.itemsNeeded > 0 && (
-                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-5">
-                  <div className="flex items-start gap-4">
-                    <Icon icon="solar:star-bold-duotone" className="text-indigo-500 text-2xl mt-0.5 shrink-0" />
-                    <div>
-                      <p className="text-indigo-700 font-bold mb-1 uppercase text-sm tracking-wider">
-                        Unlock More Free Gifts!
-                      </p>
-                      <p className="text-indigo-600 text-sm leading-relaxed">
-                        {cart.nextTierInfo.message}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* No free gifts yet - Light theme warm box */}
-              {!cart?.freeGifts?.eligible && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-5">
-                  <div className="flex items-start gap-4">
-                    <Icon icon="solar:gift-linear" className="text-amber-500 text-2xl mt-0.5 shrink-0" />
-                    <div>
-                      <p className="text-amber-700 font-bold mb-1 uppercase text-sm tracking-wider">
-                        Get Free Gifts!
-                      </p>
-                      <p className="text-amber-600 text-sm leading-relaxed">
-                        Add items to your cart to unlock amazing free gifts!
-                      </p>
-                    </div>
-                  </div>
-                </div>
               )}
             </div>
 

@@ -42,7 +42,7 @@ const CookiePolicy = () => {
             <div className="text-zinc-600 text-sm space-y-1">
               <p>2nd floor, Arushi complex, ITI Aambagan, Muchipara</p>
               <p>Durgapur, West Bengal 713212, India</p>
-              <p className="pt-1 font-medium">Phone: <span className="text-[#0f0f0f]">8348341112</span></p>
+              <p className="pt-1 font-medium">Phone: <span className="text-[#0f0f0f]">8348341116</span></p>
             </div>
           </div>
         </div>

@@ -29,7 +29,7 @@ const TermsOfService = () => {
         </p>
 
         <p>
-          You can contact us by phone at <strong className="text-[#0f0f0f]">+918348341112</strong>, email at <a href="mailto:help.noctowls@gmail.com" className="text-red-600 font-bold hover:underline">help.noctowls@gmail.com</a>, or by mail to <strong className="text-[#0f0f0f]">2nd floor, Arushi complex, ITI Aambagan, Muchipara, Durgapur, West Bengal 713212, India</strong>.
+          You can contact us by phone at <strong className="text-[#0f0f0f]">+918348341116</strong>, email at <a href="mailto:help.noctowls@gmail.com" className="text-red-600 font-bold hover:underline">help.noctowls@gmail.com</a>, or by mail to <strong className="text-[#0f0f0f]">2nd floor, Arushi complex, ITI Aambagan, Muchipara, Durgapur, West Bengal 713212, India</strong>.
         </p>
 
         <p>
@@ -376,7 +376,7 @@ const TermsOfService = () => {
           <p className="mb-4">Please be aware that message and data rates may apply to any SMS messages sent or received. The rates are determined by your carrier and the specifics of your mobile plan.</p>
           
           <h3 className="text-lg font-bold text-[#0f0f0f] mb-2">Support</h3>
-          <p>If you have any questions or need assistance regarding our SMS communications, please email us at <a href="mailto:help.noctowls@gmail.com" className="text-red-600 font-bold hover:underline">help.noctowls@gmail.com</a> or call +918348341112.</p>
+          <p>If you have any questions or need assistance regarding our SMS communications, please email us at <a href="mailto:help.noctowls@gmail.com" className="text-red-600 font-bold hover:underline">help.noctowls@gmail.com</a> or call +918348341116.</p>
         </section>
 
         {/* 28. Miscellaneous */}
@@ -418,7 +418,7 @@ const TermsOfService = () => {
               </div>
               <div>
                 <span className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">Phone</span>
-                <span className="text-[#0f0f0f] font-bold text-base">+91 83483 41112</span>
+                <span className="text-[#0f0f0f] font-bold text-base">+91 83483 41116</span>
               </div>
               <div>
                 <span className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">Email</span>

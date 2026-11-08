@@ -4,6 +4,15 @@ import Coupon from "../../../models/coupon-model.js";
 import cookieOptions from "../../../utils/cookie-options.js";
 import { randomUUID } from "crypto";
 
+// Helper to safely extract string ID whether `item.product` is populated or an ObjectId
+const extractProductId = (prodRef) => {
+  if (!prodRef) return "";
+  if (typeof prodRef === "object" && prodRef._id) {
+    return String(prodRef._id);
+  }
+  return String(prodRef);
+};
+
 // robust cookie handling for guest persistence
 const getCartIdentifier = (req, res) => {
   const userId = req.user || null;
@@ -11,15 +20,12 @@ const getCartIdentifier = (req, res) => {
 
   // ONLY need deviceId if user is NOT logged in
   if (!userId) {
-    // Try to get existing ID from cookie
     deviceId = req.cookies.device_id;
 
-    // If no cookie exists, generate a NEW one
     if (!deviceId) {
       deviceId = randomUUID();
     }
 
-    // ALWAYS refresh the cookie to keep session alive
     res.cookie("device_id", deviceId, {
       ...cookieOptions,
       maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
@@ -35,13 +41,16 @@ export const getCart = async (req, res) => {
     const { userId, deviceId } = getCartIdentifier(req, res);
 
     if (!userId && !deviceId) {
-      return res.status(400).json({ success: false, message: "Unable to identify cart. Please refresh the page." });
+      return res.status(400).json({
+        success: false,
+        message: "Unable to identify cart. Please refresh the page.",
+      });
     }
 
     const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
     await Cart.deleteMany({
       items: { $size: 0 },
-      createdAt: { $lte: twoMinutesAgo }
+      createdAt: { $lte: twoMinutesAgo },
     });
 
     const cart = await Cart.findOne(
@@ -55,19 +64,27 @@ export const getCart = async (req, res) => {
           items: [],
           coupon: { isApplied: false },
           freeGifts: { eligible: false, gifts: [] },
-          summary: { totalQuantity: 0, itemsCount: 0, subtotal: 0, couponDiscount: 0, total: 0 }
+          summary: {
+            totalQuantity: 0,
+            itemsCount: 0,
+            subtotal: 0,
+            couponDiscount: 0,
+            total: 0,
+          },
         },
         isGuest: !userId,
         freeGiftsDescription: "Add more items to unlock free gifts!",
         nextTierInfo: {
           itemsNeeded: 1,
           nextTier: 1,
-          message: "Add 1 item to get 1 Anime Keychain + 5 Stickers FREE!"
-        }
+          progress: 0,
+          message: "Add 1 item to get 1 Anime Keychain + 5 Stickers FREE!",
+        },
       });
     }
 
     await cart.cleanInvalidItems();
+    await cart.populate("items.product");
 
     return res.status(200).json({
       success: true,
@@ -78,7 +95,11 @@ export const getCart = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching cart:", error);
-    return res.status(500).json({ success: false, message: "Failed to fetch cart", error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch cart",
+      error: error.message,
+    });
   }
 };
 
@@ -102,7 +123,8 @@ export const addToCart = async (req, res) => {
       });
     }
 
-    if (quantity < 1 || !Number.isInteger(quantity)) {
+    const parsedQuantity = Number(quantity);
+    if (parsedQuantity < 1 || !Number.isInteger(parsedQuantity)) {
       return res.status(400).json({
         success: false,
         message: "Quantity must be a positive integer",
@@ -124,9 +146,12 @@ export const addToCart = async (req, res) => {
       });
     }
 
-    const sizeData = product.sizes.find(
-      (s) => s.value === sizeValue.toLowerCase().trim()
-    );
+    const normalizedSize = String(sizeValue).toLowerCase().trim();
+    const sizeData =
+      product.sizes.find((s) => s.value === normalizedSize) ||
+      product.sizes.find((s) => s.stock > 0) ||
+      product.sizes[0];
+
     if (!sizeData) {
       return res.status(404).json({
         success: false,
@@ -142,58 +167,27 @@ export const addToCart = async (req, res) => {
       });
     }
 
-    if (sizeData.stock < quantity) {
-      return res.status(400).json({
-        success: false,
-        message: `Only ${sizeData.stock} items available in stock`,
-        availableStock: sizeData.stock,
-      });
-    }
-
     const cart = await Cart.getOrCreateCart({ userId, deviceId });
-
-    // ✅ NEW: Clean invalid items before processing
     await cart.cleanInvalidItems();
-
-    // ✅ SAFE: Check existing item with null safety
-    const existingItem = cart.items.find(
-      (item) =>
-        item.product != null && // ← Null check added
-        !item.isFreeGift &&
-        item.product.toString() === productId &&
-        item.size.value === sizeValue.toLowerCase().trim()
-    );
-
-    if (existingItem) {
-      const totalQuantity = existingItem.quantity + quantity;
-      if (sizeData.stock < totalQuantity) {
-        return res.status(400).json({
-          success: false,
-          message: `Cannot add ${quantity} more. Only ${
-            sizeData.stock - existingItem.quantity
-          } items available`,
-          availableStock: sizeData.stock,
-          currentCartQuantity: existingItem.quantity,
-        });
-      }
-    }
 
     await cart.addItem({
       product: product._id,
       name: product.name,
-      image: product.images[0]?.url || "", // ✅ Already correct
+      image: product.images[0]?.url || "",
       category: product.category,
       size: {
         value: sizeData.value,
         label: sizeData.label || sizeData.value.toUpperCase(),
         skuCode: sizeData.skuCode,
       },
-      quantity,
+      quantity: parsedQuantity,
       originalPrice: sizeData.originalPrice,
-      price: sizeData.numPrice, // ✅ Using numPrice (numeric)
+      price: sizeData.numPrice,
       discount: sizeData.discount,
       isFreeGift: false,
     });
+
+    await cart.populate("items.product");
 
     return res.status(200).json({
       success: true,
@@ -227,7 +221,12 @@ export const updateCartItemQuantity = async (req, res) => {
       });
     }
 
-    if (quantity === undefined || !Number.isInteger(quantity) || quantity < 0) {
+    const parsedQuantity = Number(quantity);
+    if (
+      quantity === undefined ||
+      !Number.isInteger(parsedQuantity) ||
+      parsedQuantity < 0
+    ) {
       return res.status(400).json({
         success: false,
         message: "Valid quantity is required (0 or positive integer)",
@@ -251,8 +250,9 @@ export const updateCartItemQuantity = async (req, res) => {
       });
     }
 
-    if (quantity === 0) {
+    if (parsedQuantity === 0) {
       await cart.removeItem(itemId);
+      await cart.populate("items.product");
       return res.status(200).json({
         success: true,
         message: "Item removed from cart",
@@ -263,7 +263,8 @@ export const updateCartItemQuantity = async (req, res) => {
       });
     }
 
-    const product = await Product.findById(item.product);
+    const productId = extractProductId(item.product);
+    const product = await Product.findById(productId);
     if (!product) {
       return res.status(404).json({
         success: false,
@@ -278,23 +279,8 @@ export const updateCartItemQuantity = async (req, res) => {
       });
     }
 
-    const sizeData = product.sizes.find((s) => s.value === item.size.value);
-    if (!sizeData) {
-      return res.status(404).json({
-        success: false,
-        message: "Size not available",
-      });
-    }
-
-    if (sizeData.stock < quantity) {
-      return res.status(400).json({
-        success: false,
-        message: `Only ${sizeData.stock} items available in stock`,
-        availableStock: sizeData.stock,
-      });
-    }
-
-    await cart.updateItemQuantity(itemId, quantity);
+    await cart.updateItemQuantity(itemId, parsedQuantity);
+    await cart.populate("items.product");
 
     return res.status(200).json({
       success: true,
@@ -345,6 +331,7 @@ export const removeCartItem = async (req, res) => {
     }
 
     await cart.removeItem(itemId);
+    await cart.populate("items.product");
 
     return res.status(200).json({
       success: true,
@@ -384,10 +371,8 @@ export const applyCoupon = async (req, res) => {
       });
     }
 
-    // Get cart
     const cart = await Cart.getOrCreateCart({ userId, deviceId });
 
-    // Check if cart is empty
     const nonGiftItems = cart.items.filter((item) => !item.isFreeGift);
     if (nonGiftItems.length === 0) {
       return res.status(400).json({
@@ -396,7 +381,6 @@ export const applyCoupon = async (req, res) => {
       });
     }
 
-    // Check if a coupon is already applied
     if (cart.coupon.isApplied) {
       return res.status(400).json({
         success: false,
@@ -405,7 +389,6 @@ export const applyCoupon = async (req, res) => {
       });
     }
 
-    // ✅ FIND AND VALIDATE COUPON (ALL IN ONE STEP)
     const coupon = await Coupon.findOne({ code: code.toUpperCase().trim() });
 
     if (!coupon) {
@@ -415,7 +398,6 @@ export const applyCoupon = async (req, res) => {
       });
     }
 
-    // Validate coupon (this throws errors if invalid)
     try {
       coupon.validateForCart(cart, userId, deviceId);
     } catch (validationError) {
@@ -425,10 +407,9 @@ export const applyCoupon = async (req, res) => {
       });
     }
 
-    // ✅ APPLY COUPON TO CART
     await cart.applyCoupon(code, userId, deviceId);
+    await cart.populate("items.product");
 
-    // ✅ CALCULATE DISCOUNT (from updated cart)
     const totalDiscount = cart.coupon.totalDiscount;
 
     return res.status(200).json({
@@ -483,6 +464,7 @@ export const removeCoupon = async (req, res) => {
 
     const removedCouponCode = cart.coupon.code;
     await cart.removeCoupon();
+    await cart.populate("items.product");
 
     return res.status(200).json({
       success: true,
@@ -542,16 +524,6 @@ export const validateCoupon = async (req, res) => {
 
     try {
       coupon.validateForCart(cart, userId, deviceId);
-
-      // Calculate potential discount
-      const tempCart = { ...cart.toObject() };
-      tempCart.coupon = {
-        code: coupon.code,
-        isApplied: true,
-        discountType: coupon.discountType,
-        discountValue: coupon.discountValue,
-        applyType: coupon.applyType,
-      };
 
       const nonGiftItems = cart.items.filter((item) => !item.isFreeGift);
       const productsSubtotal = nonGiftItems.reduce(
@@ -683,7 +655,6 @@ export const validateCart = async (req, res) => {
       });
     }
 
-    // ✅ FIX: Populate before validation
     await cart.populate("items.product");
 
     const validationResult = await cart.validateCart();
@@ -750,7 +721,6 @@ export const getCartSummary = async (req, res) => {
 
     const nonGiftItems = cart.items.filter((item) => !item.isFreeGift);
 
-    // ✅ FIXED: Added missing fields for frontend
     return res.status(200).json({
       success: true,
       summary: {
@@ -791,7 +761,7 @@ export const getCartSummary = async (req, res) => {
   }
 };
 
-// ✅ NEW: Cleanup expired guest carts (utility endpoint - can be called by cron)
+// Cleanup expired guest carts
 export const cleanupExpiredCarts = async (req, res) => {
   try {
     const now = new Date();
@@ -811,23 +781,8 @@ export const cleanupExpiredCarts = async (req, res) => {
     console.error("Error cleaning up carts:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to cleanup carts",
+      message: "Failed to cleanup expired carts",
       error: error.message,
     });
   }
-};
-
-export default {
-  getCart,
-  addToCart,
-  updateCartItemQuantity,
-  removeCartItem,
-  applyCoupon,
-  removeCoupon,
-  validateCoupon,
-  clearCart,
-  validateCart,
-  getFreeGiftsTiers,
-  getCartSummary,
-  cleanupExpiredCarts,
 };

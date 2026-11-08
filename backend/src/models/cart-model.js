@@ -22,7 +22,10 @@ const cartItemSchema = new mongoose.Schema(
     product: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "product",
-      required: true,
+      required: function () {
+        return !this.isFreeGift;
+      },
+      default: null,
     },
     name: { type: String, required: true },
     image: { type: String, required: true },
@@ -127,10 +130,28 @@ cartSchema.index({ lastActivity: -1 });
 cartSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 cartSchema.index({ user: 1, deviceId: 1 });
 
+// Helper to safely extract string ID whether `item.product` is populated or an ObjectId
+function extractProductId(prodRef) {
+  if (!prodRef) return "";
+  if (typeof prodRef === "object" && prodRef._id) {
+    return String(prodRef._id);
+  }
+  return String(prodRef);
+}
+
 // ---------- Validation ----------
 cartSchema.pre("validate", function () {
   if (!this.user && !this.deviceId) {
     throw new Error("Either user or deviceId must be provided");
+  }
+
+  // Ensure populated free-gift items (whose dummy product ID became null on populate) never fail validation
+  if (Array.isArray(this.items)) {
+    this.items.forEach((item) => {
+      if (item.isFreeGift && !item.product) {
+        item.product = new mongoose.Types.ObjectId();
+      }
+    });
   }
 });
 
@@ -325,37 +346,37 @@ cartSchema.pre("save", function () {
     this.expiresAt = null;
   }
 
+  // Remove old free gift items first so we only calculate totals on purchased items
+  this.items = this.items
+    .filter((item) => !item.isFreeGift)
+    .sort((a, b) => {
+      const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (tA !== tB) return tB - tA;
+      const idA = String(a._id || "");
+      const idB = String(b._id || "");
+      if (idA && idB && idA !== idB) return idB.localeCompare(idA);
+      return 0;
+    });
+
   let totalQuantity = 0;
   let itemsCount = 0;
   let subtotal = 0;
 
   // Calculate item totals (ONLY for non-gift items)
   this.items.forEach((item) => {
-    if (item.isFreeGift) {
-      item.itemTotal = 0;
-      item.couponDiscountPerItem = 0;
-      item.totalCouponDiscount = 0;
-      return;
-    }
-
-    let itemSubtotal = item.price * item.quantity;
+    const itemSubtotal = item.price * item.quantity;
     totalQuantity += item.quantity;
     itemsCount += 1;
     subtotal += itemSubtotal;
   });
 
-  // ✅ FIX: Auto-remove coupon if cart no longer qualifies
+  // Auto-remove coupon if cart no longer qualifies
   if (this.coupon.isApplied) {
-    const Coupon = mongoose.model("coupon");
-
-    // Check minimum purchase amount
     if (
       this.coupon.minPurchaseAmount &&
       subtotal < this.coupon.minPurchaseAmount
     ) {
-      console.log(
-        `Auto-removing coupon: subtotal ${subtotal} < min ${this.coupon.minPurchaseAmount}`
-      );
       this.coupon = {
         code: null,
         isApplied: false,
@@ -366,14 +387,10 @@ cartSchema.pre("save", function () {
       };
     }
 
-    // Check minimum items required
     if (
       this.coupon.minItemsRequired &&
       totalQuantity < this.coupon.minItemsRequired
     ) {
-      console.log(
-        `Auto-removing coupon: quantity ${totalQuantity} < min ${this.coupon.minItemsRequired}`
-      );
       this.coupon = {
         code: null,
         isApplied: false,
@@ -442,25 +459,11 @@ cartSchema.pre("save", function () {
   const freeGiftsData = calculateFreeGifts(totalQuantity);
   this.freeGifts = freeGiftsData;
 
-  // ✅ FIX: Auto-update free gift items in cart
-  // Remove all old free gift items and keep regular items sorted latest-first
-  this.items = this.items
-    .filter((item) => !item.isFreeGift)
-    .sort((a, b) => {
-      const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      if (tA !== tB) return tB - tA;
-      const idA = String(a._id || "");
-      const idB = String(b._id || "");
-      if (idA && idB && idA !== idB) return idB.localeCompare(idA);
-      return 0;
-    });
-
   // Add new free gift items
   if (freeGiftsData.eligible && freeGiftsData.gifts.length > 0) {
     freeGiftsData.gifts.forEach((gift) => {
       this.items.push({
-        product: new mongoose.Types.ObjectId(), // Dummy ID for free gifts
+        product: new mongoose.Types.ObjectId(),
         name: gift.name,
         image:
           "https://ik.imagekit.io/noctowls/Gifts/gift.png?updatedAt=1766128110166",
@@ -492,7 +495,7 @@ cartSchema.pre("save", function () {
 
 // ---------- Instance Methods ----------
 
-// Add item to cart
+// Add item to cart (Properly stacks existing product+size or adds new product)
 cartSchema.methods.addItem = async function (itemData) {
   const {
     product,
@@ -507,17 +510,21 @@ cartSchema.methods.addItem = async function (itemData) {
     isFreeGift = false,
   } = itemData;
 
-  // ✅ FIX: Safe comparison with null checks
+  const targetProductId = extractProductId(product);
+  const targetSizeValue = String(size?.value || "").toLowerCase().trim();
+
+  // Safe comparison that works whether `item.product` is a populated Document or an ObjectId
   const existingItemIndex = this.items.findIndex(
     (item) =>
-      item.product != null && // ← Add null check
-      item.product.toString() === product.toString() &&
-      item.size.value === size.value &&
+      !item.isFreeGift &&
+      item.product != null &&
+      extractProductId(item.product) === targetProductId &&
+      String(item.size?.value || "").toLowerCase().trim() === targetSizeValue &&
       item.isFreeGift === isFreeGift
   );
 
   if (existingItemIndex > -1) {
-    // Update quantity of existing item
+    // Stack quantity on existing item
     this.items[existingItemIndex].quantity += quantity;
   } else {
     // Add new item at the beginning so the 1st item is the latest added
@@ -526,7 +533,10 @@ cartSchema.methods.addItem = async function (itemData) {
       name,
       image,
       category,
-      size,
+      size: {
+        ...size,
+        value: targetSizeValue,
+      },
       quantity,
       originalPrice,
       price,
@@ -541,13 +551,17 @@ cartSchema.methods.addItem = async function (itemData) {
   return this.save();
 };
 
-// ✅ NEW: Clean invalid items from cart
+// Clean invalid items from cart
 cartSchema.methods.cleanInvalidItems = async function () {
   const initialLength = this.items.length;
 
-  // Remove items with null/undefined products or missing required fields
   this.items = this.items.filter((item) => {
-    if (item.isFreeGift) return true; // Keep free gifts (they have dummy product IDs)
+    if (item.isFreeGift) {
+      if (!item.product) {
+        item.product = new mongoose.Types.ObjectId();
+      }
+      return true;
+    }
 
     const isValid =
       item.product != null &&
@@ -556,21 +570,12 @@ cartSchema.methods.cleanInvalidItems = async function () {
       item.price != null &&
       item.quantity > 0;
 
-    if (!isValid) {
-      console.log("🗑️ Removing invalid cart item:", {
-        name: item.name || "Unknown",
-        product: item.product,
-        hasProduct: item.product != null,
-      });
-    }
-
     return isValid;
   });
 
   const removedCount = initialLength - this.items.length;
 
   if (removedCount > 0) {
-    console.log(`✅ Cleaned ${removedCount} invalid items from cart`);
     await this.save();
   }
 
@@ -659,7 +664,7 @@ cartSchema.methods.applyCoupon = async function (
     discountType: coupon.discountType,
     discountValue: coupon.discountValue,
     applyType: coupon.applyType,
-    totalDiscount: 0, // Will be calculated in pre-save
+    totalDiscount: 0,
     minPurchaseAmount: coupon.minPurchaseAmount || 0,
     minItemsRequired: coupon.minItemsRequired || 0,
   };
@@ -701,40 +706,35 @@ cartSchema.methods.getNextTierInfo = function () {
     return {
       itemsNeeded: 1,
       nextTier: 1,
-      message: "Add 1 item to get 1 Anime Keychain + 5 Stickers FREE!",
+      progress: 0,
+      message: "Add 1 Mat to unlock FREE Anime Keychain + 5 Stickers!",
     };
   }
 
-  const nextQty = currentQty + 1;
-  const nextGifts = calculateFreeGifts(nextQty);
-  const currentGifts = calculateFreeGifts(currentQty);
-
-  const additionalGifts = [];
-  nextGifts.gifts.forEach((nextGift) => {
-    const currentGift = currentGifts.gifts.find(
-      (g) => g.name === nextGift.name
-    );
-    const currentQuantity = currentGift ? currentGift.quantity : 0;
-    const additionalQuantity = nextGift.quantity - currentQuantity;
-
-    if (additionalQuantity > 0) {
-      additionalGifts.push(`${additionalQuantity} ${nextGift.name}`);
-    }
-  });
-
-  if (additionalGifts.length === 0) {
+  if (currentQty === 1) {
     return {
-      itemsNeeded: 0,
-      nextTier: nextGifts.highestTier,
-      message:
-        "You're getting amazing free gifts! Keep adding more to get even more! 🎉",
+      itemsNeeded: 1,
+      nextTier: 2,
+      progress: 50,
+      message: "Add 1 more to unlock FREE Anime Figure (Worth ₹300)!",
+    };
+  }
+
+  if (currentQty === 2) {
+    return {
+      itemsNeeded: 1,
+      nextTier: 3,
+      progress: 100,
+      message: "Unlocked! Add 1 more to get a Metal Katana (Worth ₹600)!",
     };
   }
 
   return {
-    itemsNeeded: 1,
-    nextTier: nextGifts.highestTier,
-    message: `Add 1 more item to get ${additionalGifts.join(", ")} extra FREE!`,
+    itemsNeeded: 0,
+    nextTier: 3,
+    progress: 100,
+    message:
+      "Unlocked! You got the FREE Metal Katana (Worth ₹600) + All Tier Rewards!",
   };
 };
 
@@ -751,7 +751,7 @@ cartSchema.methods.convertToUserCart = async function (userId) {
   return this.save();
 };
 
-// ✅ FIXED: Validate cart with proper population
+// Validate cart with proper population
 cartSchema.methods.validateCart = async function () {
   const Product = mongoose.model("product");
   const validationResults = [];
@@ -761,10 +761,9 @@ cartSchema.methods.validateCart = async function () {
       continue;
     }
 
-    // ✅ FIX: Populate product if not already populated
     let product = item.product;
-    if (!product.name) {
-      product = await Product.findById(item.product);
+    if (!product || !product.name) {
+      product = await Product.findById(extractProductId(item.product));
     }
 
     if (!product) {
@@ -829,7 +828,6 @@ cartSchema.methods.validateCart = async function () {
 
 // ---------- Static Methods ----------
 
-// ✅ FIXED: Better cart retrieval
 cartSchema.statics.getOrCreateCart = async function (identifier) {
   const { userId, deviceId } = identifier;
 

@@ -185,6 +185,16 @@ const initialState = {
   cart: null,
   isGuest: true,
 
+  // Slide-up Cart Drawer state (for Product Page Add to Cart)
+  isDrawerOpen: false,
+
+  // Single-line slide-up notification state (for Product Card Add to Cart)
+  slideUpNotice: {
+    visible: false,
+    totalQuantity: 0,
+    triggerKey: 0,
+  },
+
   // Cart summary (lightweight)
   summary: null,
 
@@ -224,6 +234,34 @@ const cartSlice = createSlice({
   name: "cart",
   initialState,
   reducers: {
+    // Open / Close / Toggle Slide-Up Cart Drawer (Product Page)
+    openCartDrawer: (state) => {
+      state.isDrawerOpen = true;
+      state.slideUpNotice.visible = false;
+    },
+    closeCartDrawer: (state) => {
+      state.isDrawerOpen = false;
+    },
+    toggleCartDrawer: (state) => {
+      state.isDrawerOpen = !state.isDrawerOpen;
+    },
+
+    // Trigger / Hide Single-Line Slide-Up Unlock Bar (Product Cards)
+    triggerSlideUpNotice: (state, action) => {
+      const qty =
+        action.payload?.totalQuantity ??
+        state.cart?.summary?.totalQuantity ??
+        1;
+      state.slideUpNotice = {
+        visible: true,
+        totalQuantity: qty,
+        triggerKey: Date.now(),
+      };
+    },
+    hideSlideUpNotice: (state) => {
+      state.slideUpNotice.visible = false;
+    },
+
     // Clear error
     clearError: (state) => {
       state.error = null;
@@ -392,7 +430,6 @@ const cartSlice = createSlice({
         state.isGuest = action.payload.isGuest;
         state.successMessage = action.payload.message;
         state.error = null;
-        // Clear coupon validation when cart is cleared
         state.couponValidation = {
           loading: false,
           error: null,
@@ -433,7 +470,7 @@ const cartSlice = createSlice({
         state.actionLoading = true;
         state.error = null;
         state.successMessage = null;
-        state.couponValidation.loading = true; // ← Show loading in UI
+        state.couponValidation.loading = true;
       })
       .addCase(applyCoupon.fulfilled, (state, action) => {
         state.actionLoading = false;
@@ -442,7 +479,6 @@ const cartSlice = createSlice({
         state.successMessage = action.payload.message;
         state.error = null;
 
-        // Clear validation state after successful apply
         state.couponValidation = {
           loading: false,
           error: null,
@@ -453,7 +489,6 @@ const cartSlice = createSlice({
         state.actionLoading = false;
         state.error = action.payload;
 
-        // Store error in coupon validation state
         state.couponValidation = {
           loading: false,
           error: action.payload,
@@ -473,7 +508,6 @@ const cartSlice = createSlice({
         state.isGuest = action.payload.isGuest;
         state.successMessage = action.payload.message;
         state.error = null;
-        // Clear coupon validation
         state.couponValidation = {
           loading: false,
           error: null,
@@ -504,10 +538,9 @@ const cartSlice = createSlice({
         state.cartValidation.isValid = false;
         state.cartValidation.error = action.payload.message;
 
-        // Store validation results
         if (action.payload?.validationResults) {
           state.cartValidation.results = action.payload.validationResults;
-          state.cart = action.payload.cart; // Also update cart with invalid items
+          state.cart = action.payload.cart;
         }
       });
 
@@ -531,6 +564,8 @@ const cartSlice = createSlice({
     builder.addCase(verifyPayment.fulfilled, (state) => {
       state.cart = null;
       state.summary = null;
+      state.isDrawerOpen = false;
+      state.slideUpNotice.visible = false;
       state.couponValidation = {
         loading: false,
         error: null,
@@ -547,11 +582,9 @@ const cartSlice = createSlice({
     // Listen to logout actions from authSlice
     builder
       .addCase(logoutUser.fulfilled, (state) => {
-        // Reset cart to initial state on logout
         Object.assign(state, initialState);
       })
       .addCase(deleteAccount.fulfilled, (state) => {
-        // Reset cart to initial state on account deletion
         Object.assign(state, initialState);
       });
   },
@@ -561,6 +594,11 @@ const cartSlice = createSlice({
 
 // Actions
 export const {
+  openCartDrawer,
+  closeCartDrawer,
+  toggleCartDrawer,
+  triggerSlideUpNotice,
+  hideSlideUpNotice,
   clearError,
   clearSuccessMessage,
   clearCouponValidation,
@@ -573,6 +611,8 @@ export const {
 
 // Basic Selectors
 export const selectCart = (state) => state.cart.cart;
+export const selectIsCartDrawerOpen = (state) => state.cart.isDrawerOpen;
+export const selectSlideUpNotice = (state) => state.cart.slideUpNotice;
 export const selectCartSummary = (state) => state.cart.summary;
 export const selectIsGuest = (state) => state.cart.isGuest;
 export const selectCartLoading = (state) => state.cart.loading;

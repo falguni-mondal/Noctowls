@@ -13,24 +13,26 @@ export const addToRecentlyViewed = (product) => {
         // 2. Filter out the current product if it exists
         recent = recent.filter((item) => item.id !== productId);
 
-        // 3. ROBUST PRICE EXTRACTION
-        // If root price is missing, grab it from the first size
+        // 3. ROBUST PRICE & SIZE EXTRACTION
         let finalPrice = product.price;
         let finalOriginalPrice = product.originalPrice;
+        const primarySizeObj = product.sizes?.[0];
+        const availableSizeObj = product.sizes?.find((s) => s.stock > 0) || primarySizeObj;
 
-        if ((finalPrice === undefined || finalPrice === null) && product.sizes && product.sizes.length > 0) {
-            // Prefer the first available size, otherwise just the first size
-            const sizeToUse = product.sizes.find(s => s.stock > 0) || product.sizes[0];
-            finalPrice = sizeToUse.price;
-            finalOriginalPrice = sizeToUse.originalPrice; // might be undefined, which is fine
+        if ((finalPrice === undefined || finalPrice === null) && primarySizeObj) {
+            finalPrice = primarySizeObj.price;
+            finalOriginalPrice = primarySizeObj.originalPrice;
         }
 
         // 4. Create minimal object
         const minimalProduct = {
             id: productId,
             name: product.name,
-            price: finalPrice || 0, // Ensure strictly not undefined
+            price: finalPrice || 0,
             originalPrice: finalOriginalPrice || 0,
+            primarySize: product.primarySize || primarySizeObj?.value || "l",
+            defaultSize: product.defaultSize || availableSizeObj?.value || "l",
+            inStock: product.inStock !== undefined ? product.inStock : Boolean(availableSizeObj && availableSizeObj.stock > 0),
             images: product.images ? product.images.slice(0, 2) : [],
             category: product.category,
             rating: product.rating || { average: 0, count: 0 }

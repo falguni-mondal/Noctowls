@@ -7,6 +7,7 @@ import {
   selectWishlistActionLoading,
   selectWishlistMoveToCartLoading,
 } from "../../store/features/user/wishlistSlice";
+import { getCart, openCartDrawer } from "../../store/features/user/cartSlice";
 import { useState } from "react";
 import { toast } from "react-toastify";
 import toastControls from "../../utils/global/toastControls";
@@ -89,6 +90,8 @@ const WishlistItem = ({ item }) => {
       );
       setShowSizeSelector(false);
       setSelectedSize("");
+      await dispatch(getCart());
+      dispatch(openCartDrawer());
     } catch (error) {
       toast.error(error || "Failed to move to cart", toastControls);
     } finally {
@@ -98,6 +101,7 @@ const WishlistItem = ({ item }) => {
 
   const isOutOfStock = availableSizes.length === 0;
   const displayPrice = product?.sizes?.[0];
+  const seoAltText = `${product.name} Extended Gaming Deskmat 900x400mm`;
 
   return (
     <li className="w-full relative bg-white border border-zinc-200 shadow-sm rounded-xl p-4">
@@ -121,7 +125,7 @@ const WishlistItem = ({ item }) => {
                   quality: 75,
                 }) || "/placeholder-image.jpg"
               }
-              alt={product.name}
+              alt={seoAltText}
               loading="lazy"
               decoding="async"
               onError={(e) => {

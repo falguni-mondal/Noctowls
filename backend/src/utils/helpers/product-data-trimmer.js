@@ -3,23 +3,55 @@ const formatFallbackPrice = (num) => {
   return Number(num).toLocaleString("en-IN");
 };
 
-const normalizeImageObj = (img) => {
+const normalizeImageObj = (img, fallbackAlt = "") => {
   if (!img) return null;
   if (typeof img === "string") {
-    return { url: img, imageId: "", alt: "" };
+    return { url: img, imageId: "", alt: fallbackAlt };
   }
-  return img;
+  return {
+    ...img,
+    alt: img.alt || fallbackAlt,
+  };
+};
+
+const getProductTotalStock = (p) => {
+  if (typeof p?.totalStock === "number") return p.totalStock;
+  if (Array.isArray(p?.sizes)) {
+    return p.sizes.reduce((sum, s) => sum + (Number(s.stock) || 0), 0);
+  }
+  return typeof p?.stock === "number" ? p.stock : 0;
+};
+
+const isProductInStock = (p) => {
+  if (typeof p?.inStock === "boolean") return p.inStock;
+  return getProductTotalStock(p) > 0;
+};
+
+const getSalesVelocity = (p) => {
+  return Number(p?.salesVelocity ?? p?.totalSales ?? p?.sales ?? 0);
 };
 
 /**
  * Deterministic product sorter:
- * 1. Products with a numeric `displayOrder` come first, ordered ascending (0, 1, 2...).
- * 2. Products without `displayOrder` (or with equal `displayOrder`) are ordered Latest First
- *    (`createdAt` descending, then `_id` descending as a tie-breaker).
+ * 1. In-stock products ALWAYS come before out-of-stock products (P0 rule).
+ * 2. Sorted by `salesVelocity` descending (`b.salesVelocity - a.salesVelocity`).
+ * 3. Tie-breakers: custom admin `displayOrder` ascending, then `createdAt` descending, then `_id` descending.
  */
 export const sortProductsList = (products = []) => {
   if (!Array.isArray(products)) return [];
   return [...products].sort((a, b) => {
+    const aInStock = isProductInStock(a);
+    const bInStock = isProductInStock(b);
+
+    if (aInStock && !bInStock) return -1;
+    if (!aInStock && bInStock) return 1;
+
+    const aVelocity = getSalesVelocity(a);
+    const bVelocity = getSalesVelocity(b);
+    if (bVelocity !== aVelocity) {
+      return bVelocity - aVelocity;
+    }
+
     const aHasOrder =
       typeof a?.displayOrder === "number" && !Number.isNaN(a.displayOrder);
     const bHasOrder =
@@ -61,8 +93,9 @@ export const trimReviews = (reviews = []) => {
 export const productForAdminList = (product) => {
   const sizes = Array.isArray(product.sizes) ? product.sizes : [];
   const primarySize = sizes[0] || {};
+  const seoAlt = `${product.name || "Noctowls"} Extended Gaming Deskmat 900x400mm`;
   const images = Array.isArray(product.images) ? product.images : [];
-  const primaryImage = normalizeImageObj(images[0]);
+  const primaryImage = normalizeImageObj(images[0], seoAlt);
 
   const hasMultipleSizes = sizes.length > 1;
   const stocks = hasMultipleSizes
@@ -88,6 +121,8 @@ export const productForAdminList = (product) => {
       ? product.totalStock
       : sizes.reduce((sum, s) => sum + (Number(s.stock) || 0), 0);
 
+  const salesVelocity = product.totalSales || 0;
+
   return {
     id: product._id,
     name: product.name || "Untitled Product",
@@ -101,7 +136,7 @@ export const productForAdminList = (product) => {
     createdAt: product.createdAt,
 
     image: primaryImage,
-    images: images.map(normalizeImageObj).filter(Boolean),
+    images: images.map((img) => normalizeImageObj(img, seoAlt)).filter(Boolean),
 
     rating: {
       average: product.rating?.average || 0,
@@ -119,17 +154,21 @@ export const productForAdminList = (product) => {
 
     ...(stocks && { stocks }),
 
-    sales: product.totalSales || 0,
+    sales: salesVelocity,
+    salesVelocity,
   };
 };
 
 export const productForAdminDetail = (product) => {
   const sizes = Array.isArray(product.sizes) ? product.sizes : [];
+  const seoAlt = `${product.name || "Noctowls"} Extended Gaming Deskmat 900x400mm`;
   const images = Array.isArray(product.images)
-    ? product.images.map(normalizeImageObj).filter(Boolean)
+    ? product.images.map((img) => normalizeImageObj(img, seoAlt)).filter(Boolean)
     : [];
   const highlightImages = Array.isArray(product.highlightImages)
-    ? product.highlightImages.map(normalizeImageObj).filter(Boolean)
+    ? product.highlightImages
+        .map((img) => normalizeImageObj(img, seoAlt))
+        .filter(Boolean)
     : [];
 
   return {
@@ -163,8 +202,11 @@ export const productForAdminDetail = (product) => {
 export const productForList = (product) => {
   const sizes = Array.isArray(product.sizes) ? product.sizes : [];
   const primarySize = sizes[0] || {};
+  const firstAvailableSize =
+    sizes.find((s) => (Number(s.stock) || 0) > 0) || primarySize;
+  const seoAlt = `${product.name || "Noctowls"} Extended Gaming Deskmat 900x400mm`;
   const images = Array.isArray(product.images)
-    ? product.images.map(normalizeImageObj).filter(Boolean)
+    ? product.images.map((img) => normalizeImageObj(img, seoAlt)).filter(Boolean)
     : [];
 
   const origPriceNum = Number(primarySize.originalPrice) || 0;
@@ -183,6 +225,8 @@ export const productForList = (product) => {
       ? product.totalStock
       : sizes.reduce((sum, s) => sum + (Number(s.stock) || 0), 0);
 
+  const salesVelocity = product.totalSales || 0;
+
   return {
     id: product._id,
     name: product.name,
@@ -200,30 +244,41 @@ export const productForList = (product) => {
       count: product.rating?.count || 0,
     },
 
+    primarySize: primarySize.value || "l",
+    defaultSize: firstAvailableSize.value || primarySize.value || "l",
+
     originalPrice:
       primarySize.formattedOriginalPrice || formatFallbackPrice(origPriceNum),
     price: primarySize.price || formatFallbackPrice(sellPriceNum),
+    numPrice: sellPriceNum,
     discount: primarySize.discount ?? computedDiscount,
 
     inStock: computedTotalStock > 0,
+    totalStock: computedTotalStock,
 
-    sales: product.totalSales || 0,
+    sales: salesVelocity,
+    salesVelocity,
   };
 };
 
 export const productForDetail = (product) => {
   const sizes = Array.isArray(product.sizes) ? product.sizes : [];
+  const seoAlt = `${product.name || "Noctowls"} Extended Gaming Deskmat 900x400mm`;
   const images = Array.isArray(product.images)
-    ? product.images.map(normalizeImageObj).filter(Boolean)
+    ? product.images.map((img) => normalizeImageObj(img, seoAlt)).filter(Boolean)
     : [];
   const highlightImages = Array.isArray(product.highlightImages)
-    ? product.highlightImages.map(normalizeImageObj).filter(Boolean)
+    ? product.highlightImages
+        .map((img) => normalizeImageObj(img, seoAlt))
+        .filter(Boolean)
     : [];
 
   const computedTotalStock =
     product.totalStock !== undefined
       ? product.totalStock
       : sizes.reduce((sum, s) => sum + (Number(s.stock) || 0), 0);
+
+  const salesVelocity = product.totalSales || 0;
 
   return {
     id: product._id,
@@ -248,6 +303,7 @@ export const productForDetail = (product) => {
       return {
         value: size.value,
         label: size.label,
+        skuCode: size.skuCode || "",
         originalPrice: origPriceNum,
         formattedOriginalPrice:
           size.formattedOriginalPrice || formatFallbackPrice(origPriceNum),
@@ -260,7 +316,9 @@ export const productForDetail = (product) => {
     }),
 
     inStock: computedTotalStock > 0,
+    totalStock: computedTotalStock,
 
-    salesCount: product.totalSales || 0,
+    salesCount: salesVelocity,
+    salesVelocity,
   };
 };
