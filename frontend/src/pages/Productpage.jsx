@@ -1,18 +1,21 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+  lazy,
+  Suspense,
+} from "react";
 import { Icon } from "@iconify/react/dist/iconify.js";
 import ImageSlider from "../components/product/ImageSlider";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import offerImg from "../assets/images/offers.webp";
-import ProductFeature from "../components/product/product-features/ProductFeature";
 import MainDets from "../components/product/product-dets/MainDets";
 import ProductQuantity from "../components/product/product-dets/ProductQuantity";
 import DeliveryTimeline from "../components/product/product-extra-dets/DeliveryTimeline";
 import NoReview from "../components/product/product-review/NoReview";
 import ReviewCard from "../components/product/product-review/ReviewCard";
-import ReviewModal from "../components/product/product-review/ReviewModal";
-import ProductSpecs from "../components/product/product-specs/ProductSpecs";
-import BestSelling from "../components/product/best-selling/BestSelling";
-import RecentlyViewed from "../components/product/recently-viewed/RecentlyViewed";
 import CartDrawer from "../components/bag/CartDrawer";
 import { addToRecentlyViewed } from "../utils/helpers/recentlyViewedHelper";
 import { optimizeImage } from "../utils/helpers/imageOptimizer";
@@ -49,6 +52,23 @@ import toastControls from "../utils/global/toastControls";
 // IMPORT PIXEL TRACKING
 import { trackEvent } from "../utils/pixel/pixel";
 
+// Lazy-loaded below-the-fold sections & modals for faster initial Product Page render
+const ReviewModal = lazy(() =>
+  import("../components/product/product-review/ReviewModal")
+);
+const ProductFeature = lazy(() =>
+  import("../components/product/product-features/ProductFeature")
+);
+const ProductSpecs = lazy(() =>
+  import("../components/product/product-specs/ProductSpecs")
+);
+const BestSelling = lazy(() =>
+  import("../components/product/best-selling/BestSelling")
+);
+const RecentlyViewed = lazy(() =>
+  import("../components/product/recently-viewed/RecentlyViewed")
+);
+
 const GLOBAL_DEFAULT_TITLE =
   "Buy Premium Gaming Deskmats & Mousepads India | Noctowls";
 
@@ -68,6 +88,13 @@ const Productpage = () => {
   const [quantity, setQuantity] = useState(1);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const [loadedGalleryImages, setLoadedGalleryImages] = useState({});
+
+  const markGalleryImageLoaded = (key) => {
+    setLoadedGalleryImages((prev) =>
+      prev[key] ? prev : { ...prev, [key]: true }
+    );
+  };
 
   // Conditionally mount mobile slider OR desktop grid so both DOM trees don't download simultaneously
   const [isDesktop, setIsDesktop] = useState(() =>
@@ -117,7 +144,7 @@ const Productpage = () => {
 
   const user = useSelector((state) => state.auth.user);
   const isAdmin = useSelector((state) => state.adminAuth.admin);
-  const isLoggedInUser = user && !isAdmin;
+  const isLoggedInUser = Boolean(user && !isAdmin);
 
   const validationTimerRef = useRef(null);
   const sortRef = useRef(null);
@@ -192,6 +219,7 @@ const Productpage = () => {
 
   // Effect 1: Initial Data
   useEffect(() => {
+    setLoadedGalleryImages({});
     dispatch(getOneProduct(productId));
 
     return () => {
@@ -479,16 +507,18 @@ const Productpage = () => {
     }
   };
 
+  // Wishlist toggle: if not logged in, redirects to Login/Signup page (/account/signin)
   const handleWishlistToggle = async (e) => {
-    if (e) e.stopPropagation();
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
 
     if (!isLoggedInUser) {
       toast.info(
-        `${
-          isAdmin
-            ? "Please logout from admin account!"
-            : "Please login to add items to your wishlist!"
-        }`,
+        isAdmin
+          ? "Please logout from admin account!"
+          : "Please login to add items to your wishlist!",
         toastControls
       );
       navigate("/account/signin", { state: { from: `/products/${productId}` } });
@@ -577,11 +607,13 @@ const Productpage = () => {
       )}
 
       {isReviewModalOpen && (
-        <ReviewModal
-          productId={product?.id || productId}
-          onClose={() => setIsReviewModalOpen(false)}
-          userName={user?.name}
-        />
+        <Suspense fallback={null}>
+          <ReviewModal
+            productId={product?.id || productId}
+            onClose={() => setIsReviewModalOpen(false)}
+            userName={user?.name}
+          />
+        </Suspense>
       )}
 
       {/* Render the Zoom Overlay outside of the document flow structure */}
@@ -616,8 +648,12 @@ const Productpage = () => {
                 <Icon icon="ic:baseline-share" />
               </div>
 
-              <div
+              <button
+                type="button"
                 onClick={handleWishlistToggle}
+                aria-label={
+                  isInWishlist ? "Remove from wishlist" : "Add to wishlist"
+                }
                 className={`absolute top-3 left-3 z-20 w-9 aspect-square rounded-full flex justify-center items-center text-base shadow-sm cursor-pointer border border-zinc-200 backdrop-blur-md ${
                   isInWishlist
                     ? "bg-red-600 text-white border-red-600"
@@ -627,20 +663,24 @@ const Productpage = () => {
                 <Icon
                   icon={isInWishlist ? "mdi:heart" : "mdi:heart-outline"}
                 />
-              </div>
+              </button>
             </div>
           ) : (
             <div className="flex flex-col gap-4">
               {images.map((img, idx) => {
                 if (idx === 0) {
+                  const mainKey = `desktop-main-${idx}`;
                   return (
                     <div
                       key={`prod-img-${idx}`}
-                      className="w-full relative group overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 cursor-crosshair"
+                      className="w-full relative group overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 cursor-crosshair min-h-[320px]"
                       onMouseEnter={(e) => handleMouseEnter(e, img.url)}
                       onMouseMove={handleMouseMove}
                       onMouseLeave={handleMouseLeave}
                     >
+                      {!loadedGalleryImages[mainKey] && (
+                        <div className="absolute inset-0 bg-zinc-200 animate-pulse z-0" />
+                      )}
                       <img
                         src={optimizeImage(img.url, {
                           width: 1000,
@@ -649,12 +689,23 @@ const Productpage = () => {
                         alt={seoAltText}
                         fetchPriority="high"
                         decoding="async"
-                        className="w-full h-auto max-h-[68vh] object-cover"
+                        onLoad={() => markGalleryImageLoaded(mainKey)}
+                        className={`w-full h-auto max-h-[68vh] object-cover transition-opacity duration-500 ${
+                          loadedGalleryImages[mainKey]
+                            ? "opacity-100"
+                            : "opacity-0"
+                        }`}
                       />
 
-                      <div
+                      <button
+                        type="button"
                         onClick={handleWishlistToggle}
                         onMouseMove={(e) => e.stopPropagation()}
+                        aria-label={
+                          isInWishlist
+                            ? "Remove from wishlist"
+                            : "Add to wishlist"
+                        }
                         className={`absolute top-5 left-5 z-20 w-11 aspect-square rounded-full flex justify-center items-center text-xl cursor-pointer shadow-sm transition border border-zinc-200 backdrop-blur-md ${
                           isInWishlist
                             ? "bg-red-600 text-white border-red-600"
@@ -666,30 +717,41 @@ const Productpage = () => {
                             isInWishlist ? "mdi:heart" : "mdi:heart-outline"
                           }
                         />
-                      </div>
+                      </button>
                     </div>
                   );
                 }
                 return null;
               })}
               <div className="grid grid-cols-2 gap-4">
-                {images.slice(1).map((img, idx) => (
-                  <div
-                    key={`prod-img-grid-${idx}`}
-                    className="w-full overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 relative cursor-crosshair"
-                    onMouseEnter={(e) => handleMouseEnter(e, img.url)}
-                    onMouseMove={handleMouseMove}
-                    onMouseLeave={handleMouseLeave}
-                  >
-                    <img
-                      src={optimizeImage(img.url, { width: 600, quality: 80 })}
-                      alt={seoAltText}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ))}
+                {images.slice(1).map((img, idx) => {
+                  const gridKey = `desktop-grid-${idx}`;
+                  return (
+                    <div
+                      key={`prod-img-grid-${idx}`}
+                      className="w-full aspect-square overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 relative cursor-crosshair"
+                      onMouseEnter={(e) => handleMouseEnter(e, img.url)}
+                      onMouseMove={handleMouseMove}
+                      onMouseLeave={handleMouseLeave}
+                    >
+                      {!loadedGalleryImages[gridKey] && (
+                        <div className="absolute inset-0 bg-zinc-200 animate-pulse z-0" />
+                      )}
+                      <img
+                        src={optimizeImage(img.url, { width: 600, quality: 80 })}
+                        alt={seoAltText}
+                        loading="lazy"
+                        decoding="async"
+                        onLoad={() => markGalleryImageLoaded(gridKey)}
+                        className={`w-full h-full object-cover transition-opacity duration-500 ${
+                          loadedGalleryImages[gridKey]
+                            ? "opacity-100"
+                            : "opacity-0"
+                        }`}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -767,17 +829,15 @@ const Productpage = () => {
                   </button>
                 </div>
 
+                {/* Wishlist Button: Always clickable so guests are redirected to Login/Signup */}
                 <button
+                  type="button"
                   onClick={handleWishlistToggle}
-                  disabled={wishlistActionLoading || !isLoggedInUser}
-                  className={`w-full py-2.5 text-center rounded-md uppercase text-xs font-semibold transition-all border ${
+                  disabled={wishlistActionLoading}
+                  className={`w-full py-2.5 text-center rounded-md uppercase text-xs font-semibold transition-all border cursor-pointer ${
                     isInWishlist
-                      ? "bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-200"
-                      : "bg-white border-purple-200 text-purple-600 hover:bg-purple-50"
-                  } ${
-                    !isLoggedInUser
-                      ? "opacity-50 cursor-not-allowed"
-                      : "cursor-pointer"
+                      ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+                      : "bg-white border-zinc-300 text-[#0f0f0f] hover:border-red-300 hover:text-red-600 hover:bg-red-50/40"
                   } flex items-center justify-center gap-2`}
                 >
                   {wishlistActionLoading ? (
@@ -791,7 +851,9 @@ const Productpage = () => {
                         icon={
                           isInWishlist ? "mdi:heart" : "mdi:heart-outline"
                         }
-                        className="text-base"
+                        className={`text-base ${
+                          isInWishlist ? "text-red-600" : ""
+                        }`}
                       />{" "}
                       {isInWishlist
                         ? "Remove from Wishlist"
@@ -799,18 +861,6 @@ const Productpage = () => {
                     </>
                   )}
                 </button>
-
-                {!isLoggedInUser && (
-                  <p className="text-[11px] text-center text-zinc-500">
-                    <Link
-                      to="/account/signin"
-                      className="text-[#0f0f0f] hover:text-red-600 underline font-medium"
-                    >
-                      Login
-                    </Link>{" "}
-                    to save items to your wishlist
-                  </p>
-                )}
               </div>
 
               <div className="product-extra-dets mt-5">
@@ -827,7 +877,7 @@ const Productpage = () => {
                 <div className="size-warning-banner mt-4 mx-3 md:mx-0 p-3.5 bg-amber-400 rounded-md text-black text-xs sm:text-sm font-bold leading-snug shadow-md border border-amber-500">
                   please choose the size carefully as our return policy does{" "}
                   <Link
-                    to="/return-policy"
+                    to="/policies/refund-policy"
                     className="text-blue-700 underline decoration-blue-700 underline-offset-2 font-black hover:text-blue-900 uppercase transition-colors"
                   >
                     NOT COVER SIZE EXCHANGES.
@@ -994,10 +1044,12 @@ const Productpage = () => {
         </div>
       </div>
 
-      {/* FEATURES & HIGHLIGHTS & SPECS */}
-      <div className="max-w-6xl mx-auto px-4 mt-8">
-        <ProductFeature />
-      </div>
+      {/* LAZY-LOADED FEATURES, HIGHLIGHTS, SPECS & RECOMMENDATIONS */}
+      <Suspense fallback={<div className="w-full py-12" />}>
+        <div className="max-w-6xl mx-auto px-4 mt-8">
+          <ProductFeature />
+        </div>
+      </Suspense>
 
       {/* CONDITIONAL HIGHLIGHTS SECTION: ONLY SHOW IF NOT PHASE-00 */}
       {!isPhase00 && highlightImages && highlightImages.length > 0 && (
@@ -1012,43 +1064,54 @@ const Productpage = () => {
               </p>
             </div>
             <div className="product-hightlights-image-container lg:w-2/3 grid grid-cols-1 md:grid-cols-2 gap-6">
-              {highlightImages.map((highlight, idx) => (
-                <div
-                  key={`${highlight.url}-highlight-${idx}`}
-                  className={`${
-                    idx === 0 && "lg:col-span-2"
-                  } highlight-img-container w-full bg-zinc-100 rounded-lg overflow-hidden border border-zinc-200`}
-                >
-                  <img
-                    className="w-full h-full object-cover opacity-90 hover:opacity-100 transition-opacity duration-500"
-                    src={optimizeImage(highlight.url, {
-                      width: idx === 0 ? 1000 : 600,
-                      quality: 80,
-                    })}
-                    alt={seoAltText}
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </div>
-              ))}
+              {highlightImages.map((highlight, idx) => {
+                const hlKey = `highlight-${idx}`;
+                return (
+                  <div
+                    key={`${highlight.url}-highlight-${idx}`}
+                    className={`${
+                      idx === 0 && "lg:col-span-2"
+                    } highlight-img-container w-full bg-zinc-100 rounded-lg overflow-hidden border border-zinc-200 relative min-h-[200px]`}
+                  >
+                    {!loadedGalleryImages[hlKey] && (
+                      <div className="absolute inset-0 bg-zinc-200 animate-pulse z-0" />
+                    )}
+                    <img
+                      className={`w-full h-full object-cover opacity-90 hover:opacity-100 transition-opacity duration-500 ${
+                        loadedGalleryImages[hlKey] ? "opacity-90" : "opacity-0"
+                      }`}
+                      src={optimizeImage(highlight.url, {
+                        width: idx === 0 ? 1000 : 600,
+                        quality: 80,
+                      })}
+                      alt={seoAltText}
+                      loading="lazy"
+                      decoding="async"
+                      onLoad={() => markGalleryImageLoaded(hlKey)}
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto px-4 mt-32 pb-20">
-        <ProductSpecs />
-      </div>
+      <Suspense fallback={<div className="w-full py-12" />}>
+        <div className="max-w-6xl mx-auto px-4 mt-32 pb-20">
+          <ProductSpecs />
+        </div>
 
-      {/* BEST SELLING SECTION */}
-      <div className="max-w-[1440px] mx-auto px-4 md:px-8 pb-10">
-        <BestSelling />
-      </div>
+        {/* BEST SELLING SECTION */}
+        <div className="max-w-[1440px] mx-auto px-4 md:px-8 pb-10">
+          <BestSelling />
+        </div>
 
-      {/* RECENTLY VIEWED SECTION */}
-      <div className="max-w-[1440px] mx-auto px-4 md:px-8 pb-10">
-        <RecentlyViewed />
-      </div>
+        {/* RECENTLY VIEWED SECTION */}
+        <div className="max-w-[1440px] mx-auto px-4 md:px-8 pb-10">
+          <RecentlyViewed />
+        </div>
+      </Suspense>
     </div>
   );
 };

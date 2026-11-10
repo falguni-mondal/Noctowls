@@ -188,6 +188,9 @@ const initialState = {
   // Slide-up Cart Drawer state (for Product Page Add to Cart)
   isDrawerOpen: false,
 
+  // Quick-Add Bottom Sheet Drawer product (for Product Card Add to Cart)
+  quickAddProduct: null,
+
   // Single-line slide-up notification state (for Product Card Add to Cart)
   slideUpNotice: {
     visible: false,
@@ -244,6 +247,14 @@ const cartSlice = createSlice({
     },
     toggleCartDrawer: (state) => {
       state.isDrawerOpen = !state.isDrawerOpen;
+    },
+
+    // Open / Close Product Card Quick-Add Bottom Drawer (50-60% screen height)
+    openQuickAddDrawer: (state, action) => {
+      state.quickAddProduct = action.payload || null;
+    },
+    closeQuickAddDrawer: (state) => {
+      state.quickAddProduct = null;
     },
 
     // Trigger / Hide Single-Line Slide-Up Unlock Bar (Product Cards)
@@ -565,6 +576,7 @@ const cartSlice = createSlice({
       state.cart = null;
       state.summary = null;
       state.isDrawerOpen = false;
+      state.quickAddProduct = null;
       state.slideUpNotice.visible = false;
       state.couponValidation = {
         loading: false,
@@ -597,6 +609,8 @@ export const {
   openCartDrawer,
   closeCartDrawer,
   toggleCartDrawer,
+  openQuickAddDrawer,
+  closeQuickAddDrawer,
   triggerSlideUpNotice,
   hideSlideUpNotice,
   clearError,
@@ -612,6 +626,7 @@ export const {
 // Basic Selectors
 export const selectCart = (state) => state.cart.cart;
 export const selectIsCartDrawerOpen = (state) => state.cart.isDrawerOpen;
+export const selectQuickAddProduct = (state) => state.cart.quickAddProduct;
 export const selectSlideUpNotice = (state) => state.cart.slideUpNotice;
 export const selectCartSummary = (state) => state.cart.summary;
 export const selectIsGuest = (state) => state.cart.isGuest;

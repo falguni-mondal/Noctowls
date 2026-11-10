@@ -24,7 +24,7 @@ export const getAllProducts = async (req, res) => {
     // Query level sort: prioritize stocked & top-selling items, then latest
     const products = await Product.find({
       status: "published",
-      group: { $ne: "phase-00" }, // Hides phase-00 products from the general store
+      group: { $ne: "phase-00" }, // Hides phase-00 products from the classic store section
     })
       .sort({ totalStock: -1, totalSales: -1, createdAt: -1, _id: -1 })
       .select("-__v")
@@ -73,6 +73,44 @@ export const getAllProducts = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to fetch products",
+      error: process.env.NODE_ENV === "development" ? err.message : undefined,
+    });
+  }
+};
+
+export const getPhase00Products = async (req, res) => {
+  try {
+    const products = await Product.find({
+      status: "published",
+      group: new RegExp("^phase[-\\s]?00$", "i"),
+    })
+      .sort({ totalStock: -1, totalSales: -1, createdAt: -1, _id: -1 })
+      .select("-__v")
+      .lean();
+
+    if (!products || products.length === 0) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        products: [],
+      });
+    }
+
+    const sortedProducts = sortProductsList(products);
+    const formattedProducts = enforceInventorySort(
+      sortedProducts.map((product) => productForList(product))
+    );
+
+    return res.status(200).json({
+      success: true,
+      count: formattedProducts.length,
+      products: formattedProducts,
+    });
+  } catch (err) {
+    console.error("Get Phase 00 products error:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch Phase 00 products",
       error: process.env.NODE_ENV === "development" ? err.message : undefined,
     });
   }

@@ -17,6 +17,31 @@ export const getAllProducts = createAsyncThunk(
   }
 );
 
+// Separate API call for Phase 00 products on Homepage
+export const getPhase00Products = createAsyncThunk(
+  "product/getPhase00Products",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await userApi.get("/products/phase-00");
+      return response.data;
+    } catch (primaryError) {
+      // Fallback to filter endpoint if backend route hasn't been restarted yet
+      try {
+        const fallbackResponse = await userApi.get(
+          "/products/filter?group=phase-00&category=deskmat"
+        );
+        return fallbackResponse.data;
+      } catch (error) {
+        return rejectWithValue(
+          error.response?.data?.message ||
+            primaryError.response?.data?.message ||
+            "Failed to fetch Phase 00 products"
+        );
+      }
+    }
+  }
+);
+
 // Thunk for Best Sellers
 export const getBestSellingProducts = createAsyncThunk(
   "product/getBestSellingProducts",
@@ -47,11 +72,9 @@ export const searchProducts = createAsyncThunk(
   }
 );
 
-
 // Thunk for Filtering by Group & Category
 export const getProductsByGroupAndCategory = createAsyncThunk(
   "product/getProductsByGroupAndCategory",
-  // We set the default category here in the frontend!
   async ({ group, category }, { rejectWithValue }) => {
     try {
       const response = await userApi.get(
@@ -102,10 +125,15 @@ export const validateProductStock = createAsyncThunk(
 
 // Initial state
 const initialState = {
-  // All Products
+  // All Classic Products
   products: [],
   productsLoading: false,
   productsError: null,
+
+  // Phase 00 Products (Separate API state)
+  phase00Products: [],
+  phase00Loading: false,
+  phase00Error: null,
 
   // Best Selling Products
   bestSellingProducts: [],
@@ -158,6 +186,13 @@ const productSlice = createSlice({
       state.productsError = null;
     },
 
+    // Clear Phase 00 products
+    clearPhase00Products: (state) => {
+      state.phase00Products = [];
+      state.phase00Error = null;
+      state.phase00Loading = false;
+    },
+
     // Clear Search Results
     clearSearchResults: (state) => {
       state.searchResults = [];
@@ -175,6 +210,7 @@ const productSlice = createSlice({
     // Clear all errors
     clearErrors: (state) => {
       state.productsError = null;
+      state.phase00Error = null;
       state.productError = null;
       state.bestSellingError = null;
       state.searchError = null;
@@ -200,13 +236,31 @@ const productSlice = createSlice({
       .addCase(getAllProducts.fulfilled, (state, action) => {
         state.productsLoading = false;
         state.products = action.payload.productGroups;
-        state.totalProducts = action.payload.totalProducts || action.payload.count; // Ensure fallback
+        state.totalProducts =
+          action.payload.totalProducts || action.payload.count;
         state.productsError = null;
       })
       .addCase(getAllProducts.rejected, (state, action) => {
         state.productsLoading = false;
         state.productsError = action.payload;
         state.products = [];
+      });
+
+    // ===== GET PHASE 00 PRODUCTS =====
+    builder
+      .addCase(getPhase00Products.pending, (state) => {
+        state.phase00Loading = true;
+        state.phase00Error = null;
+      })
+      .addCase(getPhase00Products.fulfilled, (state, action) => {
+        state.phase00Loading = false;
+        state.phase00Products = action.payload.products || [];
+        state.phase00Error = null;
+      })
+      .addCase(getPhase00Products.rejected, (state, action) => {
+        state.phase00Loading = false;
+        state.phase00Error = action.payload;
+        state.phase00Products = [];
       });
 
     // ===== GET BEST SELLING PRODUCTS =====
@@ -242,7 +296,6 @@ const productSlice = createSlice({
         state.searchError = action.payload;
         state.searchResults = [];
       });
-
 
     // ===== GET FILTERED PRODUCTS ========
     builder
@@ -302,21 +355,28 @@ const productSlice = createSlice({
 // ==================== EXPORTS ====================
 
 // Actions
-export const { 
-  clearProduct, 
-  clearProducts, 
-  clearSearchResults, 
+export const {
+  clearProduct,
+  clearProducts,
+  clearPhase00Products,
+  clearSearchResults,
   clearFilteredProducts,
-  clearErrors, 
-  clearStockValidation 
+  clearErrors,
+  clearStockValidation,
 } = productSlice.actions;
 
 // Selectors
-export const selectBestSellingProducts = (state) => state.products.bestSellingProducts;
-export const selectBestSellingLoading = (state) => state.products.bestSellingLoading;
+export const selectPhase00Products = (state) => state.products.phase00Products;
+export const selectPhase00Loading = (state) => state.products.phase00Loading;
+export const selectPhase00Error = (state) => state.products.phase00Error;
+export const selectBestSellingProducts = (state) =>
+  state.products.bestSellingProducts;
+export const selectBestSellingLoading = (state) =>
+  state.products.bestSellingLoading;
 export const selectSearchResults = (state) => state.products.searchResults;
 export const selectSearchLoading = (state) => state.products.searchLoading;
-export const selectFilteredProducts = (state) => state.products.filteredProducts;
+export const selectFilteredProducts = (state) =>
+  state.products.filteredProducts;
 export const selectFilteredLoading = (state) => state.products.filteredLoading;
 
 // Reducer

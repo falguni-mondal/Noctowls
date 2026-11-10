@@ -247,6 +247,29 @@ export const productForList = (product) => {
     primarySize: primarySize.value || "l",
     defaultSize: firstAvailableSize.value || primarySize.value || "l",
 
+    sizes: sizes.map((size) => {
+      const sOrig = Number(size.originalPrice) || 0;
+      const sSell =
+        size.numPrice !== undefined ? Number(size.numPrice) : sOrig;
+      const sDisc =
+        sOrig > 0 && sSell < sOrig
+          ? Math.floor(((sOrig - sSell) / sOrig) * 100)
+          : 0;
+      return {
+        value: size.value,
+        label: size.label || String(size.value || "").toUpperCase(),
+        skuCode: size.skuCode || "",
+        originalPrice: sOrig,
+        formattedOriginalPrice:
+          size.formattedOriginalPrice || formatFallbackPrice(sOrig),
+        discount: size.discount ?? sDisc,
+        price: size.price || formatFallbackPrice(sSell),
+        numPrice: sSell,
+        stock: size.stock ?? 0,
+        inStock: (size.stock ?? 0) > 0,
+      };
+    }),
+
     originalPrice:
       primarySize.formattedOriginalPrice || formatFallbackPrice(origPriceNum),
     price: primarySize.price || formatFallbackPrice(sellPriceNum),

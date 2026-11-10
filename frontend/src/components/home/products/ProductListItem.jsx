@@ -1,10 +1,17 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react/dist/iconify.js";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate, useLocation } from "react-router-dom";
+import { toast } from "react-toastify";
+import toastControls from "../../../utils/global/toastControls";
 import {
-  addToCart,
+  openQuickAddDrawer,
   selectCart,
 } from "../../../store/features/user/cartSlice";
+import {
+  toggleWishlist,
+  selectIsProductInWishlist,
+} from "../../../store/features/user/wishlistSlice";
 import { optimizeImage } from "../../../utils/helpers/imageOptimizer";
 import { trackEvent } from "../../../utils/pixel/pixel";
 import { renderUnlockLineWithGreenFree } from "../../bag/CartDrawer";
@@ -26,16 +33,23 @@ const ProductListItem = ({ product }) => {
     numPrice,
     inStock,
     primarySize = "l",
-    defaultSize = "l",
   } = product;
 
   const dispatch = useDispatch();
-  const isAdmin = useSelector((state) => state.adminAuth.admin);
-  const cart = useSelector(selectCart);
+  const navigate = useNavigate();
+  const location = useLocation();
 
+  const user = useSelector((state) => state.auth.user);
+  const isAdmin = useSelector((state) => state.adminAuth.admin);
+  const isLoggedInUser = Boolean(user && !isAdmin);
+
+  const cart = useSelector(selectCart);
+  const isInWishlist = useSelector(selectIsProductInWishlist(id));
+
+  const [mainLoaded, setMainLoaded] = useState(false);
   const [hasHovered, setHasHovered] = useState(false);
   const [hoverLoaded, setHoverLoaded] = useState(false);
-  const [adding, setAdding] = useState(false);
+  const [togglingWishlist, setTogglingWishlist] = useState(false);
 
   // Check if this product is in the cart & get total cart quantity
   const purchasedItems =
@@ -77,37 +91,57 @@ const ProductListItem = ({ product }) => {
     }
   };
 
-  const handleQuickAddToCart = async (e) => {
+  // Opens the 50-60% Bottom Slide-Up Quick-Add Drawer for size & quantity selection
+  const handleQuickAddToCart = (e) => {
     e.preventDefault();
     e.stopPropagation();
 
-    if (adding || inStock === false || isAdmin) return;
-    setAdding(true);
+    if (inStock === false || isAdmin) return;
+    dispatch(openQuickAddDrawer(product));
+  };
+
+  const handleWishlistClick = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!isLoggedInUser) {
+      toast.info(
+        isAdmin
+          ? "Please logout from admin account!"
+          : "Please login to add items to your wishlist!",
+        toastControls
+      );
+      navigate("/account/signin", { state: { from: location.pathname } });
+      return;
+    }
+
+    if (togglingWishlist) return;
+    setTogglingWishlist(true);
 
     try {
-      await dispatch(
-        addToCart({
-          productId: id,
-          sizeValue: defaultSize || primarySize || "l",
-          quantity: 1,
-        })
-      ).unwrap();
-
-      const numericVal =
-        numPrice ?? (Number(String(price || "0").replace(/,/g, "")) || 0);
-
-      trackEvent("AddToCart", {
-        content_name: name,
-        content_ids: [id],
-        content_type: "product",
-        value: numericVal,
-        currency: "INR",
-        contents: [{ id, quantity: 1 }],
-      });
-    } catch (err) {
-      console.error("Quick add to cart error:", err);
+      const result = await dispatch(toggleWishlist(id)).unwrap();
+      if (result.isInWishlist) {
+        const numericVal =
+          numPrice ?? (Number(String(price || "0").replace(/,/g, "")) || 0);
+        trackEvent("AddToWishlist", {
+          content_name: name,
+          content_ids: [id],
+          content_type: "product",
+          value: numericVal,
+          currency: "INR",
+        });
+      }
+      toast.success(
+        result.message ||
+          (result.isInWishlist
+            ? "Added to wishlist!"
+            : "Removed from wishlist"),
+        toastControls
+      );
+    } catch (error) {
+      toast.error(error || "Failed to update wishlist", toastControls);
     } finally {
-      setAdding(false);
+      setTogglingWishlist(false);
     }
   };
 
@@ -152,8 +186,12 @@ const ProductListItem = ({ product }) => {
       onMouseEnter={handleMouseEnter}
       className="group relative bg-white border border-zinc-200 rounded-xl overflow-hidden hover:border-red-600/30 transition-all duration-500 cursor-pointer h-full flex flex-col"
     >
-      {/* --- IMAGE CONTAINER --- */}
+      {/* --- IMAGE CONTAINER WITH LAZY LOADING SHIMMER --- */}
       <div className="image-container w-full aspect-square relative overflow-hidden bg-zinc-100">
+        {!mainLoaded && (
+          <div className="absolute inset-0 bg-zinc-200 animate-pulse z-0" />
+        )}
+
         {/* Images (Zoom Effect Wrapper) */}
         <div className="w-full h-full transition-transform duration-700 group-hover:scale-[107%] will-change-transform">
           {/* Main Image */}
@@ -162,15 +200,19 @@ const ProductListItem = ({ product }) => {
             alt={seoAltText}
             loading="lazy"
             decoding="async"
+            onLoad={() => setMainLoaded(true)}
             className={`w-full h-full object-cover absolute inset-0 z-10 transition-opacity duration-500 ${
-              hoverLoaded ? "group-hover:opacity-0" : ""
-            } ${isOutOfStock ? "opacity-75 grayscale-[30%]" : ""}`}
+              mainLoaded ? "opacity-100" : "opacity-0"
+            } ${hoverLoaded ? "group-hover:opacity-0" : ""} ${
+              isOutOfStock ? "opacity-75 grayscale-[30%]" : ""
+            }`}
           />
           {/* Hover Image (Mounted ONLY on desktop hover to save 50% grid bandwidth) */}
           {hasHovered && hoverImage && (
             <img
               src={hoverImage}
               alt={seoAltText}
+              loading="lazy"
               decoding="async"
               onLoad={() => setHoverLoaded(true)}
               className="w-full h-full object-cover absolute inset-0 z-0"
@@ -257,41 +299,62 @@ const ProductListItem = ({ product }) => {
             </div>
           )}
 
-          {/* Add to Cart / Added Button */}
-          <button
-            type="button"
-            onClick={handleQuickAddToCart}
-            disabled={isOutOfStock || adding || isAdmin}
-            className={`w-full py-2 px-3 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
-              isOutOfStock
-                ? "bg-zinc-100 text-zinc-400 border border-zinc-200 cursor-not-allowed"
-                : isAddedToCart
-                ? "bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer shadow-xs"
-                : "bg-[#0f0f0f] text-white hover:bg-red-600 cursor-pointer shadow-xs"
-            }`}
-          >
-            {adding ? (
-              <>
-                <Icon icon="eos-icons:loading" className="text-sm" />
-                <span>Adding...</span>
-              </>
-            ) : isOutOfStock ? (
-              <span>Out of Stock</span>
-            ) : isAddedToCart ? (
-              <>
-                <Icon icon="mdi:check-circle" className="text-sm" />
-                <span>Added</span>
-              </>
-            ) : (
-              <>
+          {/* Action Row: Rectangular Add to Cart / Added Button + Square Wishlist Button */}
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleQuickAddToCart}
+              disabled={isOutOfStock || isAdmin}
+              className={`flex-1 h-8 md:h-9 px-2.5 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                isOutOfStock
+                  ? "bg-zinc-100 text-zinc-400 border border-zinc-200 cursor-not-allowed"
+                  : isAddedToCart
+                  ? "bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer shadow-xs"
+                  : "bg-[#0f0f0f] text-white hover:bg-red-600 cursor-pointer shadow-xs"
+              }`}
+            >
+              {isOutOfStock ? (
+                <span>Out of Stock</span>
+              ) : isAddedToCart ? (
+                <>
+                  <Icon icon="mdi:check-circle" className="text-sm" />
+                  <span>Added</span>
+                </>
+              ) : (
+                <>
+                  <Icon
+                    icon="material-symbols:shopping-bag-outline"
+                    className="text-sm"
+                  />
+                  <span>Add to Cart</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleWishlistClick}
+              disabled={togglingWishlist}
+              aria-label={
+                isInWishlist ? "Remove from wishlist" : "Add to wishlist"
+              }
+              title={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
+              className={`w-8 h-8 md:w-9 md:h-9 aspect-square shrink-0 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
+                isInWishlist
+                  ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100"
+                  : "bg-white border-zinc-200 text-zinc-700 hover:text-red-600 hover:border-red-200 hover:bg-red-50"
+              }`}
+            >
+              {togglingWishlist ? (
+                <Icon icon="eos-icons:loading" className="text-sm text-red-600" />
+              ) : (
                 <Icon
-                  icon="material-symbols:shopping-bag-outline"
-                  className="text-sm"
+                  icon={isInWishlist ? "mdi:heart" : "mdi:heart-outline"}
+                  className="text-base md:text-lg"
                 />
-                <span>Add to Cart</span>
-              </>
-            )}
-          </button>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -26,6 +26,16 @@ input[type="number"] {
   -moz-appearance: textfield;
 }
 
+/* Hide scrollbar for responsive filter strips while keeping touch scroll */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 .phase-txt {
   font-family: "Orbitron", sans-serif;
 }
@@ -39,7 +49,7 @@ input[type="number"] {
 
 @property --color-shine {
   syntax: "<color>";
-  initial-value: #ffffff; /* Changed from #fecaca to pure white for better contrast */
+  initial-value: #ffffff;
   inherits: false;
 }
 
@@ -57,8 +67,8 @@ input[type="number"] {
 }
 
 .group:hover .phase-shine {
-  --color-base: #0f0f0f; /* CHANGED: Turns to your dark text color on hover instead of white */
-  --color-shine: #e7000b; /* Deep red shine glides across the dark text */
+  --color-base: #0f0f0f;
+  --color-shine: #e7000b;
 }
 
 @keyframes shine {
@@ -67,11 +77,11 @@ input[type="number"] {
 }
 
 .light-bg {
-  background: #f4f4f4; /* Removed quotes */
-  color: #0f0f0f;      /* Removed quotes */
+  background: #f4f4f4;
+  color: #0f0f0f;
 }
 
 .dark-bg {
-  background: #0f0f0f; /* Removed quotes */
-  color: #f4f4f4;      /* Removed quotes */
+  background: #0f0f0f;
+  color: #f4f4f4;
 }

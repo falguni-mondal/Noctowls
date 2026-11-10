@@ -1,33 +1,41 @@
-import React, { useEffect, useState } from 'react'
-import Navbar from './components/header/navbar/Navbar';
-import Label from './components/header/Label';
-import TextSwiper from './components/header/textSwiper/TextSwiper';
-import PageRouter from './routes/PageRouter';
-import FooterLogo from './components/footer/FooterLogo';
-import FooterDets from './components/footer/footer-dets/FooterDets';
-import Copyright from './components/footer/Copyright';
-import FooterNav from './components/mobile/footer-nav/FooterNav';
-import { useLocation } from 'react-router-dom';
-import TopNavMenu from './components/mobile/TopNavMenu';
-import { Bounce, ToastContainer } from 'react-toastify';
-import { useDispatch, useSelector } from 'react-redux';
-import { checkAuth, selectUser } from './store/features/user/authSlice';
-import { checkAdmin } from './store/features/admin/adminAuthSlice';
-import { getCart } from './store/features/user/cartSlice';
-import { getDefaultAddress, selectDefaultAddress } from './store/features/user/addressSlice';
-import SocialLinks from './components/footer/footer-dets/SocialLinks';
+import React, { useEffect, useState } from "react";
+import Navbar from "./components/header/navbar/Navbar";
+import Label from "./components/header/Label";
+import TextSwiper from "./components/header/textSwiper/TextSwiper";
+import PageRouter from "./routes/PageRouter";
+import FooterLogo from "./components/footer/FooterLogo";
+import FooterDets from "./components/footer/footer-dets/FooterDets";
+import Copyright from "./components/footer/Copyright";
+import FooterNav from "./components/mobile/footer-nav/FooterNav";
+import { useLocation } from "react-router-dom";
+import TopNavMenu from "./components/mobile/TopNavMenu";
+import { Bounce, ToastContainer } from "react-toastify";
+import { useDispatch, useSelector } from "react-redux";
+import { checkAuth, selectUser } from "./store/features/user/authSlice";
+import { checkAdmin } from "./store/features/admin/adminAuthSlice";
+import { getCart } from "./store/features/user/cartSlice";
+import {
+  getDefaultAddress,
+  selectDefaultAddress,
+} from "./store/features/user/addressSlice";
+import {
+  getWishlist,
+  resetWishlist,
+} from "./store/features/user/wishlistSlice";
+import SocialLinks from "./components/footer/footer-dets/SocialLinks";
+import { QuickAddDrawer } from "./components/bag/CartDrawer";
 
 // IMPORT META PIXEL UTILS
-import { initPixel, syncPixelUser, trackEvent } from './utils/pixel/pixel';
+import { initPixel, syncPixelUser, trackEvent } from "./utils/pixel/pixel";
 
 // IMPORT SEARCH ACTIONS AND SELECTORS
 import {
   searchProducts,
   clearSearchResults,
   selectSearchResults,
-  selectSearchLoading
-} from './store/features/user/productSlice';
-import { Icon } from '@iconify/react/dist/iconify.js';
+  selectSearchLoading,
+} from "./store/features/user/productSlice";
+import { Icon } from "@iconify/react/dist/iconify.js";
 
 const App = () => {
   const location = useLocation();
@@ -35,7 +43,7 @@ const App = () => {
   const dispatch = useDispatch();
   const user = useSelector(selectUser);
   const defaultAddress = useSelector(selectDefaultAddress);
-  const admin = useSelector(state => state.adminAuth.admin);
+  const admin = useSelector((state) => state.adminAuth.admin);
 
   // --- LIFTED SEARCH STATE ---
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -65,7 +73,7 @@ const App = () => {
 
   // TRACK PAGE VIEWS ON ROUTE CHANGE
   useEffect(() => {
-    trackEvent('PageView');
+    trackEvent("PageView");
   }, [location.pathname, location.search]);
 
   useEffect(() => {
@@ -75,10 +83,13 @@ const App = () => {
 
   useEffect(() => {
     dispatch(getCart());
-    if (user) {
+    if (user && !admin) {
       dispatch(getDefaultAddress());
+      dispatch(getWishlist());
+    } else if (!user) {
+      dispatch(resetWishlist());
     }
-  }, [user, dispatch]);
+  }, [user, admin, dispatch]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -91,8 +102,8 @@ const App = () => {
         dispatch(searchProducts(query));
 
         // TRACK SEARCH EVENT
-        trackEvent('Search', { 
-          search_string: query.trim()
+        trackEvent("Search", {
+          search_string: query.trim(),
         });
       } else {
         dispatch(clearSearchResults());
@@ -105,7 +116,7 @@ const App = () => {
   // --- SEARCH HANDLERS ---
   const handleOpenSearch = () => {
     setIsSearchOpen(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll top so user sees the bar
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleCloseSearch = () => {
@@ -116,28 +127,27 @@ const App = () => {
 
   // TRACK WHATSAPP CLICK
   const handleWhatsAppClick = () => {
-    trackEvent('Contact', { 
-      content_name: 'WhatsApp Button',
-      content_category: 'chat'
+    trackEvent("Contact", {
+      content_name: "WhatsApp Button",
+      content_category: "chat",
     });
   };
 
   return (
-    <div className='w-full'>
-
-      {
-        !admin &&
-        <div className='whatsapp-container lg:hidden fixed bottom-20 right-3 text-5xl z-99999 print:hidden'>
-          <a 
-            href="https://wa.me/+918348341116" 
-            target='_blank' 
+    <div className="w-full">
+      {!admin && (
+        <div className="whatsapp-container lg:hidden fixed bottom-20 right-3 text-5xl z-99999 print:hidden">
+          <a
+            href="https://wa.me/+918348341116"
+            target="_blank"
+            rel="noopener noreferrer"
             onClick={handleWhatsAppClick}
-            className='block text-green-700 backdrop-blur-lg rounded-lg bg-black/25 overflow-hidden'
+            className="block text-green-700 backdrop-blur-lg rounded-lg bg-black/25 overflow-hidden"
           >
-            <Icon icon="uil:whatsapp-alt" className='pointer-events-none'/>
+            <Icon icon="uil:whatsapp-alt" className="pointer-events-none" />
           </a>
         </div>
-      }
+      )}
       <ToastContainer
         position="top-right"
         autoClose={5000}
@@ -152,10 +162,13 @@ const App = () => {
         transition={Bounce}
       />
 
+      {/* Global 50-60% Bottom Slide-Up Quick-Add Drawer for Product Cards */}
+      <QuickAddDrawer />
+
       <Label />
-      
+
       {/* Pass Search Props to Navbar */}
-      <Navbar 
+      <Navbar
         setShowNav={setShowNav}
         isSearchOpen={isSearchOpen}
         setIsSearchOpen={setIsSearchOpen}
@@ -165,16 +178,19 @@ const App = () => {
         searchLoading={searchLoading}
         closeSearch={handleCloseSearch}
       />
-      
+
       <TextSwiper />
       <TopNavMenu showNav={showNav} setShowNav={setShowNav} />
-      
-      <main className='w-full border-b-[0.5px] border-zinc-700'>
+
+      <main className="w-full border-b-[0.5px] border-zinc-700">
         <PageRouter />
       </main>
-      
+
       {/* Added the 'dark-bg' class to cleanly invert the footer theme */}
-      <footer className='dark-bg pt-10 w-full flex flex-col px-5 lg:px-10' id='footer'>
+      <footer
+        className="dark-bg pt-10 w-full flex flex-col px-5 lg:px-10"
+        id="footer"
+      >
         <div className="upper-footer w-full lg:flex lg:flex-col border-b-[0.5px] border-zinc-700 lg:px-5">
           <div className="upper-footer-dets w-full lg:flex lg:justify-between">
             <FooterLogo />
@@ -185,10 +201,10 @@ const App = () => {
         </div>
         <Copyright />
       </footer>
-      
+
       <FooterNav />
     </div>
-  )
-}
+  );
+};
 
 export default App;
